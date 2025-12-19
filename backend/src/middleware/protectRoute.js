@@ -1,5 +1,6 @@
-import { requireAuth } from "@clerk/express";
+import { clerkClient, requireAuth } from "@clerk/express";
 import User from "../models/User.js";
+import { upsertStreamUser } from "../lib/stream.js"; // Import Stream sync function
 
 export const protectRoute = [
   requireAuth(),
@@ -7,16 +8,50 @@ export const protectRoute = [
     try {
       const clerkId = req.auth().userId;
 
-      if (!clerkId) return res.status(401).json({ message: "Unauthorized - invalid token" });
+      if (!clerkId) {
+        return res.status(401).json({ message: "Unauthorized - invalid token" });
+      }
 
-      // find user in db by clerk ID
-      const user = await User.findOne({ clerkId });
+      // 1. Try to find the user in our database
+      let user = await User.findOne({ clerkId });
 
-      if (!user) return res.status(404).json({ message: "User not found" });
+      // 2. If user is not found in DB, sync them from Clerk immediately
+      if (!user) {
+        try {
+          const clerkUser = await clerkClient.users.getUser(clerkId);
+          
+          const name = `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim();
+          const email = clerkUser.emailAddresses[0]?.emailAddress;
+          const image = clerkUser.imageUrl;
 
-      // attach user to req
+          // Create in MongoDB
+          user = await User.create({
+            clerkId: clerkId,
+            name,
+            email,
+            profileImage: image,
+          });
+
+          // Sync with Stream (Video/Chat) Backend
+          await upsertStreamUser({
+            id: clerkId,
+            name,
+            image,
+          });
+
+        } catch (dbError) {
+           console.error("Error creating user in protectRoute:", dbError);
+           // Retry logic for race conditions
+           user = await User.findOne({ clerkId });
+           
+           if (!user) {
+             return res.status(500).json({ message: "Failed to sync user account" });
+           }
+        }
+      }
+
+      // 3. Attach user to request
       req.user = user;
-
       next();
     } catch (error) {
       console.error("Error in protectRoute middleware", error);
