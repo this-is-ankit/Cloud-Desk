@@ -14,25 +14,26 @@ function DashboardPage() {
   const navigate = useNavigate();
   const { user } = useUser();
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [roomConfig, setRoomConfig] = useState({ problem: "", difficulty: "" });
+
+  // REMOVED: const [roomConfig, setRoomConfig] = useState(...) -> No longer needed
 
   const createSessionMutation = useCreateSession();
 
   const { data: activeSessionsData, isLoading: loadingActiveSessions } = useActiveSessions();
   const { data: recentSessionsData, isLoading: loadingRecentSessions } = useMyRecentSessions();
 
-  const handleCreateRoom = () => {
-    if (!roomConfig.problem || !roomConfig.difficulty) return;
+  const handleCreateRoom = (data) => {
+    // 1. Accept 'data' argument which contains { language: "..." }
+    if (!data.language) return;
 
     createSessionMutation.mutate(
       {
-        problem: roomConfig.problem,
-        difficulty: roomConfig.difficulty.toLowerCase(),
+        language: data.language, // 2. Send language to backend
       },
       {
-        onSuccess: (data) => {
+        onSuccess: (response) => {
           setShowCreateModal(false);
-          navigate(`/session/${data.session._id}`);
+          navigate(`/session/${response.session._id}`);
         },
       }
     );
@@ -43,7 +44,6 @@ function DashboardPage() {
 
   const isUserInSession = (session) => {
     if (!user.id) return false;
-
     return session.host?.clerkId === user.id || session.participant?.clerkId === user.id;
   };
 
@@ -53,7 +53,6 @@ function DashboardPage() {
         <Navbar />
         <WelcomeSection onCreateSession={() => setShowCreateModal(true)} />
 
-        {/* Grid layout */}
         <div className="container mx-auto px-6 pb-16">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <StatsCards
@@ -71,11 +70,10 @@ function DashboardPage() {
         </div>
       </div>
 
+      {/* 3. Update Props: Removed roomConfig/setRoomConfig */}
       <CreateSessionModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
-        roomConfig={roomConfig}
-        setRoomConfig={setRoomConfig}
         onCreateRoom={handleCreateRoom}
         isCreating={createSessionMutation.isPending}
       />
