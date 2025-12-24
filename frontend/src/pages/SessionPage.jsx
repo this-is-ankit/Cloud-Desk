@@ -5,7 +5,7 @@ import { useEndSession, useJoinSession, useSessionById } from "../hooks/useSessi
 import { executeCode } from "../lib/piston";
 import Navbar from "../components/Navbar";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { Loader2Icon, LogOutIcon, PhoneOffIcon } from "lucide-react";
+import { Loader2Icon, LogOutIcon, PhoneOffIcon, KeyIcon } from "lucide-react"; // Added KeyIcon
 import CodeEditorPanel from "../components/CodeEditorPanel";
 import OutputPanel from "../components/OutputPanel";
 
@@ -19,6 +19,9 @@ function SessionPage() {
   const { user } = useUser();
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
+  
+  // NEW: State for the access code input
+  const [accessCode, setAccessCode] = useState("");
 
   const { data: sessionData, isLoading: loadingSession, refetch } = useSessionById(id);
 
@@ -39,20 +42,11 @@ function SessionPage() {
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
   const [code, setCode] = useState("");
 
-  // auto-join session if user is not already a participant and not the host
-  useEffect(() => {
-    if (!session || !user || loadingSession) return;
-    if (isHost || isParticipant) return;
-
-    joinSessionMutation.mutate(id, { onSuccess: refetch });
-
-    // remove the joinSessionMutation, refetch from dependencies to avoid infinite loop
-  }, [session, user, loadingSession, isHost, isParticipant, id]);
+  // REMOVED: Auto-join useEffect
 
   // redirect the "participant" when session ends
   useEffect(() => {
     if (!session || loadingSession) return;
-
     if (session.status === "completed") navigate("/dashboard");
   }, [session, loadingSession, navigate]);
 
@@ -85,24 +79,114 @@ function SessionPage() {
     }
   };
 
+  // NEW: Handle Manual Join
+  const handleJoinSession = (e) => {
+    e.preventDefault();
+    if (!accessCode) return;
+    
+    joinSessionMutation.mutate(
+      { id, code: accessCode },
+      { onSuccess: refetch } // Refetch to update isParticipant status
+    );
+  };
+
+  // -------------------------------------------------------------------------
+  // LOADING STATE
+  // -------------------------------------------------------------------------
+  if (loadingSession) {
+    return (
+      <div className="h-screen bg-base-100 flex items-center justify-center">
+        <Loader2Icon className="size-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="h-screen bg-base-100 flex items-center justify-center">
+        <p className="text-xl font-semibold">Session not found</p>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // JOIN SCREEN (If not Host and not Participant)
+  // -------------------------------------------------------------------------
+  if (!isHost && !isParticipant) {
+    return (
+      <div className="h-screen bg-base-100 flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center p-4">
+          <div className="card bg-base-200 w-full max-w-md shadow-xl border border-base-300">
+            <div className="card-body">
+              <h2 className="card-title text-2xl justify-center mb-2">Join Session</h2>
+              <p className="text-center text-base-content/70 mb-6">
+                Enter the access code shared by the host to join the {session.language} session.
+              </p>
+
+              <form onSubmit={handleJoinSession} className="space-y-4">
+                <div className="form-control">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <KeyIcon className="size-5 text-base-content/40" />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Access Code (e.g., X7Y2Z1)"
+                      className="input input-bordered w-full pl-10 font-mono tracking-widest uppercase"
+                      value={accessCode}
+                      onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="btn btn-primary w-full"
+                  disabled={joinSessionMutation.isPending || !accessCode}
+                >
+                  {joinSessionMutation.isPending ? (
+                    <Loader2Icon className="size-5 animate-spin" />
+                  ) : (
+                    "Join Session"
+                  )}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // MAIN EDITOR UI (If Host or Participant)
+  // -------------------------------------------------------------------------
   return (
     <div className="h-screen bg-base-100 flex flex-col">
       <Navbar />
 
       <div className="flex-1">
         <PanelGroup direction="horizontal">
-          {/* LEFT PANEL - CODE EDITOR AREA */}
           <Panel defaultSize={50} minSize={30}>
             <div className="h-full flex flex-col">
-              {/* HEADER SECTION - REPLACES PROBLEM DESCRIPTION HEADER */}
               <div className="p-4 bg-base-100 border-b border-base-300 flex items-center justify-between">
                 <div>
                   <h1 className="text-xl font-bold text-base-content">
                     {session?.language?.toUpperCase() || "SESSION"}
                   </h1>
-                  <p className="text-sm text-base-content/60">
-                    Host: {session?.host?.name || "Loading..."}
-                  </p>
+                  <div className="flex items-center gap-2 text-sm text-base-content/60">
+                    <span>Host: {session?.host?.name}</span>
+                    {isHost && (
+                      <>
+                        <span>•</span>
+                        <span className="font-mono bg-primary/10 text-primary px-2 py-0.5 rounded border border-primary/20">
+                          Code: {session.code}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {isHost && session?.status === "active" && (
@@ -121,7 +205,6 @@ function SessionPage() {
                 )}
               </div>
 
-              {/* EDITOR AND OUTPUT SPLIT */}
               <div className="flex-1 overflow-hidden">
                 <PanelGroup direction="vertical">
                   <Panel defaultSize={70} minSize={30}>
@@ -147,7 +230,6 @@ function SessionPage() {
 
           <PanelResizeHandle className="w-2 bg-base-300 hover:bg-primary transition-colors cursor-col-resize" />
 
-          {/* RIGHT PANEL - VIDEO CALLS & CHAT */}
           <Panel defaultSize={50} minSize={30}>
             <div className="h-full bg-base-200 p-4 overflow-auto">
               {isInitializingCall ? (

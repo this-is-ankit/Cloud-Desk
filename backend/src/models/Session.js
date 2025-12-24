@@ -7,6 +7,10 @@ const sessionSchema = new mongoose.Schema(
       required: true,
       default: "javascript"
     },
+    code: {
+      type: String,
+      required: true,
+    },
     host: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -22,7 +26,6 @@ const sessionSchema = new mongoose.Schema(
       enum: ["active", "completed"],
       default: "active",
     },
-    // stream video call ID
     callId: {
       type: String,
       default: "",
