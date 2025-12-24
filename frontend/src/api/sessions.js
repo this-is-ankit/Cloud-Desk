@@ -20,10 +20,12 @@ export const sessionApi = {
     return response.data;
   },
 
-  joinSession: async (id) => {
-    const response = await axiosInstance.post(`/sessions/${id}/join`);
+  //Accept object with id and code
+  joinSession: async ({ id, code }) => {
+    const response = await axiosInstance.post(`/sessions/${id}/join`, { code });
     return response.data;
   },
+  
   endSession: async (id) => {
     const response = await axiosInstance.post(`/sessions/${id}/end`);
     return response.data;

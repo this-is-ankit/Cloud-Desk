@@ -12,11 +12,13 @@ export async function createSession(req, res) {
     }
 
     const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-
-   
-    const session = await Session.create({ language, host: userId, callId });
-
     
+    // GENERATE A RANDOM 6-CHARACTER CODE
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    // SAVE THE CODE TO THE DB
+    const session = await Session.create({ language, host: userId, callId, code });
+
     await streamClient.video.call("default", callId).getOrCreate({
       data: {
         created_by_id: clerkId,
@@ -93,6 +95,7 @@ export async function getSessionById(req, res) {
 export async function joinSession(req, res) {
   try {
     const { id } = req.params;
+    const { code } = req.body; 
     const userId = req.user._id;
     const clerkId = req.user.clerkId;
 
@@ -103,12 +106,16 @@ export async function joinSession(req, res) {
     if (session.status !== "active") {
       return res.status(400).json({ message: "Cannot join a completed session" });
     }
+    
+    // VERIFY THE CODE
+    if (session.code !== code) {
+      return res.status(400).json({ message: "Invalid access code" });
+    }
 
     if (session.host.toString() === userId.toString()) {
       return res.status(400).json({ message: "Host cannot join their own session as participant" });
     }
 
-    // check if session is already full - has a participant
     if (session.participant) return res.status(409).json({ message: "Session is full" });
 
     session.participant = userId;
