@@ -1,11 +1,17 @@
 import { useUser } from "@clerk/clerk-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { useEndSession, useJoinSession, useSessionById } from "../hooks/useSessions";
+import {
+  useEndSession,
+  useJoinSession,
+  useSessionById,
+  useKickParticipant
+} from "../hooks/useSessions";
 import { executeCode } from "../lib/piston";
 import Navbar from "../components/Navbar";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { Loader2Icon, LogOutIcon, PhoneOffIcon, KeyIcon } from "lucide-react"; // Added KeyIcon
+import { Loader2Icon, LogOutIcon, PhoneOffIcon, KeyIcon, UserMinusIcon } from "lucide-react";
+import toast from "react-hot-toast"; // IMPORT TOAST
 import CodeEditorPanel from "../components/CodeEditorPanel";
 import OutputPanel from "../components/OutputPanel";
 
@@ -19,14 +25,16 @@ function SessionPage() {
   const { user } = useUser();
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
-  
-  // NEW: State for the access code input
   const [accessCode, setAccessCode] = useState("");
+
+  // Track if user was previously a participant
+  const [wasParticipant, setWasParticipant] = useState(false);
 
   const { data: sessionData, isLoading: loadingSession, refetch } = useSessionById(id);
 
   const joinSessionMutation = useJoinSession();
   const endSessionMutation = useEndSession();
+  const kickParticipantMutation = useKickParticipant();
 
   const session = sessionData?.session;
   const isHost = session?.host?.clerkId === user?.id;
@@ -42,15 +50,35 @@ function SessionPage() {
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
   const [code, setCode] = useState("");
 
-  // REMOVED: Auto-join useEffect
+  // --------------------------------------------------------------------------
+  // KICK REDIRECT LOGIC
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    // If currently a participant, set flag to true
+    if (isParticipant) {
+      setWasParticipant(true);
+    }
+  }, [isParticipant]);
 
-  // redirect the "participant" when session ends
+  useEffect(() => {
+    // If was participant, but now ISN'T (and isn't host), it means they were kicked.
+    if (wasParticipant && !isParticipant && !isHost) {
+      navigate("/dashboard");
+      toast.error("You have been kicked from the session.");
+    }
+  }, [wasParticipant, isParticipant, isHost, navigate]);
+  // --------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!session || !user || loadingSession) return;
+    // Auto-join disabled - relying on manual Join Form
+  }, [session, user, loadingSession, isHost, isParticipant]);
+
   useEffect(() => {
     if (!session || loadingSession) return;
     if (session.status === "completed") navigate("/dashboard");
   }, [session, loadingSession, navigate]);
 
-  // Initialize language and starter comment when session loads
   useEffect(() => {
     if (session?.language) {
       setSelectedLanguage(session.language);
@@ -67,7 +95,6 @@ function SessionPage() {
   const handleRunCode = async () => {
     setIsRunning(true);
     setOutput(null);
-
     const result = await executeCode(selectedLanguage, code);
     setOutput(result);
     setIsRunning(false);
@@ -79,20 +106,21 @@ function SessionPage() {
     }
   };
 
-  // NEW: Handle Manual Join
   const handleJoinSession = (e) => {
     e.preventDefault();
     if (!accessCode) return;
-    
     joinSessionMutation.mutate(
       { id, code: accessCode },
-      { onSuccess: refetch } // Refetch to update isParticipant status
+      { onSuccess: refetch }
     );
   };
 
-  // -------------------------------------------------------------------------
-  // LOADING STATE
-  // -------------------------------------------------------------------------
+  const handleKickParticipant = () => {
+    if (confirm("Are you sure you want to kick the participant? They will be removed from the session.")) {
+      kickParticipantMutation.mutate(id);
+    }
+  };
+
   if (loadingSession) {
     return (
       <div className="h-screen bg-base-100 flex items-center justify-center">
@@ -109,9 +137,6 @@ function SessionPage() {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // JOIN SCREEN (If not Host and not Participant)
-  // -------------------------------------------------------------------------
   if (!isHost && !isParticipant) {
     return (
       <div className="h-screen bg-base-100 flex flex-col">
@@ -141,8 +166,8 @@ function SessionPage() {
                   </div>
                 </div>
 
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn btn-primary w-full"
                   disabled={joinSessionMutation.isPending || !accessCode}
                 >
@@ -160,9 +185,6 @@ function SessionPage() {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // MAIN EDITOR UI (If Host or Participant)
-  // -------------------------------------------------------------------------
   return (
     <div className="h-screen bg-base-100 flex flex-col">
       <Navbar />
@@ -190,18 +212,35 @@ function SessionPage() {
                 </div>
 
                 {isHost && session?.status === "active" && (
-                  <button
-                    onClick={handleEndSession}
-                    disabled={endSessionMutation.isPending}
-                    className="btn btn-error btn-sm gap-2"
-                  >
-                    {endSessionMutation.isPending ? (
-                      <Loader2Icon className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <LogOutIcon className="w-4 h-4" />
+                  <div className="flex items-center gap-2">
+                    {session.participant && (
+                      <button
+                        onClick={handleKickParticipant}
+                        disabled={kickParticipantMutation.isPending}
+                        className="btn btn-ghost btn-sm text-error hover:bg-error/10"
+                        title="Kick Participant"
+                      >
+                        {kickParticipantMutation.isPending ? (
+                          <Loader2Icon className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <UserMinusIcon className="w-4 h-4" />
+                        )}
+                      </button>
                     )}
-                    End Session
-                  </button>
+
+                    <button
+                      onClick={handleEndSession}
+                      disabled={endSessionMutation.isPending}
+                      className="btn btn-error btn-sm gap-2"
+                    >
+                      {endSessionMutation.isPending ? (
+                        <Loader2Icon className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <LogOutIcon className="w-4 h-4" />
+                      )}
+                      End Session
+                    </button>
+                  </div>
                 )}
               </div>
 
