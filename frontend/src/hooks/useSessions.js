@@ -48,6 +48,22 @@ export const useSessionById = (id) => {
   return result;
 };
 
+export const useKickParticipant = () => {
+  const queryClient = useQueryClient();
+
+  const result = useMutation({
+    mutationKey: ["kickParticipant"],
+    mutationFn: sessionApi.kickParticipant,
+    onSuccess: () => {
+      toast.success("Participant kicked successfully");
+      queryClient.invalidateQueries({ queryKey: ["session"] });
+    },
+    onError: (error) => toast.error(error.response?.data?.message || "Failed to kick participant"),
+  });
+
+  return result;
+};
+
 export const useJoinSession = () => {
   const queryClient = useQueryClient();
 

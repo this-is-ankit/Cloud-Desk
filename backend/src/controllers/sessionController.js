@@ -12,7 +12,7 @@ export async function createSession(req, res) {
     }
 
     const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    
+
     // GENERATE A RANDOM 6-CHARACTER CODE
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
@@ -95,7 +95,7 @@ export async function getSessionById(req, res) {
 export async function joinSession(req, res) {
   try {
     const { id } = req.params;
-    const { code } = req.body; 
+    const { code } = req.body;
     const userId = req.user._id;
     const clerkId = req.user.clerkId;
 
@@ -106,7 +106,7 @@ export async function joinSession(req, res) {
     if (session.status !== "active") {
       return res.status(400).json({ message: "Cannot join a completed session" });
     }
-    
+
     // VERIFY THE CODE
     if (session.code !== code) {
       return res.status(400).json({ message: "Invalid access code" });
@@ -127,6 +127,42 @@ export async function joinSession(req, res) {
     res.status(200).json({ session });
   } catch (error) {
     console.log("Error in joinSession controller:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function kickParticipant(req, res) {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    // Populate participant to get their Clerk ID for Stream removal
+    const session = await Session.findById(id).populate("participant");
+
+    if (!session) return res.status(404).json({ message: "Session not found" });
+
+    if (session.host.toString() !== userId.toString()) {
+      return res.status(403).json({ message: "Only the host can kick a participant" });
+    }
+
+    // Remove from Stream Channel (Chat/Video)
+    if (session.participant?.clerkId) {
+      try {
+        const channel = chatClient.channel("messaging", session.callId);
+        await channel.removeMembers([session.participant.clerkId]);
+      } catch (streamError) {
+        console.log("Error removing from Stream:", streamError.message);
+        // Continue execution even if Stream fails, to ensure DB update
+      }
+    }
+
+    // Remove from Database
+    session.participant = null;
+    await session.save();
+
+    res.status(200).json({ message: "Participant kicked successfully", session });
+  } catch (error) {
+    console.log("Error in kickParticipant controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
