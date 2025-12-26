@@ -1,6 +1,7 @@
 import { useUser } from "@clerk/clerk-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
+import io from "socket.io-client";
 import {
   useEndSession,
   useJoinSession,
@@ -27,6 +28,7 @@ function SessionPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [accessCode, setAccessCode] = useState("");
 
+  const socketRef = useRef(null);
   // Track if user was previously a participant
   const [wasParticipant, setWasParticipant] = useState(false);
 
@@ -49,6 +51,47 @@ function SessionPage() {
 
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
   const [code, setCode] = useState("");
+
+  useEffect(() => {
+    // 1. Initialize Connection
+    socketRef.current = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:5000");
+
+    // 2. Join the specific session room
+    if (id) {
+      socketRef.current.emit("join-session", id);
+    }
+
+    // 3. Listen for incoming code updates
+    socketRef.current.on("code-update", (newCode) => {
+      // Only update if code is different to prevent cursor jumping/loops
+      setCode((prevCode) => {
+        if (prevCode !== newCode) return newCode;
+        return prevCode;
+      });
+    });
+
+    // 4. Listen for language updates
+    socketRef.current.on("language-update", (newLang) => {
+      setSelectedLanguage(newLang);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      socketRef.current.disconnect();
+    };
+  }, [id]);
+
+const handleCodeChange = (newCode) => {
+    setCode(newCode);
+    socketRef.current.emit("code-change", { roomId: id, code: newCode });
+  };
+
+  const handleLanguageChangeWrapper = (e) => {
+    const newLang = e.target.value;
+    setSelectedLanguage(newLang);
+    setOutput(null);
+    socketRef.current.emit("language-change", { roomId: id, language: newLang });
+  };
 
   // --------------------------------------------------------------------------
   // KICK REDIRECT LOGIC
@@ -251,8 +294,8 @@ function SessionPage() {
                       selectedLanguage={selectedLanguage}
                       code={code}
                       isRunning={isRunning}
-                      onLanguageChange={handleLanguageChange}
-                      onCodeChange={(value) => setCode(value)}
+                      onLanguageChange={handleLanguageChangeWrapper}
+                      onCodeChange={handleCodeChange}
                       onRunCode={handleRunCode}
                     />
                   </Panel>

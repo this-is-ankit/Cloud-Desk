@@ -1,6 +1,8 @@
 import express from "express";
 import path from "path";
 import cors from "cors";
+import http from "http";
+import { Server } from "socket.io";
 import { serve } from "inngest/express";
 import { clerkMiddleware } from "@clerk/express";
 
@@ -12,6 +14,7 @@ import chatRoutes from "./routes/chatRoutes.js";
 import sessionRoutes from "./routes/sessionRoute.js";
 
 const app = express();
+const httpServer = http.createServer(app);
 
 const __dirname = path.resolve();
 
@@ -20,6 +23,38 @@ app.use(express.json());
 // credentials:true meaning?? => server allows a browser to include cookies on request
 app.use(cors({ origin: ENV.CLIENT_URL, credentials: true }));
 app.use(clerkMiddleware()); // this adds auth field to request object: req.auth()
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: ENV.CLIENT_URL, // Allow requests from your frontend
+    methods: ["GET", "POST"],
+  },
+});
+
+io.on("connection", (socket) => {
+  console.log("A user connected:", socket.id);
+
+  // 1. Join Session Room
+  socket.on("join-session", (roomId) => {
+    socket.join(roomId);
+    console.log(`User ${socket.id} joined room: ${roomId}`);
+  });
+
+  // 2. Handle Code Changes
+  socket.on("code-change", ({ roomId, code }) => {
+    // Broadcast to everyone in the room EXCEPT the sender
+    socket.to(roomId).emit("code-update", code);
+  });
+
+  // 3. Handle Language Changes (Optional but recommended)
+  socket.on("language-change", ({ roomId, language }) => {
+    socket.to(roomId).emit("language-update", language);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
+  });
+});
 
 app.use("/api/inngest", serve({ client: inngest, functions }));
 app.use("/api/chat", chatRoutes);
@@ -41,7 +76,7 @@ if (ENV.NODE_ENV === "production") {
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(ENV.PORT, () => console.log("Server is running on port:", ENV.PORT));
+    httpServer.listen(ENV.PORT, () => console.log("Server is running on port:", ENV.PORT));
   } catch (error) {
     console.error("💥 Error starting the server", error);
   }
