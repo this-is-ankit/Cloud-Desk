@@ -54,7 +54,12 @@ function SessionPage() {
 
   useEffect(() => {
     // 1. Initialize Connection
-    socketRef.current = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:3000");
+    // FIX: Automatically detect environment
+    const socketURL = import.meta.env.MODE === "development"
+      ? "http://localhost:3000" // Connect to local backend in dev
+      : "/"; // Connect to current host in production
+
+    socketRef.current = io(socketURL);
 
     // 2. Join the specific session room
     if (id) {
@@ -81,7 +86,7 @@ function SessionPage() {
     };
   }, [id]);
 
-const handleCodeChange = (newCode) => {
+  const handleCodeChange = (newCode) => {
     setCode(newCode);
     socketRef.current.emit("code-change", { roomId: id, code: newCode });
   };
