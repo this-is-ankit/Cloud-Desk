@@ -54,7 +54,7 @@ function SessionPage() {
 
   useEffect(() => {
     // 1. Initialize Connection
-    socketRef.current = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:5000");
+    socketRef.current = io(import.meta.env.VITE_BACKEND_URL || "http://localhost:3000");
 
     // 2. Join the specific session room
     if (id) {
