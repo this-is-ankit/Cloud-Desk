@@ -13,6 +13,9 @@ import { inngest, functions } from "./lib/inngest.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import sessionRoutes from "./routes/sessionRoute.js";
 
+import Session from "./models/Session.js";
+import { chatClient, streamClient } from "./lib/stream.js";
+
 const app = express();
 const httpServer = http.createServer(app);
 
@@ -49,6 +52,53 @@ io.on("connection", (socket) => {
   // 3. Handle Language Changes (Optional but recommended)
   socket.on("language-change", ({ roomId, language }) => {
     socket.to(roomId).emit("language-update", language);
+  });
+
+  socket.on("disconnecting", async () => {
+    // Get all rooms the user is currently in
+    const rooms = [...socket.rooms];
+
+    for (const roomId of rooms) {
+      // Skip the default room (which is the socket.id itself)
+      if (roomId === socket.id) continue;
+
+      // Check remaining users in the room.
+      // Since the 'disconnecting' event fires BEFORE the user actually leaves,
+      // if the size is 1, it means this user is the last one.
+      const roomSize = io.sockets.adapter.rooms.get(roomId)?.size || 0;
+
+      if (roomSize <= 1) {
+        console.log(`Room ${roomId} is becoming empty. Auto-ending session...`);
+        try {
+          // Find the active session
+          const session = await Session.findById(roomId);
+          
+          if (session && session.status === "active") {
+            // 1. Mark as completed in DB
+            session.status = "completed";
+            await session.save();
+
+            // 2. Clean up Stream Video Call
+            if (session.callId) {
+              const call = streamClient.video.call("default", session.callId);
+              // Use .catch to prevent crashing if call already deleted
+              await call.delete({ hard: true }).catch((err) => 
+                console.log("Stream call cleanup error:", err.message)
+              );
+
+              // 3. Clean up Stream Chat Channel
+              const channel = chatClient.channel("messaging", session.callId);
+              await channel.delete().catch((err) => 
+                console.log("Stream chat cleanup error:", err.message)
+              );
+            }
+            console.log(`Session ${roomId} ended automatically.`);
+          }
+        } catch (error) {
+          console.error("Error auto-ending session:", error.message);
+        }
+      }
+    }
   });
 
   socket.on("disconnect", () => {
