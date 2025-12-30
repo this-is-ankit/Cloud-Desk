@@ -101,6 +101,23 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("toggle-code-space", async ({ roomId, isOpen }) => {
+    try {
+      // 1. Update the "Source of Truth"
+      await Session.findByIdAndUpdate(roomId, { isCodeOpen: isOpen });
+
+      // 2. Broadcast the new state to EVERYONE in the room (Host + Participant)
+      // We use io.in() instead of socket.to() so the sender (Host) also receives the confirmation event 
+      // if you want a single source of truth, or just update local state optimistically.
+      // Here we broadcast to everyone so all clients stay in sync.
+      io.in(roomId).emit("code-space-state", isOpen);
+      
+      console.log(`Room ${roomId} code space toggled to: ${isOpen}`);
+    } catch (error) {
+      console.error("Error toggling code space:", error);
+    }
+  });
+  
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
   });
