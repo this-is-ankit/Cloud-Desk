@@ -121,7 +121,7 @@ function SessionPage() {
     return () => {
       socketRef.current.disconnect();
     };
-  }, [id, isHost]);
+  }, [id]);
 
   // Sync initial state from DB when session loads
   useEffect(() => {
