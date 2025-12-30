@@ -30,6 +30,10 @@ const sessionSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    isCodeOpen: {
+      type: Boolean,
+      default: false, // Starts hidden by default (Interviewer focuses on intro first)
+    },
   },
   { timestamps: true }
 );
