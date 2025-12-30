@@ -6,19 +6,19 @@ import {
   useEndSession,
   useJoinSession,
   useSessionById,
-  useKickParticipant
+  useKickParticipant,
 } from "../hooks/useSessions";
 import { executeCode } from "../lib/piston";
 import Navbar from "../components/Navbar";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { 
-  Loader2Icon, 
-  LogOutIcon, 
-  PhoneOffIcon, 
-  KeyIcon, 
-  UserMinusIcon, 
-  CodeIcon, 
-  EyeOffIcon 
+import {
+  Loader2Icon,
+  LogOutIcon,
+  PhoneOffIcon,
+  KeyIcon,
+  UserMinusIcon,
+  CodeIcon,
+  EyeOffIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import CodeEditorPanel from "../components/CodeEditorPanel";
@@ -27,6 +27,7 @@ import OutputPanel from "../components/OutputPanel";
 import useStreamClient from "../hooks/useStreamClient";
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
 import VideoCallUI from "../components/VideoCallUI";
+import { ShieldAlertIcon, ShieldCheckIcon } from "lucide-react";
 
 function SessionPage() {
   const navigate = useNavigate();
@@ -35,14 +36,19 @@ function SessionPage() {
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const [accessCode, setAccessCode] = useState("");
-  
+
   // STATE: Controls visibility of the code editor
   const [isCodeOpen, setIsCodeOpen] = useState(false);
+  const [isAntiCheatEnabled, setIsAntiCheatEnabled] = useState(false);
 
   const socketRef = useRef(null);
   const [wasParticipant, setWasParticipant] = useState(false);
 
-  const { data: sessionData, isLoading: loadingSession, refetch } = useSessionById(id);
+  const {
+    data: sessionData,
+    isLoading: loadingSession,
+    refetch,
+  } = useSessionById(id);
 
   const joinSessionMutation = useJoinSession();
   const endSessionMutation = useEndSession();
@@ -52,21 +58,16 @@ function SessionPage() {
   const isHost = session?.host?.clerkId === user?.id;
   const isParticipant = session?.participant?.clerkId === user?.id;
 
-  const { call, channel, chatClient, isInitializingCall, streamClient } = useStreamClient(
-    session,
-    loadingSession,
-    isHost,
-    isParticipant
-  );
+  const { call, channel, chatClient, isInitializingCall, streamClient } =
+    useStreamClient(session, loadingSession, isHost, isParticipant);
 
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
   const [code, setCode] = useState("");
 
   useEffect(() => {
     // 1. Initialize Connection
-    const socketURL = import.meta.env.MODE === "development"
-      ? "http://localhost:3000"
-      : "/";
+    const socketURL =
+      import.meta.env.MODE === "development" ? "http://localhost:3000" : "/";
 
     socketRef.current = io(socketURL);
 
@@ -93,17 +94,78 @@ function SessionPage() {
       setIsCodeOpen(isOpen);
     });
 
+    // Listen for Anti-Cheat Toggle
+    socketRef.current.on("anti-cheat-update", (isEnabled) => {
+      setIsAntiCheatEnabled(isEnabled);
+      if (isEnabled) {
+        toast("Anti-Cheat mode enabled by host.", { icon: "🛡️" });
+      } else {
+        toast("Anti-Cheat mode disabled.");
+      }
+    });
+
+    // Listen for Cheat Alerts (Host Only)
+    socketRef.current.on("cheat-alert", ({ userId, reason }) => {
+      if (isHost) {
+        toast.error(
+          `⚠️ Candidate Warning: ${
+            reason === "tab-switch"
+              ? "Switched Tab"
+              : "Window Minimized/Blurred"
+          }`
+        );
+        // You can also add a visual log or counter here if you want
+      }
+    });
+
     return () => {
       socketRef.current.disconnect();
     };
-  }, [id]);
+  }, [id, isHost]);
 
   // Sync initial state from DB when session loads
   useEffect(() => {
     if (session?.isCodeOpen !== undefined) {
       setIsCodeOpen(session.isCodeOpen);
     }
+
+    if (session?.isAntiCheatEnabled !== undefined) {
+      setIsAntiCheatEnabled(session.isAntiCheatEnabled);
+    }
   }, [session]);
+
+  useEffect(() => {
+    // Only run this logic for the participant and if anti-cheat is ON
+    if (!isParticipant || !isAntiCheatEnabled) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        socketRef.current.emit("cheat-detected", {
+          roomId: id,
+          userId: user.id,
+          reason: "tab-switch",
+        });
+        toast.error("⚠️ Warning: Tab switching is monitored!");
+      }
+    };
+
+    const handleBlur = () => {
+      // Determines if window lost focus
+      socketRef.current.emit("cheat-detected", {
+        roomId: id,
+        userId: user.id,
+        reason: "window-blur",
+      });
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [isParticipant, isAntiCheatEnabled, id, user?.id]);
 
   const handleCodeChange = (newCode) => {
     setCode(newCode);
@@ -114,14 +176,20 @@ function SessionPage() {
     const newLang = e.target.value;
     setSelectedLanguage(newLang);
     setOutput(null);
-    socketRef.current.emit("language-change", { roomId: id, language: newLang });
+    socketRef.current.emit("language-change", {
+      roomId: id,
+      language: newLang,
+    });
   };
 
   // Toggle Function (Host Only)
   const toggleCodeSpace = () => {
     const newState = !isCodeOpen;
     setIsCodeOpen(newState); // Optimistic update
-    socketRef.current.emit("toggle-code-space", { roomId: id, isOpen: newState });
+    socketRef.current.emit("toggle-code-space", {
+      roomId: id,
+      isOpen: newState,
+    });
   };
 
   // Kick Logic
@@ -161,8 +229,14 @@ function SessionPage() {
   };
 
   const handleEndSession = () => {
-    if (confirm("Are you sure you want to end this session? All participants will be notified.")) {
-      endSessionMutation.mutate(id, { onSuccess: () => navigate("/dashboard") });
+    if (
+      confirm(
+        "Are you sure you want to end this session? All participants will be notified."
+      )
+    ) {
+      endSessionMutation.mutate(id, {
+        onSuccess: () => navigate("/dashboard"),
+      });
     }
   };
 
@@ -176,7 +250,11 @@ function SessionPage() {
   };
 
   const handleKickParticipant = () => {
-    if (confirm("Are you sure you want to kick the participant? They will be removed from the session.")) {
+    if (
+      confirm(
+        "Are you sure you want to kick the participant? They will be removed from the session."
+      )
+    ) {
       kickParticipantMutation.mutate(id);
     }
   };
@@ -204,9 +282,12 @@ function SessionPage() {
         <div className="flex-1 flex items-center justify-center p-4">
           <div className="card bg-base-200 w-full max-w-md shadow-xl border border-base-300">
             <div className="card-body">
-              <h2 className="card-title text-2xl justify-center mb-2">Join Session</h2>
+              <h2 className="card-title text-2xl justify-center mb-2">
+                Join Session
+              </h2>
               <p className="text-center text-base-content/70 mb-6">
-                Enter the access code shared by the host to join the {session.language} session.
+                Enter the access code shared by the host to join the{" "}
+                {session.language} session.
               </p>
               <form onSubmit={handleJoinSession} className="space-y-4">
                 <div className="form-control">
@@ -219,7 +300,9 @@ function SessionPage() {
                       placeholder="Access Code (e.g., X7Y2Z1)"
                       className="input input-bordered w-full pl-10 font-mono tracking-widest uppercase"
                       value={accessCode}
-                      onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                      onChange={(e) =>
+                        setAccessCode(e.target.value.toUpperCase())
+                      }
                       required
                     />
                   </div>
@@ -249,7 +332,6 @@ function SessionPage() {
 
       {/* Main Container */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        
         {/* HEADER: Now sits outside the panel group so it's always visible */}
         <div className="p-4 bg-base-100 border-b border-base-300 flex items-center justify-between flex-shrink-0">
           <div>
@@ -271,10 +353,37 @@ function SessionPage() {
 
           {isHost && session?.status === "active" && (
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const newState = !isAntiCheatEnabled;
+                  setIsAntiCheatEnabled(newState); // Optimistic update
+                  socketRef.current.emit("toggle-anti-cheat", {
+                    roomId: id,
+                    isEnabled: newState,
+                  });
+                }}
+                className={`btn btn-sm gap-2 ${
+                  isAntiCheatEnabled ? "btn-warning" : "btn-ghost"
+                }`}
+                title="Toggle Anti-Cheat"
+              >
+                {isAntiCheatEnabled ? (
+                  <>
+                    <ShieldAlertIcon className="w-4 h-4" /> Monitor On
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheckIcon className="w-4 h-4" /> Monitor Off
+                  </>
+                )}
+              </button>
+
               {/* TOGGLE CODE BUTTON (New) */}
               <button
                 onClick={toggleCodeSpace}
-                className={`btn btn-sm gap-2 ${isCodeOpen ? 'btn-ghost' : 'btn-primary'}`}
+                className={`btn btn-sm gap-2 ${
+                  isCodeOpen ? "btn-ghost" : "btn-primary"
+                }`}
               >
                 {isCodeOpen ? (
                   <>
@@ -321,7 +430,6 @@ function SessionPage() {
         {/* WORKSPACE PANELS */}
         <div className="flex-1 overflow-hidden relative">
           <PanelGroup direction="horizontal">
-            
             {/* LEFT PANEL (CODE): Conditionally Rendered */}
             {isCodeOpen && (
               <>
@@ -349,7 +457,7 @@ function SessionPage() {
                     </div>
                   </div>
                 </Panel>
-                
+
                 {/* Separator */}
                 <PanelResizeHandle className="w-2 bg-base-300 hover:bg-primary transition-colors cursor-col-resize" />
               </>
@@ -372,8 +480,12 @@ function SessionPage() {
                         <div className="w-24 h-24 bg-error/10 rounded-full flex items-center justify-center mb-4">
                           <PhoneOffIcon className="w-12 h-12 text-error" />
                         </div>
-                        <h2 className="card-title text-2xl">Connection Failed</h2>
-                        <p className="text-base-content/70">Unable to connect to the video call</p>
+                        <h2 className="card-title text-2xl">
+                          Connection Failed
+                        </h2>
+                        <p className="text-base-content/70">
+                          Unable to connect to the video call
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -381,7 +493,10 @@ function SessionPage() {
                   <div className="h-full">
                     <StreamVideo client={streamClient}>
                       <StreamCall call={call}>
-                        <VideoCallUI chatClient={chatClient} channel={channel} />
+                        <VideoCallUI
+                          chatClient={chatClient}
+                          channel={channel}
+                        />
                       </StreamCall>
                     </StreamVideo>
                   </div>
