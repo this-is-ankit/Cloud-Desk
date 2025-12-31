@@ -117,6 +117,22 @@ io.on("connection", (socket) => {
       console.error("Error toggling code space:", error);
     }
   });
+
+  socket.on("toggle-anti-cheat", async ({ roomId, isEnabled }) => {
+    try {
+      await Session.findByIdAndUpdate(roomId, { isAntiCheatEnabled: isEnabled });
+      io.in(roomId).emit("anti-cheat-update", isEnabled);
+    } catch (error) {
+      console.error("Error toggling anti-cheat:", error);
+    }
+  });
+
+  // 5. Handle Cheat Detection
+  socket.on("cheat-detected", ({ roomId, userId, reason }) => {
+    // Notify the host (or everyone, and let frontend filter)
+    // We send to the room so the host receives it
+    socket.to(roomId).emit("cheat-alert", { userId, reason });
+  });
   
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);

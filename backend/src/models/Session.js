@@ -34,6 +34,10 @@ const sessionSchema = new mongoose.Schema(
       type: Boolean,
       default: false, // Starts hidden by default (Interviewer focuses on intro first)
     },
+    isAntiCheatEnabled: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
