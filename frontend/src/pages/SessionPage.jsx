@@ -19,6 +19,8 @@ import {
   UserMinusIcon,
   CodeIcon,
   EyeOffIcon,
+  ShieldAlertIcon,
+  ShieldCheckIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import CodeEditorPanel from "../components/CodeEditorPanel";
@@ -27,7 +29,6 @@ import OutputPanel from "../components/OutputPanel";
 import useStreamClient from "../hooks/useStreamClient";
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
 import VideoCallUI from "../components/VideoCallUI";
-import { ShieldAlertIcon, ShieldCheckIcon } from "lucide-react";
 
 function SessionPage() {
   const navigate = useNavigate();
@@ -37,7 +38,6 @@ function SessionPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [accessCode, setAccessCode] = useState("");
 
-  // STATE: Controls visibility of the code editor
   const [isCodeOpen, setIsCodeOpen] = useState(false);
   const [isAntiCheatEnabled, setIsAntiCheatEnabled] = useState(false);
 
@@ -55,8 +55,18 @@ function SessionPage() {
   const kickParticipantMutation = useKickParticipant();
 
   const session = sessionData?.session;
+  
+  // Calculate roles
   const isHost = session?.host?.clerkId === user?.id;
   const isParticipant = session?.participant?.clerkId === user?.id;
+
+  // --- FIX: Live Reference for Host Status ---
+  const isHostRef = useRef(isHost);
+  
+  // Keep the ref updated whenever isHost changes (e.g. after session loads)
+  useEffect(() => {
+    isHostRef.current = isHost;
+  }, [isHost]);
 
   const { call, channel, chatClient, isInitializingCall, streamClient } =
     useStreamClient(session, loadingSession, isHost, isParticipant);
@@ -65,18 +75,15 @@ function SessionPage() {
   const [code, setCode] = useState("");
 
   useEffect(() => {
-    // 1. Initialize Connection
     const socketURL =
       import.meta.env.MODE === "development" ? "http://localhost:3000" : "/";
 
     socketRef.current = io(socketURL);
 
-    // 2. Join the specific session room
     if (id) {
       socketRef.current.emit("join-session", id);
     }
 
-    // 3. Listen for incoming code updates
     socketRef.current.on("code-update", (newCode) => {
       setCode((prevCode) => {
         if (prevCode !== newCode) return newCode;
@@ -84,17 +91,14 @@ function SessionPage() {
       });
     });
 
-    // 4. Listen for language updates
     socketRef.current.on("language-update", (newLang) => {
       setSelectedLanguage(newLang);
     });
 
-    // 5. Listen for Code Space Toggle (NEW)
     socketRef.current.on("code-space-state", (isOpen) => {
       setIsCodeOpen(isOpen);
     });
 
-    // Listen for Anti-Cheat Toggle
     socketRef.current.on("anti-cheat-update", (isEnabled) => {
       setIsAntiCheatEnabled(isEnabled);
       if (isEnabled) {
@@ -104,9 +108,19 @@ function SessionPage() {
       }
     });
 
-    // Listen for Cheat Alerts (Host Only)
+    // --- FIX: Anti-Cheat Listener with Debugging ---
     socketRef.current.on("cheat-alert", ({ userId, reason }) => {
-      if (isHost) {
+      const amIHost = isHostRef.current;
+      
+      // Console log for debugging
+      console.log("⚠️ Cheat Alert Received:", { 
+        alertUserId: userId, 
+        myUserId: user?.id, 
+        amIHost, 
+        reason 
+      });
+
+      if (amIHost) {
         toast.error(
           `⚠️ Candidate Warning: ${
             reason === "tab-switch"
@@ -114,29 +128,22 @@ function SessionPage() {
               : "Window Minimized/Blurred"
           }`
         );
-        // You can also add a visual log or counter here if you want
       }
     });
 
     return () => {
       socketRef.current.disconnect();
     };
-  }, [id]);
+  }, [id]); // This effect runs only once on mount (per ID)
 
-  // Sync initial state from DB when session loads
   useEffect(() => {
-    if (session?.isCodeOpen !== undefined) {
-      setIsCodeOpen(session.isCodeOpen);
-    }
-
-    if (session?.isAntiCheatEnabled !== undefined) {
-      setIsAntiCheatEnabled(session.isAntiCheatEnabled);
-    }
+    if (session?.isCodeOpen !== undefined) setIsCodeOpen(session.isCodeOpen);
+    if (session?.isAntiCheatEnabled !== undefined) setIsAntiCheatEnabled(session.isAntiCheatEnabled);
   }, [session]);
 
+  // --- Candidate Detection Logic ---
   useEffect(() => {
-    // Only run this logic for the participant and if anti-cheat is ON
-    if (!isParticipant || !isAntiCheatEnabled) return;
+    if (!isParticipant || !isAntiCheatEnabled || !user?.id) return;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -150,7 +157,6 @@ function SessionPage() {
     };
 
     const handleBlur = () => {
-      // Determines if window lost focus
       socketRef.current.emit("cheat-detected", {
         roomId: id,
         userId: user.id,
@@ -182,17 +188,15 @@ function SessionPage() {
     });
   };
 
-  // Toggle Function (Host Only)
   const toggleCodeSpace = () => {
     const newState = !isCodeOpen;
-    setIsCodeOpen(newState); // Optimistic update
+    setIsCodeOpen(newState);
     socketRef.current.emit("toggle-code-space", {
       roomId: id,
       isOpen: newState,
     });
   };
 
-  // Kick Logic
   useEffect(() => {
     if (isParticipant) setWasParticipant(true);
   }, [isParticipant]);
@@ -229,11 +233,7 @@ function SessionPage() {
   };
 
   const handleEndSession = () => {
-    if (
-      confirm(
-        "Are you sure you want to end this session? All participants will be notified."
-      )
-    ) {
+    if (confirm("Are you sure you want to end this session?")) {
       endSessionMutation.mutate(id, {
         onSuccess: () => navigate("/dashboard"),
       });
@@ -250,11 +250,7 @@ function SessionPage() {
   };
 
   const handleKickParticipant = () => {
-    if (
-      confirm(
-        "Are you sure you want to kick the participant? They will be removed from the session."
-      )
-    ) {
+    if (confirm("Are you sure you want to kick the participant?")) {
       kickParticipantMutation.mutate(id);
     }
   };
@@ -285,38 +281,22 @@ function SessionPage() {
               <h2 className="card-title text-2xl justify-center mb-2">
                 Join Session
               </h2>
-              <p className="text-center text-base-content/70 mb-6">
-                Enter the access code shared by the host to join the{" "}
-                {session.language} session.
-              </p>
               <form onSubmit={handleJoinSession} className="space-y-4">
                 <div className="form-control">
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <KeyIcon className="size-5 text-base-content/40" />
-                    </div>
+                    <KeyIcon className="absolute left-3 top-3 size-5 text-base-content/40" />
                     <input
                       type="text"
-                      placeholder="Access Code (e.g., X7Y2Z1)"
-                      className="input input-bordered w-full pl-10 font-mono tracking-widest uppercase"
+                      placeholder="Access Code"
+                      className="input input-bordered w-full pl-10 font-mono uppercase"
                       value={accessCode}
-                      onChange={(e) =>
-                        setAccessCode(e.target.value.toUpperCase())
-                      }
+                      onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
                       required
                     />
                   </div>
                 </div>
-                <button
-                  type="submit"
-                  className="btn btn-primary w-full"
-                  disabled={joinSessionMutation.isPending || !accessCode}
-                >
-                  {joinSessionMutation.isPending ? (
-                    <Loader2Icon className="size-5 animate-spin" />
-                  ) : (
-                    "Join Session"
-                  )}
+                <button type="submit" className="btn btn-primary w-full">
+                  Join Session
                 </button>
               </form>
             </div>
@@ -330,9 +310,7 @@ function SessionPage() {
     <div className="h-screen bg-base-100 flex flex-col">
       <Navbar />
 
-      {/* Main Container */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* HEADER: Now sits outside the panel group so it's always visible */}
         <div className="p-4 bg-base-100 border-b border-base-300 flex items-center justify-between flex-shrink-0">
           <div>
             <h1 className="text-xl font-bold text-base-content">
@@ -356,7 +334,7 @@ function SessionPage() {
               <button
                 onClick={() => {
                   const newState = !isAntiCheatEnabled;
-                  setIsAntiCheatEnabled(newState); // Optimistic update
+                  setIsAntiCheatEnabled(newState);
                   socketRef.current.emit("toggle-anti-cheat", {
                     roomId: id,
                     isEnabled: newState,
@@ -365,75 +343,39 @@ function SessionPage() {
                 className={`btn btn-sm gap-2 ${
                   isAntiCheatEnabled ? "btn-warning" : "btn-ghost"
                 }`}
-                title="Toggle Anti-Cheat"
               >
-                {isAntiCheatEnabled ? (
-                  <>
-                    <ShieldAlertIcon className="w-4 h-4" /> Monitor On
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheckIcon className="w-4 h-4" /> Monitor Off
-                  </>
-                )}
+                {isAntiCheatEnabled ? <ShieldAlertIcon className="w-4 h-4"/> : <ShieldCheckIcon className="w-4 h-4"/>}
+                {isAntiCheatEnabled ? "Monitor On" : "Monitor Off"}
               </button>
 
-              {/* TOGGLE CODE BUTTON (New) */}
               <button
                 onClick={toggleCodeSpace}
                 className={`btn btn-sm gap-2 ${
                   isCodeOpen ? "btn-ghost" : "btn-primary"
                 }`}
               >
-                {isCodeOpen ? (
-                  <>
-                    <EyeOffIcon className="w-4 h-4" /> Close Code
-                  </>
-                ) : (
-                  <>
-                    <CodeIcon className="w-4 h-4" /> Start Coding
-                  </>
-                )}
+                {isCodeOpen ? <EyeOffIcon className="w-4 h-4"/> : <CodeIcon className="w-4 h-4"/>}
+                {isCodeOpen ? "Close Code" : "Start Coding"}
               </button>
 
               {session.participant && (
-                <button
-                  onClick={handleKickParticipant}
-                  disabled={kickParticipantMutation.isPending}
-                  className="btn btn-ghost btn-sm text-error hover:bg-error/10"
-                  title="Kick Participant"
-                >
-                  {kickParticipantMutation.isPending ? (
-                    <Loader2Icon className="w-4 h-4 animate-spin" />
-                  ) : (
+                 <button onClick={handleKickParticipant} className="btn btn-ghost btn-sm text-error">
                     <UserMinusIcon className="w-4 h-4" />
-                  )}
-                </button>
+                 </button>
               )}
-
-              <button
-                onClick={handleEndSession}
-                disabled={endSessionMutation.isPending}
-                className="btn btn-error btn-sm gap-2"
-              >
-                {endSessionMutation.isPending ? (
-                  <Loader2Icon className="w-4 h-4 animate-spin" />
-                ) : (
-                  <LogOutIcon className="w-4 h-4" />
-                )}
-                End Session
+              <button onClick={handleEndSession} className="btn btn-error btn-sm gap-2">
+                <LogOutIcon className="w-4 h-4" /> End
               </button>
             </div>
           )}
         </div>
 
-        {/* WORKSPACE PANELS */}
         <div className="flex-1 overflow-hidden relative">
           <PanelGroup direction="horizontal">
-            {/* LEFT PANEL (CODE): Conditionally Rendered */}
             {isCodeOpen && (
               <>
-                <Panel defaultSize={50} minSize={30}>
+                {/* --- FIX: Added id and order --- */}
+                <Panel id="code-panel" order={1} defaultSize={50} minSize={30}>
                   <div className="h-full flex flex-col">
                     <div className="flex-1 overflow-hidden">
                       <PanelGroup direction="vertical">
@@ -447,9 +389,7 @@ function SessionPage() {
                             onRunCode={handleRunCode}
                           />
                         </Panel>
-
                         <PanelResizeHandle className="h-2 bg-base-300 hover:bg-primary transition-colors cursor-row-resize" />
-
                         <Panel defaultSize={30} minSize={15}>
                           <OutputPanel output={output} />
                         </Panel>
@@ -457,49 +397,23 @@ function SessionPage() {
                     </div>
                   </div>
                 </Panel>
-
-                {/* Separator */}
                 <PanelResizeHandle className="w-2 bg-base-300 hover:bg-primary transition-colors cursor-col-resize" />
               </>
             )}
 
-            {/* RIGHT PANEL (VIDEO): Takes full width if code is closed */}
-            <Panel defaultSize={isCodeOpen ? 50 : 100} minSize={30}>
+            {/* --- FIX: Added id and order --- */}
+            <Panel id="video-panel" order={2} defaultSize={isCodeOpen ? 50 : 100} minSize={30}>
               <div className="h-full bg-base-200 p-4 overflow-auto">
-                {isInitializingCall ? (
-                  <div className="h-full flex items-center justify-center">
-                    <div className="text-center">
-                      <Loader2Icon className="w-12 h-12 mx-auto animate-spin text-primary mb-4" />
-                      <p className="text-lg">Connecting to video call...</p>
-                    </div>
-                  </div>
-                ) : !streamClient || !call ? (
-                  <div className="h-full flex items-center justify-center">
-                    <div className="card bg-base-100 shadow-xl max-w-md">
-                      <div className="card-body items-center text-center">
-                        <div className="w-24 h-24 bg-error/10 rounded-full flex items-center justify-center mb-4">
-                          <PhoneOffIcon className="w-12 h-12 text-error" />
-                        </div>
-                        <h2 className="card-title text-2xl">
-                          Connection Failed
-                        </h2>
-                        <p className="text-base-content/70">
-                          Unable to connect to the video call
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                {!streamClient || !call ? (
+                   <div className="h-full flex items-center justify-center">
+                     <Loader2Icon className="animate-spin size-10 text-primary" />
+                   </div>
                 ) : (
-                  <div className="h-full">
-                    <StreamVideo client={streamClient}>
-                      <StreamCall call={call}>
-                        <VideoCallUI
-                          chatClient={chatClient}
-                          channel={channel}
-                        />
-                      </StreamCall>
-                    </StreamVideo>
-                  </div>
+                  <StreamVideo client={streamClient}>
+                    <StreamCall call={call}>
+                      <VideoCallUI chatClient={chatClient} channel={channel} />
+                    </StreamCall>
+                  </StreamVideo>
                 )}
               </div>
             </Panel>
