@@ -16,10 +16,20 @@ const sessionSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    participant: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
+    participants: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      }
+    ],
+    sessionType: {
+      type: String,
+      enum: ["one-on-one", "group"],
+      default: "one-on-one",
+    },
+    maxParticipants: {
+      type: Number,
+      default: 1, // Default for one-on-one (host + 1 participant)
     },
     status: {
       type: String,

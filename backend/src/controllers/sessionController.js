@@ -3,7 +3,7 @@ import Session from "../models/Session.js";
 
 export async function createSession(req, res) {
   try {
-    const { language } = req.body;
+    const { language, sessionType = "one-on-one", maxParticipants } = req.body;
     const userId = req.user._id;
     const clerkId = req.user.clerkId;
 
@@ -11,13 +11,23 @@ export async function createSession(req, res) {
       return res.status(400).json({ message: "Language is required" });
     }
 
+    const participantLimit = sessionType === "group" ? (maxParticipants || 10) : 1;
+
     const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
     // GENERATE A RANDOM 6-CHARACTER CODE
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
     // SAVE THE CODE TO THE DB
-    const session = await Session.create({ language, host: userId, callId, code });
+    const session = await Session.create({ 
+      language, 
+      host: userId, 
+      callId, 
+      code,
+      sessionType,
+      maxParticipants: participantLimit,
+      participants: [] // Initialize empty array
+    });
 
     await streamClient.video.call("default", callId).getOrCreate({
       data: {
@@ -45,7 +55,7 @@ export async function getActiveSessions(_, res) {
   try {
     const sessions = await Session.find({ status: "active" })
       .populate("host", "name profileImage email clerkId")
-      .populate("participant", "name profileImage email clerkId")
+      .populate("participants", "name profileImage email clerkId")
       .sort({ createdAt: -1 })
       .limit(20);
 
@@ -81,7 +91,7 @@ export async function getSessionById(req, res) {
 
     const session = await Session.findById(id)
       .populate("host", "name email profileImage clerkId")
-      .populate("participant", "name email profileImage clerkId");
+      .populate("participants", "name email profileImage clerkId");
 
     if (!session) return res.status(404).json({ message: "Session not found" });
 
@@ -116,9 +126,15 @@ export async function joinSession(req, res) {
       return res.status(400).json({ message: "Host cannot join their own session as participant" });
     }
 
-    if (session.participant) return res.status(409).json({ message: "Session is full" });
+    if (session.participants.includes(userId)) {
+      return res.status(200).json({ session });
+    }
 
-    session.participant = userId;
+    if (session.participants.length >= session.maxParticipants) {
+      return res.status(409).json({ message: "Session is full" });
+    }
+
+    session.participants.push(userId);
     await session.save();
 
     const channel = chatClient.channel("messaging", session.callId);
@@ -134,9 +150,10 @@ export async function joinSession(req, res) {
 export async function kickParticipant(req, res) {
   try {
     const { id } = req.params;
+    const { participantId } = req.body;
     const userId = req.user._id;
 
-    // Populate participant to get their Clerk ID for Stream removal
+    // Populate participant to get their Clerk ID fosession.participant = userId;r Stream removal
     const session = await Session.findById(id).populate("participant");
 
     if (!session) return res.status(404).json({ message: "Session not found" });
@@ -145,19 +162,21 @@ export async function kickParticipant(req, res) {
       return res.status(403).json({ message: "Only the host can kick a participant" });
     }
 
+    const targetUser = session.participants.find(p => p._id.toString() === participantId);
+    if (!targetUser) return res.status(404).json({ message: "Participant not found in session" });
+
     // Remove from Stream Channel (Chat/Video)
-    if (session.participant?.clerkId) {
+    if (targetUser.clerkId) {
       try {
         const channel = chatClient.channel("messaging", session.callId);
-        await channel.removeMembers([session.participant.clerkId]);
+        await channel.removeMembers([targetUser.clerkId]);
       } catch (streamError) {
         console.log("Error removing from Stream:", streamError.message);
-        // Continue execution even if Stream fails, to ensure DB update
       }
     }
 
     // Remove from Database
-    session.participant = null;
+    session.participants = session.participants.filter(p => p._id.toString() !== participantId);
     await session.save();
 
     res.status(200).json({ message: "Participant kicked successfully", session });

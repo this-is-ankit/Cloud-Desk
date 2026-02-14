@@ -58,7 +58,7 @@ function SessionPage() {
   
   // Calculate roles
   const isHost = session?.host?.clerkId === user?.id;
-  const isParticipant = session?.participant?.clerkId === user?.id;
+  const isParticipant = session?.participants?.some(p => p.clerkId === user?.id);
 
   // --- FIX: Live Reference for Host Status ---
   const isHostRef = useRef(isHost);
@@ -249,9 +249,10 @@ function SessionPage() {
     );
   };
 
-  const handleKickParticipant = () => {
-    if (confirm("Are you sure you want to kick the participant?")) {
-      kickParticipantMutation.mutate(id);
+  const handleKickParticipant = (participantId) => {
+    if (confirm("Are you sure you want to kick this participant?")) {
+      // Pass the specific ID to your mutation
+      kickParticipantMutation.mutate({ sessionId: id, participantId });
     }
   };
 
@@ -318,6 +319,9 @@ function SessionPage() {
             </h1>
             <div className="flex items-center gap-2 text-sm text-base-content/60">
               <span>Host: {session?.host?.name}</span>
+              <span>•</span>
+              {/* UPDATED: Show count of participants */}
+              <span>Participants: {session?.participants?.length || 0} / {session?.maxParticipants}</span>
               {isHost && (
                 <>
                   <span>•</span>
@@ -358,10 +362,19 @@ function SessionPage() {
                 {isCodeOpen ? "Close Code" : "Start Coding"}
               </button>
 
-              {session.participant && (
-                 <button onClick={handleKickParticipant} className="btn btn-ghost btn-sm text-error">
-                    <UserMinusIcon className="w-4 h-4" />
-                 </button>
+              {session?.participants?.length > 0 && (
+                 <div className="dropdown dropdown-end">
+                    <label tabIndex={0} className="btn btn-ghost btn-sm text-error">
+                       <UserMinusIcon className="w-4 h-4" />
+                    </label>
+                    <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-52">
+                       {session.participants.map(p => (
+                         <li key={p._id}>
+                           <button onClick={() => handleKickParticipant(p._id)}>Kick {p.name}</button>
+                         </li>
+                       ))}
+                    </ul>
+                 </div>
               )}
               <button onClick={handleEndSession} className="btn btn-error btn-sm gap-2">
                 <LogOutIcon className="w-4 h-4" /> End
@@ -411,7 +424,11 @@ function SessionPage() {
                 ) : (
                   <StreamVideo client={streamClient}>
                     <StreamCall call={call}>
-                      <VideoCallUI chatClient={chatClient} channel={channel} />
+                      <VideoCallUI 
+                        chatClient={chatClient} 
+                        channel={channel} 
+                        participants={session?.participants} 
+                      />
                     </StreamCall>
                   </StreamVideo>
                 )}
