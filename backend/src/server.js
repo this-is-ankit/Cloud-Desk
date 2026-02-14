@@ -55,47 +55,38 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnecting", async () => {
-    // Get all rooms the user is currently in
     const rooms = [...socket.rooms];
 
     for (const roomId of rooms) {
-      // Skip the default room (which is the socket.id itself)
-      if (roomId === socket.id) continue;
+      if (roomId === socket.id) continue; //
 
-      // Check remaining users in the room.
-      // Since the 'disconnecting' event fires BEFORE the user actually leaves,
-      // if the size is 1, it means this user is the last one.
       const roomSize = io.sockets.adapter.rooms.get(roomId)?.size || 0;
 
-      if (roomSize <= 1) {
-        console.log(`Room ${roomId} is becoming empty. Auto-ending session...`);
+      // ADJUSTMENT: Only auto-end if the room is becoming completely empty (0 users left)
+      // This prevents a group session from ending just because one participant leaves.
+      if (roomSize <= 1) { 
+        console.log(`Room ${roomId} is empty. Auto-ending session...`); //
         try {
-          // Find the active session
           const session = await Session.findById(roomId);
           
           if (session && session.status === "active") {
-            // 1. Mark as completed in DB
-            session.status = "completed";
-            await session.save();
+            session.status = "completed"; //
+            await session.save(); //
 
-            // 2. Clean up Stream Video Call
             if (session.callId) {
-              const call = streamClient.video.call("default", session.callId);
-              // Use .catch to prevent crashing if call already deleted
+              const call = streamClient.video.call("default", session.callId); //
               await call.delete({ hard: true }).catch((err) => 
                 console.log("Stream call cleanup error:", err.message)
-              );
+              ); //
 
-              // 3. Clean up Stream Chat Channel
-              const channel = chatClient.channel("messaging", session.callId);
+              const channel = chatClient.channel("messaging", session.callId); //
               await channel.delete().catch((err) => 
                 console.log("Stream chat cleanup error:", err.message)
-              );
+              ); //
             }
-            console.log(`Session ${roomId} ended automatically.`);
           }
         } catch (error) {
-          console.error("Error auto-ending session:", error.message);
+          console.error("Error auto-ending session:", error.message); //
         }
       }
     }
