@@ -14,17 +14,19 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
   Loader2Icon,
   LogOutIcon,
-  PhoneOffIcon,
   KeyIcon,
   UserMinusIcon,
   CodeIcon,
   EyeOffIcon,
   ShieldAlertIcon,
   ShieldCheckIcon,
+  PenTool as PenToolIcon, // IMP: Imported PenTool
 } from "lucide-react";
 import toast from "react-hot-toast";
 import CodeEditorPanel from "../components/CodeEditorPanel";
 import OutputPanel from "../components/OutputPanel";
+// IMP: Import the Whiteboard Component
+import CollaborativeWhiteboard from "../components/CollaborativeWhiteboard"; 
 
 import useStreamClient from "../hooks/useStreamClient";
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
@@ -44,6 +46,8 @@ function SessionPage() {
   const socketRef = useRef(null);
   const [wasParticipant, setWasParticipant] = useState(false);
 
+  const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
+
   const {
     data: sessionData,
     isLoading: loadingSession,
@@ -55,15 +59,15 @@ function SessionPage() {
   const kickParticipantMutation = useKickParticipant();
 
   const session = sessionData?.session;
-  
+
   // Calculate roles
   const isHost = session?.host?.clerkId === user?.id;
-  const isParticipant = session?.participants?.some(p => p.clerkId === user?.id);
+  const isParticipant = session?.participants?.some(
+    (p) => p.clerkId === user?.id,
+  );
 
-  // --- FIX: Live Reference for Host Status ---
   const isHostRef = useRef(isHost);
-  
-  // Keep the ref updated whenever isHost changes (e.g. after session loads)
+
   useEffect(() => {
     isHostRef.current = isHost;
   }, [isHost]);
@@ -97,6 +101,14 @@ function SessionPage() {
 
     socketRef.current.on("code-space-state", (isOpen) => {
       setIsCodeOpen(isOpen);
+      // If code opens remotely, ensure whiteboard closes locally to match view
+      if (isOpen) setIsWhiteboardOpen(false);
+    });
+
+    socketRef.current.on("whiteboard-state", (isOpen) => {
+      setIsWhiteboardOpen(isOpen);
+      // If whiteboard opens remotely, ensure code closes locally to match view
+      if (isOpen) setIsCodeOpen(false);
     });
 
     socketRef.current.on("anti-cheat-update", (isEnabled) => {
@@ -108,16 +120,13 @@ function SessionPage() {
       }
     });
 
-    // --- FIX: Anti-Cheat Listener with Debugging ---
     socketRef.current.on("cheat-alert", ({ userId, reason }) => {
       const amIHost = isHostRef.current;
-      
-      // Console log for debugging
-      console.log("⚠️ Cheat Alert Received:", { 
-        alertUserId: userId, 
-        myUserId: user?.id, 
-        amIHost, 
-        reason 
+      console.log("⚠️ Cheat Alert Received:", {
+        alertUserId: userId,
+        myUserId: user?.id,
+        amIHost,
+        reason,
       });
 
       if (amIHost) {
@@ -126,7 +135,7 @@ function SessionPage() {
             reason === "tab-switch"
               ? "Switched Tab"
               : "Window Minimized/Blurred"
-          }`
+          }`,
         );
       }
     });
@@ -134,14 +143,15 @@ function SessionPage() {
     return () => {
       socketRef.current.disconnect();
     };
-  }, [id]); // This effect runs only once on mount (per ID)
+  }, [id]);
 
   useEffect(() => {
     if (session?.isCodeOpen !== undefined) setIsCodeOpen(session.isCodeOpen);
-    if (session?.isAntiCheatEnabled !== undefined) setIsAntiCheatEnabled(session.isAntiCheatEnabled);
+    if (session?.isWhiteboardOpen !== undefined) setIsWhiteboardOpen(session.isWhiteboardOpen); // Handle initial load
+    if (session?.isAntiCheatEnabled !== undefined)
+      setIsAntiCheatEnabled(session.isAntiCheatEnabled);
   }, [session]);
 
-  // --- Candidate Detection Logic ---
   useEffect(() => {
     if (!isParticipant || !isAntiCheatEnabled || !user?.id) return;
 
@@ -173,6 +183,36 @@ function SessionPage() {
     };
   }, [isParticipant, isAntiCheatEnabled, id, user?.id]);
 
+  const toggleWhiteboard = () => {
+    const newState = !isWhiteboardOpen;
+    setIsWhiteboardOpen(newState);
+    
+    // Improvement: Automatically close code if opening whiteboard
+    if (newState) setIsCodeOpen(false);
+
+    socketRef.current.emit("toggle-whiteboard", {
+      roomId: id,
+      isOpen: newState,
+    });
+    
+    // Also emit code-space-state false to keep everyone in sync? 
+    // Usually better to handle explicit toggles, but for now local state sync is enough 
+    // provided the listeners above handle the mutually exclusive logic.
+  };
+
+  const toggleCodeSpace = () => {
+    const newState = !isCodeOpen;
+    setIsCodeOpen(newState);
+
+    // Improvement: Automatically close whiteboard if opening code
+    if (newState) setIsWhiteboardOpen(false);
+
+    socketRef.current.emit("toggle-code-space", {
+      roomId: id,
+      isOpen: newState,
+    });
+  };
+
   const handleCodeChange = (newCode) => {
     setCode(newCode);
     socketRef.current.emit("code-change", { roomId: id, code: newCode });
@@ -185,15 +225,6 @@ function SessionPage() {
     socketRef.current.emit("language-change", {
       roomId: id,
       language: newLang,
-    });
-  };
-
-  const toggleCodeSpace = () => {
-    const newState = !isCodeOpen;
-    setIsCodeOpen(newState);
-    socketRef.current.emit("toggle-code-space", {
-      roomId: id,
-      isOpen: newState,
     });
   };
 
@@ -245,13 +276,12 @@ function SessionPage() {
     if (!accessCode) return;
     joinSessionMutation.mutate(
       { id, code: accessCode },
-      { onSuccess: refetch }
+      { onSuccess: refetch },
     );
   };
 
   const handleKickParticipant = (participantId) => {
     if (confirm("Are you sure you want to kick this participant?")) {
-      // Pass the specific ID to your mutation
       kickParticipantMutation.mutate({ sessionId: id, participantId });
     }
   };
@@ -291,7 +321,9 @@ function SessionPage() {
                       placeholder="Access Code"
                       className="input input-bordered w-full pl-10 font-mono uppercase"
                       value={accessCode}
-                      onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                      onChange={(e) =>
+                        setAccessCode(e.target.value.toUpperCase())
+                      }
                       required
                     />
                   </div>
@@ -320,8 +352,10 @@ function SessionPage() {
             <div className="flex items-center gap-2 text-sm text-base-content/60">
               <span>Host: {session?.host?.name}</span>
               <span>•</span>
-              {/* UPDATED: Show count of participants */}
-              <span>Participants: {session?.participants?.length || 0} / {session?.maxParticipants}</span>
+              <span>
+                Participants: {session?.participants?.length || 0} /{" "}
+                {session?.maxParticipants}
+              </span>
               {isHost && (
                 <>
                   <span>•</span>
@@ -348,35 +382,62 @@ function SessionPage() {
                   isAntiCheatEnabled ? "btn-warning" : "btn-ghost"
                 }`}
               >
-                {isAntiCheatEnabled ? <ShieldAlertIcon className="w-4 h-4"/> : <ShieldCheckIcon className="w-4 h-4"/>}
+                {isAntiCheatEnabled ? (
+                  <ShieldAlertIcon className="w-4 h-4" />
+                ) : (
+                  <ShieldCheckIcon className="w-4 h-4" />
+                )}
                 {isAntiCheatEnabled ? "Monitor On" : "Monitor Off"}
               </button>
 
               <button
                 onClick={toggleCodeSpace}
                 className={`btn btn-sm gap-2 ${
-                  isCodeOpen ? "btn-ghost" : "btn-primary"
+                  isCodeOpen ? "btn-primary" : "btn-ghost"
                 }`}
               >
-                {isCodeOpen ? <EyeOffIcon className="w-4 h-4"/> : <CodeIcon className="w-4 h-4"/>}
+                {isCodeOpen ? (
+                  <EyeOffIcon className="w-4 h-4" />
+                ) : (
+                  <CodeIcon className="w-4 h-4" />
+                )}
                 {isCodeOpen ? "Close Code" : "Start Coding"}
               </button>
 
+              <button
+                onClick={toggleWhiteboard}
+                className={`btn btn-sm gap-2 ${isWhiteboardOpen ? "btn-primary" : "btn-ghost"}`}
+              >
+                <PenToolIcon className="w-4 h-4" />
+                {isWhiteboardOpen ? "Close Board" : "Whiteboard"}
+              </button>
+
               {session?.participants?.length > 0 && (
-                 <div className="dropdown dropdown-end">
-                    <label tabIndex={0} className="btn btn-ghost btn-sm text-error">
-                       <UserMinusIcon className="w-4 h-4" />
-                    </label>
-                    <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-52">
-                       {session.participants.map(p => (
-                         <li key={p._id}>
-                           <button onClick={() => handleKickParticipant(p._id)}>Kick {p.name}</button>
-                         </li>
-                       ))}
-                    </ul>
-                 </div>
+                <div className="dropdown dropdown-end">
+                  <label
+                    tabIndex={0}
+                    className="btn btn-ghost btn-sm text-error"
+                  >
+                    <UserMinusIcon className="w-4 h-4" />
+                  </label>
+                  <ul
+                    tabIndex={0}
+                    className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-52"
+                  >
+                    {session.participants.map((p) => (
+                      <li key={p._id}>
+                        <button onClick={() => handleKickParticipant(p._id)}>
+                          Kick {p.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
-              <button onClick={handleEndSession} className="btn btn-error btn-sm gap-2">
+              <button
+                onClick={handleEndSession}
+                className="btn btn-error btn-sm gap-2"
+              >
                 <LogOutIcon className="w-4 h-4" /> End
               </button>
             </div>
@@ -385,28 +446,38 @@ function SessionPage() {
 
         <div className="flex-1 overflow-hidden relative">
           <PanelGroup direction="horizontal">
-            {isCodeOpen && (
+            {(isCodeOpen || isWhiteboardOpen) && (
               <>
-                {/* --- FIX: Added id and order --- */}
                 <Panel id="code-panel" order={1} defaultSize={50} minSize={30}>
                   <div className="h-full flex flex-col">
                     <div className="flex-1 overflow-hidden">
-                      <PanelGroup direction="vertical">
-                        <Panel defaultSize={70} minSize={30}>
-                          <CodeEditorPanel
-                            selectedLanguage={selectedLanguage}
-                            code={code}
-                            isRunning={isRunning}
-                            onLanguageChange={handleLanguageChangeWrapper}
-                            onCodeChange={handleCodeChange}
-                            onRunCode={handleRunCode}
+                      {isWhiteboardOpen ? (
+                        /* Ensure socket exists before rendering to prevent errors */
+                        socketRef.current && (
+                          <CollaborativeWhiteboard
+                            socket={socketRef.current}
+                            roomId={id}
+                            initialData={session?.whiteboardData}
                           />
-                        </Panel>
-                        <PanelResizeHandle className="h-2 bg-base-300 hover:bg-primary transition-colors cursor-row-resize" />
-                        <Panel defaultSize={30} minSize={15}>
-                          <OutputPanel output={output} />
-                        </Panel>
-                      </PanelGroup>
+                        )
+                      ) : (
+                        <PanelGroup direction="vertical">
+                          <Panel defaultSize={70} minSize={30}>
+                            <CodeEditorPanel
+                              selectedLanguage={selectedLanguage}
+                              code={code}
+                              isRunning={isRunning}
+                              onLanguageChange={handleLanguageChangeWrapper}
+                              onCodeChange={handleCodeChange}
+                              onRunCode={handleRunCode}
+                            />
+                          </Panel>
+                          <PanelResizeHandle className="h-2 bg-base-300 hover:bg-primary transition-colors cursor-row-resize" />
+                          <Panel defaultSize={30} minSize={15}>
+                            <OutputPanel output={output} />
+                          </Panel>
+                        </PanelGroup>
+                      )}
                     </div>
                   </div>
                 </Panel>
@@ -414,20 +485,24 @@ function SessionPage() {
               </>
             )}
 
-            {/* --- FIX: Added id and order --- */}
-            <Panel id="video-panel" order={2} defaultSize={isCodeOpen ? 50 : 100} minSize={30}>
+            <Panel
+              id="video-panel"
+              order={2}
+              defaultSize={isCodeOpen ? 50 : 100}
+              minSize={30}
+            >
               <div className="h-full bg-base-200 p-4 overflow-auto">
                 {!streamClient || !call ? (
-                   <div className="h-full flex items-center justify-center">
-                     <Loader2Icon className="animate-spin size-10 text-primary" />
-                   </div>
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2Icon className="animate-spin size-10 text-primary" />
+                  </div>
                 ) : (
                   <StreamVideo client={streamClient}>
                     <StreamCall call={call}>
-                      <VideoCallUI 
-                        chatClient={chatClient} 
-                        channel={channel} 
-                        participants={session?.participants} 
+                      <VideoCallUI
+                        chatClient={chatClient}
+                        channel={channel}
+                        participants={session?.participants}
                       />
                     </StreamCall>
                   </StreamVideo>

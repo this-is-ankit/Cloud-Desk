@@ -54,6 +54,23 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("language-update", language);
   });
 
+  socket.on("toggle-whiteboard", async ({ roomId, isOpen }) => {
+    try {
+      await Session.findByIdAndUpdate(roomId, { isWhiteboardOpen: isOpen });
+      io.in(roomId).emit("whiteboard-state", isOpen);
+    } catch (error) {
+      console.error("Error toggling whiteboard:", error);
+    }
+  });
+
+  socket.on("whiteboard-draw", ({ roomId, elements, appState }) => {
+    // Broadcast to everyone else in the room
+    socket.to(roomId).emit("whiteboard-update", elements);
+    
+    // OPTIONAL: Debounce save to DB here if you want persistence
+    // logic to save 'elements' to Session.whiteboardData
+  });
+
   socket.on("disconnecting", async () => {
     const rooms = [...socket.rooms];
 

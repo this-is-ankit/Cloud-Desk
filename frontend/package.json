@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.53.3",
+    "@excalidraw/excalidraw": "^0.17.6",
     "@monaco-editor/react": "^4.7.0",
     "@stream-io/video-react-sdk": "^1.24.0",
     "@tailwindcss/vite": "^4.1.14",

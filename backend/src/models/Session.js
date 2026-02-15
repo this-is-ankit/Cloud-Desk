@@ -5,7 +5,7 @@ const sessionSchema = new mongoose.Schema(
     language: {
       type: String,
       required: true,
-      default: "javascript"
+      default: "javascript",
     },
     code: {
       type: String,
@@ -20,7 +20,7 @@ const sessionSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-      }
+      },
     ],
     sessionType: {
       type: String,
@@ -48,8 +48,16 @@ const sessionSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    whiteboardData: {
+      type: Array, // Stores the Excalidraw elements
+      default: [],
+    },
+    isWhiteboardOpen: {
+      type: Boolean,
+      default: false,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const Session = mongoose.model("Session", sessionSchema);
