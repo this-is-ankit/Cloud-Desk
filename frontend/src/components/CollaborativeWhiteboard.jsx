@@ -1,26 +1,24 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
 
 const CollaborativeWhiteboard = ({ socket, roomId, initialData }) => {
   const [excalidrawAPI, setExcalidrawAPI] = useState(null);
   const isRemoteUpdate = useRef(false);
+  const timeoutRef = useRef(null); // Ref to hold the debounce timer
 
   useEffect(() => {
     if (!socket || !excalidrawAPI) return;
 
-    // Listen for updates from other users
+    // Handle incoming updates from other users
     const handleRemoteUpdate = (remoteElements) => {
-      // Set flag to prevent echoing this update back to server
-      isRemoteUpdate.current = true;
+      isRemoteUpdate.current = true; // Set flag to ignore the next onChange
       
       excalidrawAPI.updateScene({
         elements: remoteElements
       });
       
-      // Reset flag after a short delay or immediately
-      // (Excalidraw updates are synchronous, so immediate is usually fine, 
-      // but a small timeout is safer for state settling)
-      setTimeout(() => { isRemoteUpdate.current = false; }, 50);
+      // Reset flag after a short delay
+      setTimeout(() => { isRemoteUpdate.current = false; }, 100);
     };
 
     socket.on("whiteboard-update", handleRemoteUpdate);
@@ -30,15 +28,22 @@ const CollaborativeWhiteboard = ({ socket, roomId, initialData }) => {
     };
   }, [socket, excalidrawAPI]);
 
-  const handleChange = (elements, appState) => {
-    // Only emit if the change was local (user interaction)
-    if (!isRemoteUpdate.current) {
+  // Debounced Change Handler
+  const handleChange = useCallback((elements, appState) => {
+    // 1. If this change was triggered by a remote update, do not emit back
+    if (isRemoteUpdate.current) return;
+
+    // 2. Clear the previous timer
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+
+    // 3. Set a new timer to emit after 100ms of inactivity
+    timeoutRef.current = setTimeout(() => {
       socket.emit("whiteboard-draw", {
         roomId,
         elements: elements
       });
-    }
-  };
+    }, 100); 
+  }, [socket, roomId]);
 
   return (
     <div style={{ height: "100%", width: "100%" }}>
@@ -46,10 +51,13 @@ const CollaborativeWhiteboard = ({ socket, roomId, initialData }) => {
         excalidrawAPI={(api) => setExcalidrawAPI(api)}
         initialData={{ elements: initialData || [] }}
         onChange={handleChange}
-        // Optional: Simplify UI for teaching context
         viewModeEnabled={false} 
         zenModeEnabled={false} 
         gridModeEnabled={false}
+        // Optional: Hide Save/Load buttons to keep UI clean
+        UIOptions={{
+           canvasActions: { loadScene: false, saveToActiveFile: false }
+        }}
       />
     </div>
   );
