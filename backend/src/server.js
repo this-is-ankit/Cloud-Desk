@@ -4,7 +4,7 @@ import cors from "cors";
 import http from "http";
 import { Server } from "socket.io";
 import { serve } from "inngest/express";
-import { clerkMiddleware } from "@clerk/express";
+import { clerkMiddleware, verifyToken } from "@clerk/express";
 
 import { ENV } from "./lib/env.js";
 import { connectDB } from "./lib/db.js";
@@ -14,6 +14,7 @@ import chatRoutes from "./routes/chatRoutes.js";
 import sessionRoutes from "./routes/sessionRoute.js";
 
 import Session from "./models/Session.js";
+import User from "./models/User.js";
 import { chatClient, streamClient } from "./lib/stream.js";
 
 const app = express();
@@ -34,13 +35,130 @@ const io = new Server(httpServer, {
   },
 });
 
-io.on("connection", (socket) => {
-  console.log("A user connected:", socket.id);
+const whiteboardStateByRoom = new Map();
+const WHITEBOARD_MAX_COORDINATE = 4000;
+const WHITEBOARD_MAX_ELEMENTS = 2000;
 
-  // 1. Join Session Room
-  socket.on("join-session", (roomId) => {
+const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
+
+const isSafePoint = (point) => {
+  if (!Array.isArray(point) || point.length < 2) return false;
+  const [x, y] = point;
+  return (
+    isFiniteNumber(x) &&
+    isFiniteNumber(y) &&
+    Math.abs(x) <= WHITEBOARD_MAX_COORDINATE &&
+    Math.abs(y) <= WHITEBOARD_MAX_COORDINATE
+  );
+};
+
+const sanitizeWhiteboardElement = (element) => {
+  if (!element || typeof element !== "object") return null;
+
+  const x = isFiniteNumber(element.x) ? element.x : 0;
+  const y = isFiniteNumber(element.y) ? element.y : 0;
+  const width = isFiniteNumber(element.width) ? element.width : 0;
+  const height = isFiniteNumber(element.height) ? element.height : 0;
+
+  if (
+    Math.abs(x) > WHITEBOARD_MAX_COORDINATE ||
+    Math.abs(y) > WHITEBOARD_MAX_COORDINATE ||
+    Math.abs(width) > WHITEBOARD_MAX_COORDINATE ||
+    Math.abs(height) > WHITEBOARD_MAX_COORDINATE
+  ) {
+    return null;
+  }
+
+  if (Array.isArray(element.points) && !element.points.every(isSafePoint)) {
+    return null;
+  }
+
+  return {
+    ...element,
+    x,
+    y,
+    width,
+    height,
+    points: Array.isArray(element.points) ? element.points.filter(isSafePoint) : element.points,
+  };
+};
+
+const sanitizeWhiteboardElements = (elements) => {
+  if (!Array.isArray(elements)) return [];
+  return elements
+    .slice(0, WHITEBOARD_MAX_ELEMENTS)
+    .map(sanitizeWhiteboardElement)
+    .filter(Boolean);
+};
+
+io.use(async (socket, next) => {
+  const token = socket.handshake.auth.token;
+  
+  if (!token) {
+    return next(new Error("Authentication required"));
+  }
+
+  try {
+    const payload = await verifyToken(token, {
+      secretKey: ENV.CLERK_SECRET_KEY,
+    });
+
+    if (!payload?.sub) {
+      return next(new Error("Invalid token payload"));
+    }
+
+    socket.userId = payload.sub;
+    socket.clerkId = payload.sub;
+    next();
+  } catch (error) {
+    next(new Error("Invalid token"));
+  }
+});
+
+io.on("connection", (socket) => {
+  console.log("A user connected:", socket.id, "Clerk ID:", socket.clerkId);
+
+  socket.on("join-session", async (roomId) => {
+    try {
+      const session = await Session.findById(roomId);
+
+      if (!session) {
+        socket.emit("error", { message: "Session not found" });
+        return;
+      }
+
+      const currentUser = await User.findOne({ clerkId: socket.clerkId }).select("_id");
+      if (!currentUser) {
+        socket.emit("error", { message: "User not found" });
+        return;
+      }
+
+      const mongoUserId = currentUser._id.toString();
+      const isHost = session.host.toString() === mongoUserId;
+      const isParticipant = session.participants.some((p) => p.toString() === mongoUserId);
+
+      if (!isHost && !isParticipant) {
+        socket.emit("error", { message: "Not authorized to join this session" });
+        return;
+      }
+
+      socket.join(roomId);
+      console.log(`User ${socket.id} (${socket.clerkId}) joined room: ${roomId}`);
+
+      const roomWhiteboardState = whiteboardStateByRoom.get(roomId);
+      if (roomWhiteboardState) {
+        socket.emit("whiteboard-sync", roomWhiteboardState);
+      } else {
+        socket.emit("whiteboard-sync", { isOpen: false, elements: null, appState: null });
+      }
+    } catch (error) {
+      socket.emit("error", { message: "Failed to join session" });
+    }
+  });
+
+  socket.on("join-session-guest", (roomId) => {
     socket.join(roomId);
-    console.log(`User ${socket.id} joined room: ${roomId}`);
+    console.log(`Guest user ${socket.id} joined room: ${roomId}`);
   });
 
   // 2. Handle Code Changes
@@ -56,13 +174,43 @@ io.on("connection", (socket) => {
 
   // 4. Whiteboard Sync (Add this)
   socket.on("whiteboard-change", ({ roomId, elements, appState }) => {
+    if (!roomId || !socket.rooms.has(roomId)) return;
+    if (!Array.isArray(elements)) return;
+    const sanitizedElements = sanitizeWhiteboardElements(elements);
+
+    const currentState = whiteboardStateByRoom.get(roomId) || { isOpen: false };
+    whiteboardStateByRoom.set(roomId, {
+      ...currentState,
+      elements: sanitizedElements,
+      appState: appState || null,
+    });
+
     // Broadcast to everyone else in the room
-    socket.to(roomId).emit("whiteboard-update", { elements, appState });
+    socket.to(roomId).emit("whiteboard-update", {
+      elements: sanitizedElements,
+      appState: appState || null,
+    });
   });
 
   // 5. Toggle Whiteboard Visibility (Add this)
-  socket.on("toggle-whiteboard", ({ roomId, isOpen }) => {
-    io.in(roomId).emit("whiteboard-state", isOpen);
+  socket.on("toggle-whiteboard", async ({ roomId, isOpen }) => {
+    if (!roomId || !socket.rooms.has(roomId)) return;
+
+    try {
+      const session = await Session.findById(roomId).populate("host", "clerkId");
+      if (!session?.host?.clerkId) return;
+      if (session.host.clerkId !== socket.clerkId) return;
+
+      const currentState = whiteboardStateByRoom.get(roomId) || { elements: null, appState: null };
+      whiteboardStateByRoom.set(roomId, {
+        ...currentState,
+        isOpen: Boolean(isOpen),
+      });
+
+      io.in(roomId).emit("whiteboard-state", isOpen);
+    } catch (error) {
+      console.error("Error toggling whiteboard:", error.message);
+    }
   });
   socket.on("disconnecting", async () => {
     const rooms = [...socket.rooms];
@@ -76,6 +224,7 @@ io.on("connection", (socket) => {
       // This prevents a group session from ending just because one participant leaves.
       if (roomSize <= 1) { 
         console.log(`Room ${roomId} is empty. Auto-ending session...`); //
+        whiteboardStateByRoom.delete(roomId);
         try {
           const session = await Session.findById(roomId);
           

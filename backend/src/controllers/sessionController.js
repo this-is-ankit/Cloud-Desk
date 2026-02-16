@@ -11,8 +11,17 @@ export async function createSession(req, res) {
       return res.status(400).json({ message: "Language is required" });
     }
 
-    const participantLimit =
-      sessionType === "group" ? maxParticipants || 10 : 1;
+    let participantLimit;
+    if (sessionType === "group") {
+      const parsedMax = parseInt(maxParticipants);
+      if (isNaN(parsedMax) || parsedMax < 2 || parsedMax > 20) {
+        participantLimit = 10;
+      } else {
+        participantLimit = parsedMax;
+      }
+    } else {
+      participantLimit = 1;
+    }
 
     const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
@@ -74,7 +83,7 @@ export async function getMyRecentSessions(req, res) {
     // get sessions where user is either host or participant
     const sessions = await Session.find({
       status: "completed",
-      $or: [{ host: userId }, { participant: userId }],
+      $or: [{ host: userId }, { participants: userId }],
     })
       .sort({ createdAt: -1 })
       .limit(20);
@@ -138,16 +147,8 @@ export async function joinSession(req, res) {
     if (isAlreadyJoined) {
       return res.status(200).json({ session });
     }
-    if (!isAlreadyJoined) {
-      session.participants.push(userId);
-      await session.save();
-    }
 
-    if (session.participants.includes(userId)) {
-      return res.status(200).json({ session });
-    }
-
-   if (session.participants.length >= session.maxParticipants) {
+    if (session.participants.length >= session.maxParticipants) {
       console.log(`Join rejected: Room full. Current: ${session.participants.length}, Max: ${session.maxParticipants}`);
       return res.status(409).json({ message: "Session is full" });
     }

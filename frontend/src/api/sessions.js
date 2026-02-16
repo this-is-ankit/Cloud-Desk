@@ -26,8 +26,8 @@ export const sessionApi = {
     return response.data;
   },
 
-  kickParticipant: async (id) => {
-    const response = await axiosInstance.post(`/sessions/${id}/kick`);
+  kickParticipant: async ({ sessionId, participantId }) => {
+    const response = await axiosInstance.post(`/sessions/${sessionId}/kick`, { participantId });
     return response.data;
   },
 
