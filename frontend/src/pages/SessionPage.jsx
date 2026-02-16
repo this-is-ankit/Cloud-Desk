@@ -2,6 +2,8 @@ import { useUser } from "@clerk/clerk-react";
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import io from "socket.io-client";
+import { PresentationIcon } from "lucide-react";
+import WhiteboardPanel from "../components/WhiteboardPanel";
 import {
   useEndSession,
   useJoinSession,
@@ -14,7 +16,6 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
   Loader2Icon,
   LogOutIcon,
-  PhoneOffIcon,
   KeyIcon,
   UserMinusIcon,
   CodeIcon,
@@ -40,6 +41,7 @@ function SessionPage() {
 
   const [isCodeOpen, setIsCodeOpen] = useState(false);
   const [isAntiCheatEnabled, setIsAntiCheatEnabled] = useState(false);
+  const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
 
   const socketRef = useRef(null);
   const [wasParticipant, setWasParticipant] = useState(false);
@@ -55,21 +57,27 @@ function SessionPage() {
   const kickParticipantMutation = useKickParticipant();
 
   const session = sessionData?.session;
-  
+
   // Calculate roles
   const isHost = session?.host?.clerkId === user?.id;
-  const isParticipant = session?.participants?.some(p => p.clerkId === user?.id);
+  const isParticipant = session?.participants?.some(
+    (p) => p.clerkId === user?.id
+  );
 
   // --- FIX: Live Reference for Host Status ---
   const isHostRef = useRef(isHost);
-  
+
   // Keep the ref updated whenever isHost changes (e.g. after session loads)
   useEffect(() => {
     isHostRef.current = isHost;
   }, [isHost]);
 
-  const { call, channel, chatClient, isInitializingCall, streamClient } =
-    useStreamClient(session, loadingSession, isHost, isParticipant);
+  const { call, channel, chatClient, streamClient } = useStreamClient(
+    session,
+    loadingSession,
+    isHost,
+    isParticipant
+  );
 
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
   const [code, setCode] = useState("");
@@ -99,6 +107,10 @@ function SessionPage() {
       setIsCodeOpen(isOpen);
     });
 
+    socketRef.current.on("whiteboard-state", (isOpen) => {
+      setIsWhiteboardOpen(isOpen);
+    });
+
     socketRef.current.on("anti-cheat-update", (isEnabled) => {
       setIsAntiCheatEnabled(isEnabled);
       if (isEnabled) {
@@ -108,16 +120,14 @@ function SessionPage() {
       }
     });
 
-    // --- FIX: Anti-Cheat Listener with Debugging ---
     socketRef.current.on("cheat-alert", ({ userId, reason }) => {
       const amIHost = isHostRef.current;
-      
-      // Console log for debugging
-      console.log("⚠️ Cheat Alert Received:", { 
-        alertUserId: userId, 
-        myUserId: user?.id, 
-        amIHost, 
-        reason 
+
+      console.log("⚠️ Cheat Alert Received:", {
+        alertUserId: userId,
+        myUserId: user?.id,
+        amIHost,
+        reason,
       });
 
       if (amIHost) {
@@ -138,7 +148,8 @@ function SessionPage() {
 
   useEffect(() => {
     if (session?.isCodeOpen !== undefined) setIsCodeOpen(session.isCodeOpen);
-    if (session?.isAntiCheatEnabled !== undefined) setIsAntiCheatEnabled(session.isAntiCheatEnabled);
+    if (session?.isAntiCheatEnabled !== undefined)
+      setIsAntiCheatEnabled(session.isAntiCheatEnabled);
   }, [session]);
 
   // --- Candidate Detection Logic ---
@@ -195,6 +206,18 @@ function SessionPage() {
       roomId: id,
       isOpen: newState,
     });
+  };
+
+  const toggleWhiteboard = () => {
+    const newState = !isWhiteboardOpen;
+    setIsWhiteboardOpen(newState);
+    // If host, sync this state to everyone (Optional, but good for "Lecture Mode")
+    if (isHost) {
+      socketRef.current.emit("toggle-whiteboard", {
+        roomId: id,
+        isOpen: newState,
+      });
+    }
   };
 
   useEffect(() => {
@@ -291,7 +314,9 @@ function SessionPage() {
                       placeholder="Access Code"
                       className="input input-bordered w-full pl-10 font-mono uppercase"
                       value={accessCode}
-                      onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                      onChange={(e) =>
+                        setAccessCode(e.target.value.toUpperCase())
+                      }
                       required
                     />
                   </div>
@@ -321,7 +346,10 @@ function SessionPage() {
               <span>Host: {session?.host?.name}</span>
               <span>•</span>
               {/* UPDATED: Show count of participants */}
-              <span>Participants: {session?.participants?.length || 0} / {session?.maxParticipants}</span>
+              <span>
+                Participants: {session?.participants?.length || 0} /{" "}
+                {session?.maxParticipants}
+              </span>
               {isHost && (
                 <>
                   <span>•</span>
@@ -348,7 +376,11 @@ function SessionPage() {
                   isAntiCheatEnabled ? "btn-warning" : "btn-ghost"
                 }`}
               >
-                {isAntiCheatEnabled ? <ShieldAlertIcon className="w-4 h-4"/> : <ShieldCheckIcon className="w-4 h-4"/>}
+                {isAntiCheatEnabled ? (
+                  <ShieldAlertIcon className="w-4 h-4" />
+                ) : (
+                  <ShieldCheckIcon className="w-4 h-4" />
+                )}
                 {isAntiCheatEnabled ? "Monitor On" : "Monitor Off"}
               </button>
 
@@ -358,25 +390,51 @@ function SessionPage() {
                   isCodeOpen ? "btn-ghost" : "btn-primary"
                 }`}
               >
-                {isCodeOpen ? <EyeOffIcon className="w-4 h-4"/> : <CodeIcon className="w-4 h-4"/>}
+                {isCodeOpen ? (
+                  <EyeOffIcon className="w-4 h-4" />
+                ) : (
+                  <CodeIcon className="w-4 h-4" />
+                )}
                 {isCodeOpen ? "Close Code" : "Start Coding"}
               </button>
 
+              {/* NEW: Whiteboard Toggle Button */}
+              <button
+                onClick={toggleWhiteboard}
+                className={`btn btn-sm gap-2 ${
+                  isWhiteboardOpen ? "btn-secondary" : "btn-ghost"
+                }`}
+              >
+                <PresentationIcon className="w-4 h-4" />
+                {isWhiteboardOpen ? "Close Board" : "Whiteboard"}
+              </button>
+
               {session?.participants?.length > 0 && (
-                 <div className="dropdown dropdown-end">
-                    <label tabIndex={0} className="btn btn-ghost btn-sm text-error">
-                       <UserMinusIcon className="w-4 h-4" />
-                    </label>
-                    <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-52">
-                       {session.participants.map(p => (
-                         <li key={p._id}>
-                           <button onClick={() => handleKickParticipant(p._id)}>Kick {p.name}</button>
-                         </li>
-                       ))}
-                    </ul>
-                 </div>
+                <div className="dropdown dropdown-end">
+                  <label
+                    tabIndex={0}
+                    className="btn btn-ghost btn-sm text-error"
+                  >
+                    <UserMinusIcon className="w-4 h-4" />
+                  </label>
+                  <ul
+                    tabIndex={0}
+                    className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-52"
+                  >
+                    {session.participants.map((p) => (
+                      <li key={p._id}>
+                        <button onClick={() => handleKickParticipant(p._id)}>
+                          Kick {p.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
-              <button onClick={handleEndSession} className="btn btn-error btn-sm gap-2">
+              <button
+                onClick={handleEndSession}
+                className="btn btn-error btn-sm gap-2"
+              >
                 <LogOutIcon className="w-4 h-4" /> End
               </button>
             </div>
@@ -388,7 +446,7 @@ function SessionPage() {
             {isCodeOpen && (
               <>
                 {/* --- FIX: Added id and order --- */}
-                <Panel id="code-panel" order={1} defaultSize={50} minSize={30}>
+                <Panel id="code-panel" order={1} defaultSize={isWhiteboardOpen ? 30 : 50} minSize={20}>
                   <div className="h-full flex flex-col">
                     <div className="flex-1 overflow-hidden">
                       <PanelGroup direction="vertical">
@@ -414,20 +472,40 @@ function SessionPage() {
               </>
             )}
 
+            {/* NEW: Whiteboard Panel */}
+            {isWhiteboardOpen && (
+              <>
+                <Panel id="whiteboard-panel" order={2} defaultSize={isCodeOpen ? 30 : 50} minSize={20}>
+                  <WhiteboardPanel
+                    roomId={id}
+                    socket={socketRef.current}
+                    isHost={isHost}
+                    userName={user?.fullName || "User"}
+                  />
+                </Panel>
+                <PanelResizeHandle className="w-2 bg-base-300 hover:bg-primary transition-colors cursor-col-resize" />
+              </>
+            )}
+
             {/* --- FIX: Added id and order --- */}
-            <Panel id="video-panel" order={2} defaultSize={isCodeOpen ? 50 : 100} minSize={30}>
+            <Panel
+              id="video-panel"
+              order={3}
+              defaultSize={30}
+              minSize={20}
+            >
               <div className="h-full bg-base-200 p-4 overflow-auto">
                 {!streamClient || !call ? (
-                   <div className="h-full flex items-center justify-center">
-                     <Loader2Icon className="animate-spin size-10 text-primary" />
-                   </div>
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2Icon className="animate-spin size-10 text-primary" />
+                  </div>
                 ) : (
                   <StreamVideo client={streamClient}>
                     <StreamCall call={call}>
-                      <VideoCallUI 
-                        chatClient={chatClient} 
-                        channel={channel} 
-                        participants={session?.participants} 
+                      <VideoCallUI
+                        chatClient={chatClient}
+                        channel={channel}
+                        participants={session?.participants}
                       />
                     </StreamCall>
                   </StreamVideo>

@@ -54,6 +54,16 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("language-update", language);
   });
 
+  // 4. Whiteboard Sync (Add this)
+  socket.on("whiteboard-change", ({ roomId, elements, appState }) => {
+    // Broadcast to everyone else in the room
+    socket.to(roomId).emit("whiteboard-update", { elements, appState });
+  });
+
+  // 5. Toggle Whiteboard Visibility (Add this)
+  socket.on("toggle-whiteboard", ({ roomId, isOpen }) => {
+    io.in(roomId).emit("whiteboard-state", isOpen);
+  });
   socket.on("disconnecting", async () => {
     const rooms = [...socket.rooms];
 
