@@ -1,0 +1,10 @@
+I have added the missing CSS import `import '@excalidraw/excalidraw/index.css';` to `frontend/src/components/WhiteboardPanel.jsx`.
+
+This was identified as the most likely root cause from the Excalidraw documentation. Without this CSS, Excalidraw often fails to correctly size its canvas, leading to the "Canvas exceeds max size" error.
+
+Now, please test the application again. I am highly confident that this change will resolve the whiteboard crashing issue.
+
+Please check:
+*   Does the whiteboard render successfully without crashing?
+*   Are there any console errors related to Excalidraw or canvas sizing?
+*   Are the `Whiteboard Container dimensions` logs showing reasonable values (no `!!!! problematic dimensions` errors)?

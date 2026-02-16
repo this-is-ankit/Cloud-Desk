@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
+import "@excalidraw/excalidraw/index.css";
 
 const SAFE_APP_STATE = {
   viewBackgroundColor: "#ffffff",
@@ -165,6 +166,8 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, onSceneChange }) => 
         }}
         name="Cloud Desk Whiteboard"
         user={{ name: userName }}
+        width="100%"
+        height="100%"
       />
     </div>
   );

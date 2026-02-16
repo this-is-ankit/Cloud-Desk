@@ -89,6 +89,46 @@ function SessionPage() {
   const whiteboardPanelDefaultSize = isCodeOpen ? 30 : 60;
   const videoPanelDefaultSize = isCodeOpen || isWhiteboardOpen ? 40 : 100;
 
+  const panelGroupRef = useRef(null);
+
+  const whiteboardContainerRef = useRef(null);
+
+  // New useEffect to observe whiteboard container dimensions
+  useEffect(() => {
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        console.log(`Whiteboard Container dimensions: Width=${width}, Height=${height}`);
+        // Add a check for problematic dimensions
+        // Typical browser max canvas size is 32767x32767, but Excalidraw might be more restrictive.
+        // A width/height of 0 or excessively large values (e.g., above 10000) are likely problematic.
+        if (width <= 0 || height <= 0 || width > 10000 || height > 10000) { 
+          console.error(`!!!! Whiteboard Container has problematic dimensions: Width=${width}, Height=${height}`);
+        }
+      }
+    });
+
+    if (whiteboardContainerRef.current) {
+      observer.observe(whiteboardContainerRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [isWhiteboardOpen]);
+
+  // New useEffect to reset layout when panel visibility changes
+  useEffect(() => {
+    if (panelGroupRef.current) {
+      // Small delay to allow DOM updates to settle
+      const timeoutId = setTimeout(() => {
+        panelGroupRef.current.resetLayout();
+        console.log("PanelGroup layout reset triggered.");
+      }, 50); 
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isCodeOpen, isWhiteboardOpen]); // Trigger when these change
+
   useEffect(() => {
     setWhiteboardScene(null);
   }, [id]);
@@ -472,7 +512,7 @@ function SessionPage() {
         </div>
 
         <div className="flex-1 overflow-hidden relative">
-          <PanelGroup direction="horizontal">
+          <PanelGroup ref={panelGroupRef} direction="horizontal">
             {isCodeOpen && (
               <>
                 {/* --- FIX: Added id and order --- */}
@@ -507,14 +547,15 @@ function SessionPage() {
               <>
                 <Panel id="whiteboard-panel" order={2} defaultSize={whiteboardPanelDefaultSize} minSize={20}>
                   <WhiteboardErrorBoundary>
-                    <WhiteboardPanel
-                      roomId={id}
-                      socket={socketRef.current}
-                      userName={user?.fullName || "User"}
-                      scene={whiteboardScene}
-                      onSceneChange={setWhiteboardScene}
-                    />
-                  </WhiteboardErrorBoundary>
+                                      <div ref={whiteboardContainerRef} className="h-full w-full relative">
+                                        <WhiteboardPanel
+                                          roomId={id}
+                                          socket={socketRef.current}
+                                          userName={user?.fullName || "User"}
+                                          scene={whiteboardScene}
+                                          onSceneChange={setWhiteboardScene}
+                                        />
+                                      </div>                  </WhiteboardErrorBoundary>
                 </Panel>
                 <PanelResizeHandle className="w-2 bg-base-300 hover:bg-primary transition-colors cursor-col-resize" />
               </>
