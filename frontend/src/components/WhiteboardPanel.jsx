@@ -27,32 +27,54 @@ const isSafePoint = (point) => {
 const sanitizeElement = (element) => {
   if (!element || typeof element !== "object") return null;
 
-  const x = isFiniteNumber(element.x) ? element.x : 0;
-  const y = isFiniteNumber(element.y) ? element.y : 0;
-  const width = isFiniteNumber(element.width) ? element.width : 0;
-  const height = isFiniteNumber(element.height) ? element.height : 0;
+  const newElement = { ...element }; // Start with a copy of the original element
 
-  if (
-    Math.abs(x) > MAX_COORDINATE ||
-    Math.abs(y) > MAX_COORDINATE ||
-    Math.abs(width) > MAX_COORDINATE ||
-    Math.abs(height) > MAX_COORDINATE
-  ) {
+  // Sanitize x, y
+  newElement.x = isFiniteNumber(element.x) ? element.x : 0;
+  newElement.y = isFiniteNumber(element.y) ? element.y : 0;
+
+  // Reject element if its base position is out of bounds
+  if (Math.abs(newElement.x) > MAX_COORDINATE || Math.abs(newElement.y) > MAX_COORDINATE) {
+    console.warn("Element position out of bounds, rejecting:", element);
     return null;
   }
 
-  if (Array.isArray(element.points) && !element.points.every(isSafePoint)) {
-    return null;
+  // Sanitize points array if present
+  if (Array.isArray(element.points)) {
+    newElement.points = element.points.filter(isSafePoint);
+    if (newElement.points.length === 0 && element.type === "freedraw") {
+        console.warn("Freedraw element with no safe points, rejecting:", element);
+        return null; // Reject freedraw if it has no valid points
+    }
+  } else if (element.type === "freedraw") {
+       console.warn("Freedraw element without a points array, rejecting:", element);
+       return null; // Freedraw must have points
   }
 
-  return {
-    ...element,
-    x,
-    y,
-    width,
-    height,
-    points: Array.isArray(element.points) ? element.points.filter(isSafePoint) : element.points,
-  };
+
+  // Special handling for width and height:
+  if (element.type === "freedraw") {
+    // If width or height is 0, set to a minimal positive value (e.g., 1)
+    // to give Excalidraw a valid bounding box, if it struggles with 0 values.
+    // Otherwise, ensure they are finite.
+    if (!isFiniteNumber(newElement.width) || newElement.width === 0) {
+      newElement.width = 1; // Or some small positive number
+    }
+    if (!isFiniteNumber(newElement.height) || newElement.height === 0) {
+      newElement.height = 1; // Or some small positive number
+    }
+  } else {
+      // For other elements, ensure width/height are finite and not excessively large
+      if (!isFiniteNumber(newElement.width)) newElement.width = 0;
+      if (!isFiniteNumber(newElement.height)) newElement.height = 0;
+
+      if (Math.abs(newElement.width) > MAX_COORDINATE || Math.abs(newElement.height) > MAX_COORDINATE) {
+          console.warn("Element width/height out of bounds for non-freedraw type, rejecting:", element);
+          return null;
+      }
+  }
+
+  return newElement;
 };
 
 const sanitizeElements = (elements) => {
@@ -124,12 +146,14 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, onSceneChange }) => 
     };
 
     const nextScene = { elements: safeElements, appState: normalizedAppState };
-    onSceneChange?.(nextScene);
+    console.log('WhiteboardPanel: Emitting change to server', nextScene.elements); // ADDED LOG
+    // onSceneChange?.(nextScene); // REMOVED: Parent state should only be updated by server-echoed events
+
     socket.emit("whiteboard-change", {
       roomId,
       ...nextScene,
     });
-  }, [socket, roomId, onSceneChange]);
+  }, [socket, roomId]);
 
   if (!isReady || dimensions.width === 0 || dimensions.height === 0) {
     return (

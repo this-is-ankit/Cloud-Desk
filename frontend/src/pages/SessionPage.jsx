@@ -176,6 +176,7 @@ function SessionPage() {
       });
 
       socket.on("whiteboard-update", ({ elements, appState }) => {
+        console.log('SessionPage: Received whiteboard-update from server', elements); // ADDED LOG
         if (!Array.isArray(elements)) return;
         setWhiteboardScene({ elements, appState: appState || null });
       });

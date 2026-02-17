@@ -48,6 +48,18 @@ const sessionSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    whiteboardElements: { // Array to store Excalidraw elements
+      type: Array,
+      default: [],
+    },
+    whiteboardAppState: { // Object to store Excalidraw appState
+      type: Object,
+      default: {},
+    },
+    whiteboardIsOpen: { // State for whiteboard visibility
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

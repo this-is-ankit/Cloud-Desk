@@ -35,7 +35,7 @@ const io = new Server(httpServer, {
   },
 });
 
-const whiteboardStateByRoom = new Map();
+export const whiteboardStateByRoom = new Map();
 const WHITEBOARD_MAX_COORDINATE = 4000;
 const WHITEBOARD_MAX_ELEMENTS = 2000;
 
@@ -55,32 +55,54 @@ const isSafePoint = (point) => {
 const sanitizeWhiteboardElement = (element) => {
   if (!element || typeof element !== "object") return null;
 
-  const x = isFiniteNumber(element.x) ? element.x : 0;
-  const y = isFiniteNumber(element.y) ? element.y : 0;
-  const width = isFiniteNumber(element.width) ? element.width : 0;
-  const height = isFiniteNumber(element.height) ? element.height : 0;
+  const newElement = { ...element }; // Start with a copy of the original element
 
-  if (
-    Math.abs(x) > WHITEBOARD_MAX_COORDINATE ||
-    Math.abs(y) > WHITEBOARD_MAX_COORDINATE ||
-    Math.abs(width) > WHITEBOARD_MAX_COORDINATE ||
-    Math.abs(height) > WHITEBOARD_MAX_COORDINATE
-  ) {
+  // Sanitize x, y
+  newElement.x = isFiniteNumber(element.x) ? element.x : 0;
+  newElement.y = isFiniteNumber(element.y) ? element.y : 0;
+
+  // Reject element if its base position is out of bounds
+  if (Math.abs(newElement.x) > WHITEBOARD_MAX_COORDINATE || Math.abs(newElement.y) > WHITEBOARD_MAX_COORDINATE) {
+    console.warn("Element position out of bounds, rejecting:", element);
     return null;
   }
 
-  if (Array.isArray(element.points) && !element.points.every(isSafePoint)) {
-    return null;
+  // Sanitize points array if present
+  if (Array.isArray(element.points)) {
+    newElement.points = element.points.filter(isSafePoint);
+    if (newElement.points.length === 0 && element.type === "freedraw") {
+        console.warn("Freedraw element with no safe points, rejecting:", element);
+        return null; // Reject freedraw if it has no valid points
+    }
+  } else if (element.type === "freedraw") {
+       console.warn("Freedraw element without a points array, rejecting:", element);
+       return null; // Freedraw must have points
   }
 
-  return {
-    ...element,
-    x,
-    y,
-    width,
-    height,
-    points: Array.isArray(element.points) ? element.points.filter(isSafePoint) : element.points,
-  };
+
+  // Special handling for width and height:
+  if (element.type === "freedraw") {
+    // If width or height is 0, set to a minimal positive value (e.g., 1)
+    // to give Excalidraw a valid bounding box, if it struggles with 0 values.
+    // Otherwise, ensure they are finite.
+    if (!isFiniteNumber(newElement.width) || newElement.width === 0) {
+      newElement.width = 1; // Or some small positive number
+    }
+    if (!isFiniteNumber(newElement.height) || newElement.height === 0) {
+      newElement.height = 1; // Or some small positive number
+    }
+  } else {
+      // For other elements, ensure width/height are finite and not excessively large
+      if (!isFiniteNumber(newElement.width)) newElement.width = 0;
+      if (!isFiniteNumber(newElement.height)) newElement.height = 0;
+
+      if (Math.abs(newElement.width) > WHITEBOARD_MAX_COORDINATE || Math.abs(newElement.height) > WHITEBOARD_MAX_COORDINATE) {
+          console.warn("Element width/height out of bounds for non-freedraw type, rejecting:", element);
+          return null;
+      }
+  }
+
+  return newElement;
 };
 
 const sanitizeWhiteboardElements = (elements) => {
@@ -120,7 +142,7 @@ io.on("connection", (socket) => {
 
   socket.on("join-session", async (roomId) => {
     try {
-      const session = await Session.findById(roomId);
+      const session = await Session.findById(roomId); // Load session from DB
 
       if (!session) {
         socket.emit("error", { message: "Session not found" });
@@ -145,12 +167,20 @@ io.on("connection", (socket) => {
       socket.join(roomId);
       console.log(`User ${socket.id} (${socket.clerkId}) joined room: ${roomId}`);
 
-      const roomWhiteboardState = whiteboardStateByRoom.get(roomId);
-      if (roomWhiteboardState) {
-        socket.emit("whiteboard-sync", roomWhiteboardState);
-      } else {
-        socket.emit("whiteboard-sync", { isOpen: false, elements: null, appState: null });
+      // Check in-memory cache first
+      let roomWhiteboardState = whiteboardStateByRoom.get(roomId); 
+
+      if (!roomWhiteboardState) {
+        // If not in cache, load from DB
+        roomWhiteboardState = {
+          isOpen: session.whiteboardIsOpen,
+          elements: session.whiteboardElements,
+          appState: session.whiteboardAppState,
+        };
+        whiteboardStateByRoom.set(roomId, roomWhiteboardState); // Cache it
       }
+      
+      socket.emit("whiteboard-sync", roomWhiteboardState);
     } catch (error) {
       socket.emit("error", { message: "Failed to join session" });
     }
@@ -173,22 +203,31 @@ io.on("connection", (socket) => {
   });
 
   // 4. Whiteboard Sync (Add this)
-  socket.on("whiteboard-change", ({ roomId, elements, appState }) => {
+  socket.on("whiteboard-change", async ({ roomId, elements, appState }) => { // Made async
     if (!roomId || !socket.rooms.has(roomId)) return;
     if (!Array.isArray(elements)) return;
+    console.log('Server: Received whiteboard-change from client (before sanitization)', elements);
     const sanitizedElements = sanitizeWhiteboardElements(elements);
+    console.log('Server: Broadcasting whiteboard-update (after sanitization)', sanitizedElements);
 
-    const currentState = whiteboardStateByRoom.get(roomId) || { isOpen: false };
+    // Update in-memory cache
+    const currentState = whiteboardStateByRoom.get(roomId) || { isOpen: false, elements: [], appState: {} }; // Ensure default structure
     whiteboardStateByRoom.set(roomId, {
       ...currentState,
       elements: sanitizedElements,
-      appState: appState || null,
+      appState: appState || {}, // Ensure default empty object
     });
 
-    // Broadcast to everyone else in the room
-    socket.to(roomId).emit("whiteboard-update", {
+    // Save to DB
+    await Session.findByIdAndUpdate(roomId, { 
+      whiteboardElements: sanitizedElements,
+      whiteboardAppState: appState || {},
+    });
+
+    // Broadcast to everyone in the room (including the sender)
+    io.in(roomId).emit("whiteboard-update", {
       elements: sanitizedElements,
-      appState: appState || null,
+      appState: appState || {},
     });
   });
 
@@ -206,6 +245,9 @@ io.on("connection", (socket) => {
         ...currentState,
         isOpen: Boolean(isOpen),
       });
+
+      // Save to DB
+      await Session.findByIdAndUpdate(roomId, { whiteboardIsOpen: Boolean(isOpen) });
 
       io.in(roomId).emit("whiteboard-state", isOpen);
     } catch (error) {
