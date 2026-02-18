@@ -1,4 +1,5 @@
 // Piston API is a service for code execution
+import axiosInstance from "./axios";
 
 const PISTON_API = "https://emkc.org/api/v2/piston";
 
@@ -29,31 +30,37 @@ export async function executeCode(language, code) {
       };
     }
 
-    const response = await fetch(`${PISTON_API}/execute`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        language: languageConfig.language,
-        version: languageConfig.version,
-        files: [
-          {
-            name: `main.${getFileExtension(language)}`,
-            content: code,
-          },
-        ],
-      }),
-    });
+    let data = null;
+    try {
+      const response = await axiosInstance.post("/code/execute", { language, code });
+      data = response.data;
+    } catch {
+      const response = await fetch(`${PISTON_API}/execute`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          language: languageConfig.language,
+          version: languageConfig.version,
+          files: [
+            {
+              name: `main.${getFileExtension(language)}`,
+              content: code,
+            },
+          ],
+        }),
+      });
 
-    if (!response.ok) {
-      return {
-        success: false,
-        error: `HTTP error! status: ${response.status}`,
-      };
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `Execution failed (${response.status}).`,
+        };
+      }
+
+      data = await response.json();
     }
-
-    const data = await response.json();
 
     const output = data.run.output || "";
     const stderr = data.run.stderr || "";

@@ -12,6 +12,7 @@ import { inngest, functions } from "./lib/inngest.js";
 
 import chatRoutes from "./routes/chatRoutes.js";
 import sessionRoutes from "./routes/sessionRoute.js";
+import codeExecutionRoutes from "./routes/codeExecutionRoute.js";
 
 import Session from "./models/Session.js";
 import User from "./models/User.js";
@@ -206,29 +207,32 @@ io.use(async (socket, next) => {
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id, "Clerk ID:", socket.clerkId);
 
+  const getAuthorizedSessionForSocket = async (roomId) => {
+    if (!roomId) return null;
+
+    const session = await Session.findById(roomId).populate("host", "clerkId");
+    if (!session) return null;
+
+    const currentUser = await User.findOne({ clerkId: socket.clerkId }).select("_id");
+    if (!currentUser) return null;
+
+    const mongoUserId = currentUser._id.toString();
+    const isHost = session.host?._id?.toString() === mongoUserId;
+    const isParticipant = session.participants.some((p) => p.toString() === mongoUserId);
+
+    if (!isHost && !isParticipant) return null;
+
+    return { session, isHost };
+  };
+
   socket.on("join-session", async (roomId) => {
     try {
-      const session = await Session.findById(roomId); // Load session from DB
-
-      if (!session) {
-        socket.emit("error", { message: "Session not found" });
-        return;
-      }
-
-      const currentUser = await User.findOne({ clerkId: socket.clerkId }).select("_id");
-      if (!currentUser) {
-        socket.emit("error", { message: "User not found" });
-        return;
-      }
-
-      const mongoUserId = currentUser._id.toString();
-      const isHost = session.host.toString() === mongoUserId;
-      const isParticipant = session.participants.some((p) => p.toString() === mongoUserId);
-
-      if (!isHost && !isParticipant) {
+      const access = await getAuthorizedSessionForSocket(roomId);
+      if (!access?.session) {
         socket.emit("error", { message: "Not authorized to join this session" });
         return;
       }
+      const { session } = access;
 
       socket.join(roomId);
       console.log(`User ${socket.id} (${socket.clerkId}) joined room: ${roomId}`);
@@ -252,19 +256,26 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("join-session-guest", (roomId) => {
-    socket.join(roomId);
-    console.log(`Guest user ${socket.id} joined room: ${roomId}`);
+  socket.on("join-session-guest", () => {
+    socket.emit("error", { message: "Guest join is not supported" });
   });
 
   // 2. Handle Code Changes
-  socket.on("code-change", ({ roomId, code }) => {
+  socket.on("code-change", async ({ roomId, code }) => {
+    if (!roomId || !socket.rooms.has(roomId) || typeof code !== "string") return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access) return;
+
     // Broadcast to everyone in the room EXCEPT the sender
     socket.to(roomId).emit("code-update", code);
   });
 
   // 3. Handle Language Changes (Optional but recommended)
-  socket.on("language-change", ({ roomId, language }) => {
+  socket.on("language-change", async ({ roomId, language }) => {
+    if (!roomId || !socket.rooms.has(roomId) || typeof language !== "string") return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access) return;
+
     socket.to(roomId).emit("language-update", language);
   });
 
@@ -272,6 +283,9 @@ io.on("connection", (socket) => {
   socket.on("whiteboard-change", async ({ roomId, elements, appState }) => { // Made async
     if (!roomId || !socket.rooms.has(roomId)) return;
     if (!Array.isArray(elements)) return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access) return;
+
     const sanitizedElements = sanitizeWhiteboardElements(elements);
 
     // Update in-memory cache
@@ -303,9 +317,8 @@ io.on("connection", (socket) => {
     if (!roomId || !socket.rooms.has(roomId)) return;
 
     try {
-      const session = await Session.findById(roomId).populate("host", "clerkId");
-      if (!session?.host?.clerkId) return;
-      if (session.host.clerkId !== socket.clerkId) return;
+      const access = await getAuthorizedSessionForSocket(roomId);
+      if (!access?.isHost) return;
 
       const currentState = whiteboardStateByRoom.get(roomId) || { elements: null, appState: null };
       whiteboardStateByRoom.set(roomId, {
@@ -362,14 +375,18 @@ io.on("connection", (socket) => {
 
   socket.on("toggle-code-space", async ({ roomId, isOpen }) => {
     try {
+      if (!roomId || !socket.rooms.has(roomId)) return;
+      const access = await getAuthorizedSessionForSocket(roomId);
+      if (!access?.isHost) return;
+
       // 1. Update the "Source of Truth"
-      await Session.findByIdAndUpdate(roomId, { isCodeOpen: isOpen });
+      await Session.findByIdAndUpdate(roomId, { isCodeOpen: Boolean(isOpen) });
 
       // 2. Broadcast the new state to EVERYONE in the room (Host + Participant)
       // We use io.in() instead of socket.to() so the sender (Host) also receives the confirmation event 
       // if you want a single source of truth, or just update local state optimistically.
       // Here we broadcast to everyone so all clients stay in sync.
-      io.in(roomId).emit("code-space-state", isOpen);
+      io.in(roomId).emit("code-space-state", Boolean(isOpen));
       
       console.log(`Room ${roomId} code space toggled to: ${isOpen}`);
     } catch (error) {
@@ -379,15 +396,23 @@ io.on("connection", (socket) => {
 
   socket.on("toggle-anti-cheat", async ({ roomId, isEnabled }) => {
     try {
-      await Session.findByIdAndUpdate(roomId, { isAntiCheatEnabled: isEnabled });
-      io.in(roomId).emit("anti-cheat-update", isEnabled);
+      if (!roomId || !socket.rooms.has(roomId)) return;
+      const access = await getAuthorizedSessionForSocket(roomId);
+      if (!access?.isHost) return;
+
+      await Session.findByIdAndUpdate(roomId, { isAntiCheatEnabled: Boolean(isEnabled) });
+      io.in(roomId).emit("anti-cheat-update", Boolean(isEnabled));
     } catch (error) {
       console.error("Error toggling anti-cheat:", error);
     }
   });
 
   // 5. Handle Cheat Detection
-  socket.on("cheat-detected", ({ roomId, userId, reason }) => {
+  socket.on("cheat-detected", async ({ roomId, userId, reason }) => {
+    if (!roomId || !socket.rooms.has(roomId)) return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access) return;
+
     // Notify the host (or everyone, and let frontend filter)
     // We send to the room so the host receives it
     socket.to(roomId).emit("cheat-alert", { userId, reason });
@@ -401,6 +426,7 @@ io.on("connection", (socket) => {
 app.use("/api/inngest", serve({ client: inngest, functions }));
 app.use("/api/chat", chatRoutes);
 app.use("/api/sessions", sessionRoutes);
+app.use("/api/code", codeExecutionRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({ msg: "api is up and running" });

@@ -10,15 +10,21 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
   const [chatClient, setChatClient] = useState(null);
   const [channel, setChannel] = useState(null);
   const [isInitializingCall, setIsInitializingCall] = useState(true);
+  const callId = session?.callId;
+  const sessionStatus = session?.status;
 
   useEffect(() => {
+    let isMounted = true;
     let videoCall = null;
     let chatClientInstance = null;
 
     const initCall = async () => {
-      if (!session?.callId) return;
-      if (!isHost && !isParticipant) return;
-      if (session.status === "completed") return;
+      if (!callId || !isHost && !isParticipant || sessionStatus === "completed") {
+        setIsInitializingCall(false);
+        return;
+      }
+
+      setIsInitializingCall(true);
 
       try {
         const { token, userId, userName, userImage } = await sessionApi.getStreamToken();
@@ -31,11 +37,13 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
           },
           token
         );
+        if (!isMounted) return;
 
         setStreamClient(client);
 
-        videoCall = client.call("default", session.callId);
+        videoCall = client.call("default", callId);
         await videoCall.join({ create: true });
+        if (!isMounted) return;
         setCall(videoCall);
 
         const apiKey = import.meta.env.VITE_STREAM_API_KEY;
@@ -49,23 +57,28 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
           },
           token
         );
+        if (!isMounted) return;
         setChatClient(chatClientInstance);
 
-        const chatChannel = chatClientInstance.channel("messaging", session.callId);
+        const chatChannel = chatClientInstance.channel("messaging", callId);
         await chatChannel.watch();
+        if (!isMounted) return;
         setChannel(chatChannel);
       } catch (error) {
         toast.error("Failed to join video call");
         console.error("Error init call", error);
       } finally {
-        setIsInitializingCall(false);
+        if (isMounted) {
+          setIsInitializingCall(false);
+        }
       }
     };
 
-    if (session && !loadingSession) initCall();
+    if (!loadingSession) initCall();
 
     // cleanup - performance reasons
     return () => {
+      isMounted = false;
       // iife
       (async () => {
         try {
@@ -77,7 +90,7 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
         }
       })();
     };
-  }, [session, loadingSession, isHost, isParticipant]);
+  }, [callId, sessionStatus, loadingSession, isHost, isParticipant]);
 
   return {
     streamClient,

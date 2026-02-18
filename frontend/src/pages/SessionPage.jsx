@@ -47,7 +47,8 @@ function SessionPage() {
   const [whiteboardScene, setWhiteboardScene] = useState(null);
 
   const socketRef = useRef(null);
-  const [wasParticipant] = useState(false);
+  const wasParticipantRef = useRef(false);
+  const initializedSessionRef = useRef(null);
 
   const {
     data: sessionData,
@@ -69,11 +70,16 @@ function SessionPage() {
 
   // --- FIX: Live Reference for Host Status ---
   const isHostRef = useRef(isHost);
+  const isParticipantRef = useRef(isParticipant);
 
   // Keep the ref updated whenever isHost changes (e.g. after session loads)
   useEffect(() => {
     isHostRef.current = isHost;
   }, [isHost]);
+
+  useEffect(() => {
+    isParticipantRef.current = isParticipant;
+  }, [isParticipant]);
 
   const { call, channel, chatClient, streamClient } = useStreamClient(
     session,
@@ -107,6 +113,8 @@ function SessionPage() {
 
   useEffect(() => {
     setWhiteboardScene(null);
+    wasParticipantRef.current = false;
+    initializedSessionRef.current = null;
   }, [id]);
 
   useEffect(() => {
@@ -128,8 +136,21 @@ function SessionPage() {
       socketRef.current = socket;
 
       socket.on("error", (error) => {
+        if (
+          error?.message === "Not authorized to join this session" &&
+          !isHostRef.current &&
+          !isParticipantRef.current
+        ) {
+          return;
+        }
         console.error("Socket error:", error.message);
         toast.error(error.message);
+      });
+
+      socket.on("connect", () => {
+        if (isHostRef.current || isParticipantRef.current) {
+          socket.emit("join-session", id);
+        }
       });
 
       socket.on("code-update", (newCode) => {
@@ -183,7 +204,6 @@ function SessionPage() {
         }
       });
 
-      socket.emit("join-session", id);
     };
 
     connectSocket();
@@ -196,6 +216,12 @@ function SessionPage() {
       socketRef.current = null;
     };
   }, [id, getToken, user?.id]);
+
+  useEffect(() => {
+    if (!id || !socketRef.current) return;
+    if (!isHost && !isParticipant) return;
+    socketRef.current.emit("join-session", id);
+  }, [id, isHost, isParticipant]);
 
   useEffect(() => {
     if (session?.isCodeOpen !== undefined) setIsCodeOpen(session.isCodeOpen);
@@ -237,7 +263,7 @@ function SessionPage() {
     };
   }, [isParticipant, isAntiCheatEnabled, id, user?.id]);
 
-  const handleCodeChange = (newCode) => {
+  const handleCodeChange = (newCode = "") => {
     setCode(newCode);
     if (!socketRef.current) return;
     socketRef.current.emit("code-change", { roomId: id, code: newCode });
@@ -276,11 +302,16 @@ function SessionPage() {
   };
 
   useEffect(() => {
-    if (wasParticipant && !isParticipant && !isHost) {
+    if (isParticipant) {
+      wasParticipantRef.current = true;
+      return;
+    }
+
+    if (wasParticipantRef.current && !isHost) {
       navigate("/dashboard");
       toast.error("You have been kicked from the session.");
     }
-  }, [wasParticipant, isParticipant, isHost, navigate]);
+  }, [isParticipant, isHost, navigate]);
 
   useEffect(() => {
     if (!session || loadingSession) return;
@@ -288,11 +319,13 @@ function SessionPage() {
   }, [session, loadingSession, navigate]);
 
   useEffect(() => {
-    if (session?.language) {
-      setSelectedLanguage(session.language);
-      setCode(`// Start coding in ${session.language}...`);
-    }
-  }, [session]);
+    if (!id || !session?.language) return;
+    if (initializedSessionRef.current === id) return;
+
+    initializedSessionRef.current = id;
+    setSelectedLanguage(session.language);
+    setCode(`// Start coding in ${session.language}...`);
+  }, [id, session?.language]);
 
   const handleRunCode = async () => {
     setIsRunning(true);
@@ -414,6 +447,7 @@ function SessionPage() {
                 onClick={() => {
                   const newState = !isAntiCheatEnabled;
                   setIsAntiCheatEnabled(newState);
+                  if (!socketRef.current) return;
                   socketRef.current.emit("toggle-anti-cheat", {
                     roomId: id,
                     isEnabled: newState,
