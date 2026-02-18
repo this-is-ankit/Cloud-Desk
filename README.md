@@ -1,58 +1,120 @@
 # Cloud Desk
 
-**Cloud Desk** is a real-time collaborative coding platform designed to streamline technical interviews and pair programming sessions. It combines video conferencing, instant messaging, and a live code execution environment into a single, cohesive application.
+Cloud Desk is a full-stack collaborative coding platform for interviews and pair-programming.
+It combines:
+- live video + chat (Stream),
+- synchronized code editor (Monaco + Socket.IO),
+- synchronized whiteboard (Excalidraw + Socket.IO),
+- coding practice mode with code execution (Piston API).
 
-## 🚀 Features
-
-* **Collaborative Coding Sessions:** Create and join live coding sessions tailored to specific algorithm problems.
-* **Real-time Communication:** Integrated video calling and chat functionality powered by **GetStream** (Stream Video & Chat SDKs).
-* **Live Code Execution:** Write and run code in multiple languages (JavaScript, Python, Java) directly in the browser using the **Piston API**.
-* **Problem Library:** Built-in collection of standard data structure and algorithm problems (e.g., Two Sum, Reverse String) with descriptions, examples, and test cases.
-* **Authentication & User Management:** Secure sign-up and login via **Clerk**. User data is automatically synced to the database and Stream services.
-* **Dashboard:** View active sessions, track recent history, and browse available coding problems.
-* **Background Event Processing:** Uses **Inngest** to handle asynchronous events like user synchronization between Clerk and the internal database.
-
-## 🛠️ Tech Stack
-
-### Frontend
-* **Framework:** React (Vite)
-* **Styling:** TailwindCSS, DaisyUI
-* **State Management:** React Query (`@tanstack/react-query`)
-* **Code Editor:** `@monaco-editor/react`
-* **Real-time/Media:** `@stream-io/video-react-sdk`, `stream-chat-react`
-* **Routing:** React Router
-
-### Backend
-* **Runtime:** Node.js
-* **Framework:** Express.js
-* **Database:** MongoDB (via Mongoose)
-* **Authentication:** Clerk (`@clerk/express`)
-* **Event Driven:** Inngest (for webhooks and background jobs)
-* **Video/Chat Backend:** Stream Node SDK
-
-## 📂 Project Structure
-
-The project is organized as a monorepo with distinct frontend and backend directories.
+## Monorepo Structure
 
 ```text
-root
-├── backend/            # Express server and API logic
-│   ├── src/
-│   │   ├── controllers/  # Logic for chats and sessions
-│   │   ├── lib/          # DB connection, Stream client, Inngest setup
-│   │   ├── models/       # Mongoose schemas (User, Session)
-│   │   ├── routes/       # API endpoints
-│   │   └── server.js     # Entry point
-│   └── package.json
-│
-├── frontend/           # React client application
-│   ├── src/
-│   │   ├── api/          # Axios setup
-│   │   ├── components/   # UI Components (VideoCallUI, CodeEditor, etc.)
-│   │   ├── data/         # Static problem definitions
-│   │   ├── lib/          # Helper functions (Piston execution logic)
-│   │   ├── pages/        # Route pages (Dashboard, ProblemPage, etc.)
-│   │   └── App.jsx
-│   └── package.json
-│
-└── package.json        # Root scripts for build automation
+Cloud-Desk/
+├── backend/      # Express + MongoDB + Socket.IO + Clerk + Stream
+├── frontend/     # React (Vite) + Clerk + Stream UI + Monaco + Excalidraw
+├── README.md
+├── Project.md
+├── ISSUES.md
+├── TODO.md
+└── NEXT.md
+```
+
+## Tech Stack
+
+### Frontend
+- React + Vite
+- React Router
+- TanStack Query
+- Clerk (`@clerk/clerk-react`)
+- Stream Video/Chat SDKs
+- Monaco Editor
+- Excalidraw
+- TailwindCSS + DaisyUI
+
+### Backend
+- Node.js + Express
+- MongoDB + Mongoose
+- Socket.IO
+- Clerk (`@clerk/express`)
+- Stream Node SDK
+- Inngest
+
+## Current Features
+
+- Create coding sessions (`one-on-one` and `group`).
+- Join sessions using session id + access code.
+- Host controls: end session, kick participant, toggle whiteboard/code space, anti-cheat mode.
+- Real-time synchronization:
+  - editor code + language,
+  - whiteboard state + scene,
+  - whiteboard/code-space visibility,
+  - anti-cheat alerts.
+- Session auto-completion when room becomes empty.
+- Practice page with built-in problems and code execution.
+
+## API Summary
+
+Base path: `/api`
+
+- `GET /health`
+- `GET /chat/token`
+- `POST /sessions`
+- `GET /sessions/active`
+- `GET /sessions/my-recent`
+- `GET /sessions/:id`
+- `POST /sessions/:id/join`
+- `POST /sessions/:id/end`
+- `POST /sessions/:id/kick`
+
+## Socket Events
+
+- Client -> server:
+  - `join-session`
+  - `code-change`
+  - `language-change`
+  - `whiteboard-change`
+  - `toggle-whiteboard`
+  - `toggle-code-space`
+  - `toggle-anti-cheat`
+  - `cheat-detected`
+- Server -> client:
+  - `code-update`
+  - `language-update`
+  - `whiteboard-sync`
+  - `whiteboard-update`
+  - `whiteboard-state`
+  - `code-space-state`
+  - `anti-cheat-update`
+  - `cheat-alert`
+
+## Local Development
+
+1. Install dependencies:
+```bash
+npm install
+npm install --prefix backend
+npm install --prefix frontend
+```
+
+2. Start backend:
+```bash
+npm run dev --prefix backend
+```
+
+3. Start frontend:
+```bash
+npm run dev --prefix frontend
+```
+
+4. Quality checks:
+```bash
+npm run lint --prefix frontend
+npm run build --prefix frontend
+```
+
+## Status (2026-02-18)
+
+- Whiteboard free-draw persistence bug is fixed.
+- Frontend lint/build pass.
+- Remaining engineering risks are tracked in `ISSUES.md` and `TODO.md`.
