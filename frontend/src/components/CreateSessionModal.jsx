@@ -67,7 +67,12 @@ function CreateSessionModal({ isOpen, onClose, onCreateRoom, isCreating }) {
                 max="20"
                 className="input input-bordered w-full"
                 value={maxParticipants}
-                onChange={(e) => setMaxParticipants(parseInt(e.target.value))}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value);
+                  if (!isNaN(value) && value >= 2 && value <= 20) {
+                    setMaxParticipants(value);
+                  }
+                }}
               />
             </div>
           )}

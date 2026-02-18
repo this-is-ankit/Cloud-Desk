@@ -1,7 +1,10 @@
-import { useUser } from "@clerk/clerk-react";
+import { useUser, useAuth } from "@clerk/clerk-react";
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router";
 import io from "socket.io-client";
+import { PresentationIcon } from "lucide-react";
+import WhiteboardPanel from "../components/WhiteboardPanel";
+import WhiteboardErrorBoundary from "../components/WhiteboardErrorBoundary";
 import {
   useEndSession,
   useJoinSession,
@@ -14,7 +17,6 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
   Loader2Icon,
   LogOutIcon,
-  PhoneOffIcon,
   KeyIcon,
   UserMinusIcon,
   CodeIcon,
@@ -34,15 +36,18 @@ function SessionPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useUser();
+  const { getToken } = useAuth();
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const [accessCode, setAccessCode] = useState("");
 
   const [isCodeOpen, setIsCodeOpen] = useState(false);
   const [isAntiCheatEnabled, setIsAntiCheatEnabled] = useState(false);
+  const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
+  const [whiteboardScene, setWhiteboardScene] = useState(null);
 
   const socketRef = useRef(null);
-  const [wasParticipant, setWasParticipant] = useState(false);
+  const [wasParticipant] = useState(false);
 
   const {
     data: sessionData,
@@ -55,90 +60,147 @@ function SessionPage() {
   const kickParticipantMutation = useKickParticipant();
 
   const session = sessionData?.session;
-  
+
   // Calculate roles
   const isHost = session?.host?.clerkId === user?.id;
-  const isParticipant = session?.participants?.some(p => p.clerkId === user?.id);
+  const isParticipant = session?.participants?.some(
+    (p) => p.clerkId === user?.id
+  );
 
   // --- FIX: Live Reference for Host Status ---
   const isHostRef = useRef(isHost);
-  
+
   // Keep the ref updated whenever isHost changes (e.g. after session loads)
   useEffect(() => {
     isHostRef.current = isHost;
   }, [isHost]);
 
-  const { call, channel, chatClient, isInitializingCall, streamClient } =
-    useStreamClient(session, loadingSession, isHost, isParticipant);
+  const { call, channel, chatClient, streamClient } = useStreamClient(
+    session,
+    loadingSession,
+    isHost,
+    isParticipant
+  );
 
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
   const [code, setCode] = useState("");
 
+  const codePanelDefaultSize = isWhiteboardOpen ? 30 : 60;
+  const whiteboardPanelDefaultSize = isCodeOpen ? 30 : 60;
+  const videoPanelDefaultSize = isCodeOpen || isWhiteboardOpen ? 40 : 100;
+
+  const panelGroupRef = useRef(null);
+
+  // New useEffect to reset layout when panel visibility changes
+  /*
   useEffect(() => {
-    const socketURL =
-      import.meta.env.MODE === "development" ? "http://localhost:3000" : "/";
-
-    socketRef.current = io(socketURL);
-
-    if (id) {
-      socketRef.current.emit("join-session", id);
+    if (panelGroupRef.current) {
+      // Small delay to allow DOM updates to settle
+      const timeoutId = setTimeout(() => {
+        panelGroupRef.current.resetLayout();
+        console.log("PanelGroup layout reset triggered.");
+      }, 50); 
+      return () => clearTimeout(timeoutId);
     }
+  }, [isCodeOpen, isWhiteboardOpen]); // Trigger when these change
+  */
 
-    socketRef.current.on("code-update", (newCode) => {
-      setCode((prevCode) => {
-        if (prevCode !== newCode) return newCode;
-        return prevCode;
+  useEffect(() => {
+    setWhiteboardScene(null);
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+
+    let isActive = true;
+    let socket = null;
+
+    const connectSocket = async () => {
+      const socketURL =
+        import.meta.env.MODE === "development" ? "http://localhost:3000" : "/";
+
+      const token = await getToken();
+      if (!token || !isActive) return;
+
+      socket = io(socketURL, {
+        auth: { token },
       });
-    });
+      socketRef.current = socket;
 
-    socketRef.current.on("language-update", (newLang) => {
-      setSelectedLanguage(newLang);
-    });
-
-    socketRef.current.on("code-space-state", (isOpen) => {
-      setIsCodeOpen(isOpen);
-    });
-
-    socketRef.current.on("anti-cheat-update", (isEnabled) => {
-      setIsAntiCheatEnabled(isEnabled);
-      if (isEnabled) {
-        toast("Anti-Cheat mode enabled by host.", { icon: "🛡️" });
-      } else {
-        toast("Anti-Cheat mode disabled.");
-      }
-    });
-
-    // --- FIX: Anti-Cheat Listener with Debugging ---
-    socketRef.current.on("cheat-alert", ({ userId, reason }) => {
-      const amIHost = isHostRef.current;
-      
-      // Console log for debugging
-      console.log("⚠️ Cheat Alert Received:", { 
-        alertUserId: userId, 
-        myUserId: user?.id, 
-        amIHost, 
-        reason 
+      socket.on("error", (error) => {
+        console.error("Socket error:", error.message);
+        toast.error(error.message);
       });
 
-      if (amIHost) {
-        toast.error(
-          `⚠️ Candidate Warning: ${
-            reason === "tab-switch"
-              ? "Switched Tab"
-              : "Window Minimized/Blurred"
-          }`
-        );
-      }
-    });
+      socket.on("code-update", (newCode) => {
+        setCode((prevCode) => {
+          if (prevCode !== newCode) return newCode;
+          return prevCode;
+        });
+      });
+
+      socket.on("language-update", (newLang) => {
+        setSelectedLanguage(newLang);
+      });
+
+      socket.on("code-space-state", (isOpen) => {
+        setIsCodeOpen(isOpen);
+      });
+
+      socket.on("whiteboard-state", (isOpen) => {
+        setIsWhiteboardOpen(Boolean(isOpen));
+      });
+
+      socket.on("whiteboard-update", ({ elements, appState, senderSocketId }) => {
+        if (senderSocketId && senderSocketId === socket.id) return;
+        if (!Array.isArray(elements)) return;
+        setWhiteboardScene({ elements, appState: appState || null });
+      });
+
+      socket.on("whiteboard-sync", ({ isOpen, elements, appState }) => {
+        setIsWhiteboardOpen(Boolean(isOpen));
+        if (!Array.isArray(elements)) return;
+        setWhiteboardScene({ elements, appState: appState || null });
+      });
+
+      socket.on("anti-cheat-update", (isEnabled) => {
+        setIsAntiCheatEnabled(isEnabled);
+        if (isEnabled) {
+          toast("Anti-Cheat mode enabled by host.", { icon: "🛡️" });
+        } else {
+          toast("Anti-Cheat mode disabled.");
+        }
+      });
+
+      socket.on("cheat-alert", ({ reason }) => {
+        const amIHost = isHostRef.current;
+        if (amIHost) {
+          toast.error(
+            `⚠️ Candidate Warning: ${
+              reason === "tab-switch" ? "Switched Tab" : "Window Minimized/Blurred"
+            }`
+          );
+        }
+      });
+
+      socket.emit("join-session", id);
+    };
+
+    connectSocket();
 
     return () => {
-      socketRef.current.disconnect();
+      isActive = false;
+      if (socket) {
+        socket.disconnect();
+      }
+      socketRef.current = null;
     };
-  }, [id]); // This effect runs only once on mount (per ID)
+  }, [id, getToken, user?.id]);
 
   useEffect(() => {
     if (session?.isCodeOpen !== undefined) setIsCodeOpen(session.isCodeOpen);
-    if (session?.isAntiCheatEnabled !== undefined) setIsAntiCheatEnabled(session.isAntiCheatEnabled);
+    if (session?.isAntiCheatEnabled !== undefined)
+      setIsAntiCheatEnabled(session.isAntiCheatEnabled);
   }, [session]);
 
   // --- Candidate Detection Logic ---
@@ -147,6 +209,7 @@ function SessionPage() {
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
+        if (!socketRef.current) return;
         socketRef.current.emit("cheat-detected", {
           roomId: id,
           userId: user.id,
@@ -157,6 +220,7 @@ function SessionPage() {
     };
 
     const handleBlur = () => {
+      if (!socketRef.current) return;
       socketRef.current.emit("cheat-detected", {
         roomId: id,
         userId: user.id,
@@ -175,6 +239,7 @@ function SessionPage() {
 
   const handleCodeChange = (newCode) => {
     setCode(newCode);
+    if (!socketRef.current) return;
     socketRef.current.emit("code-change", { roomId: id, code: newCode });
   };
 
@@ -182,6 +247,7 @@ function SessionPage() {
     const newLang = e.target.value;
     setSelectedLanguage(newLang);
     setOutput(null);
+    if (!socketRef.current) return;
     socketRef.current.emit("language-change", {
       roomId: id,
       language: newLang,
@@ -191,15 +257,23 @@ function SessionPage() {
   const toggleCodeSpace = () => {
     const newState = !isCodeOpen;
     setIsCodeOpen(newState);
+    if (!socketRef.current) return;
     socketRef.current.emit("toggle-code-space", {
       roomId: id,
       isOpen: newState,
     });
   };
 
-  useEffect(() => {
-    if (isParticipant) setWasParticipant(true);
-  }, [isParticipant]);
+  const toggleWhiteboard = () => {
+    const newState = !isWhiteboardOpen;
+    setIsWhiteboardOpen(newState);
+    if (isHost && socketRef.current) {
+      socketRef.current.emit("toggle-whiteboard", {
+        roomId: id,
+        isOpen: newState,
+      });
+    }
+  };
 
   useEffect(() => {
     if (wasParticipant && !isParticipant && !isHost) {
@@ -207,10 +281,6 @@ function SessionPage() {
       toast.error("You have been kicked from the session.");
     }
   }, [wasParticipant, isParticipant, isHost, navigate]);
-
-  useEffect(() => {
-    if (!session || !user || loadingSession) return;
-  }, [session, user, loadingSession, isHost, isParticipant]);
 
   useEffect(() => {
     if (!session || loadingSession) return;
@@ -291,7 +361,9 @@ function SessionPage() {
                       placeholder="Access Code"
                       className="input input-bordered w-full pl-10 font-mono uppercase"
                       value={accessCode}
-                      onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                      onChange={(e) =>
+                        setAccessCode(e.target.value.toUpperCase())
+                      }
                       required
                     />
                   </div>
@@ -321,7 +393,10 @@ function SessionPage() {
               <span>Host: {session?.host?.name}</span>
               <span>•</span>
               {/* UPDATED: Show count of participants */}
-              <span>Participants: {session?.participants?.length || 0} / {session?.maxParticipants}</span>
+              <span>
+                Participants: {session?.participants?.length || 0} /{" "}
+                {session?.maxParticipants}
+              </span>
               {isHost && (
                 <>
                   <span>•</span>
@@ -348,7 +423,11 @@ function SessionPage() {
                   isAntiCheatEnabled ? "btn-warning" : "btn-ghost"
                 }`}
               >
-                {isAntiCheatEnabled ? <ShieldAlertIcon className="w-4 h-4"/> : <ShieldCheckIcon className="w-4 h-4"/>}
+                {isAntiCheatEnabled ? (
+                  <ShieldAlertIcon className="w-4 h-4" />
+                ) : (
+                  <ShieldCheckIcon className="w-4 h-4" />
+                )}
                 {isAntiCheatEnabled ? "Monitor On" : "Monitor Off"}
               </button>
 
@@ -358,25 +437,51 @@ function SessionPage() {
                   isCodeOpen ? "btn-ghost" : "btn-primary"
                 }`}
               >
-                {isCodeOpen ? <EyeOffIcon className="w-4 h-4"/> : <CodeIcon className="w-4 h-4"/>}
+                {isCodeOpen ? (
+                  <EyeOffIcon className="w-4 h-4" />
+                ) : (
+                  <CodeIcon className="w-4 h-4" />
+                )}
                 {isCodeOpen ? "Close Code" : "Start Coding"}
               </button>
 
+              {/* NEW: Whiteboard Toggle Button */}
+              <button
+                onClick={toggleWhiteboard}
+                className={`btn btn-sm gap-2 ${
+                  isWhiteboardOpen ? "btn-secondary" : "btn-ghost"
+                }`}
+              >
+                <PresentationIcon className="w-4 h-4" />
+                {isWhiteboardOpen ? "Close Board" : "Whiteboard"}
+              </button>
+
               {session?.participants?.length > 0 && (
-                 <div className="dropdown dropdown-end">
-                    <label tabIndex={0} className="btn btn-ghost btn-sm text-error">
-                       <UserMinusIcon className="w-4 h-4" />
-                    </label>
-                    <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-52">
-                       {session.participants.map(p => (
-                         <li key={p._id}>
-                           <button onClick={() => handleKickParticipant(p._id)}>Kick {p.name}</button>
-                         </li>
-                       ))}
-                    </ul>
-                 </div>
+                <div className="dropdown dropdown-end">
+                  <label
+                    tabIndex={0}
+                    className="btn btn-ghost btn-sm text-error"
+                  >
+                    <UserMinusIcon className="w-4 h-4" />
+                  </label>
+                  <ul
+                    tabIndex={0}
+                    className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-52"
+                  >
+                    {session.participants.map((p) => (
+                      <li key={p._id}>
+                        <button onClick={() => handleKickParticipant(p._id)}>
+                          Kick {p.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
-              <button onClick={handleEndSession} className="btn btn-error btn-sm gap-2">
+              <button
+                onClick={handleEndSession}
+                className="btn btn-error btn-sm gap-2"
+              >
                 <LogOutIcon className="w-4 h-4" /> End
               </button>
             </div>
@@ -384,11 +489,11 @@ function SessionPage() {
         </div>
 
         <div className="flex-1 overflow-hidden relative">
-          <PanelGroup direction="horizontal">
+          <PanelGroup ref={panelGroupRef} direction="horizontal">
             {isCodeOpen && (
               <>
                 {/* --- FIX: Added id and order --- */}
-                <Panel id="code-panel" order={1} defaultSize={50} minSize={30}>
+                <Panel id="code-panel" order={1} defaultSize={codePanelDefaultSize} minSize={20}>
                   <div className="h-full flex flex-col">
                     <div className="flex-1 overflow-hidden">
                       <PanelGroup direction="vertical">
@@ -414,20 +519,44 @@ function SessionPage() {
               </>
             )}
 
+            {/* NEW: Whiteboard Panel */}
+            {isWhiteboardOpen && (
+              <>
+                <Panel id="whiteboard-panel" order={2} defaultSize={whiteboardPanelDefaultSize} minSize={20}>
+                  <WhiteboardErrorBoundary>
+                    <div className="h-full w-full relative">
+                      <WhiteboardPanel
+                        roomId={id}
+                        socket={socketRef.current}
+                        userName={user?.fullName || "User"}
+                        scene={whiteboardScene}
+                      />
+                    </div>
+                  </WhiteboardErrorBoundary>
+                </Panel>
+                <PanelResizeHandle className="w-2 bg-base-300 hover:bg-primary transition-colors cursor-col-resize" />
+              </>
+            )}
+
             {/* --- FIX: Added id and order --- */}
-            <Panel id="video-panel" order={2} defaultSize={isCodeOpen ? 50 : 100} minSize={30}>
+            <Panel
+              id="video-panel"
+              order={3}
+              defaultSize={videoPanelDefaultSize}
+              minSize={20}
+            >
               <div className="h-full bg-base-200 p-4 overflow-auto">
                 {!streamClient || !call ? (
-                   <div className="h-full flex items-center justify-center">
-                     <Loader2Icon className="animate-spin size-10 text-primary" />
-                   </div>
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2Icon className="animate-spin size-10 text-primary" />
+                  </div>
                 ) : (
                   <StreamVideo client={streamClient}>
                     <StreamCall call={call}>
-                      <VideoCallUI 
-                        chatClient={chatClient} 
-                        channel={channel} 
-                        participants={session?.participants} 
+                      <VideoCallUI
+                        chatClient={chatClient}
+                        channel={channel}
+                        participants={session?.participants}
                       />
                     </StreamCall>
                   </StreamVideo>
