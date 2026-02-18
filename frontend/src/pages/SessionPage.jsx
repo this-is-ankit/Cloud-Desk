@@ -91,33 +91,8 @@ function SessionPage() {
 
   const panelGroupRef = useRef(null);
 
-  const whiteboardContainerRef = useRef(null);
-
-  // New useEffect to observe whiteboard container dimensions
-  useEffect(() => {
-    const observer = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        const { width, height } = entry.contentRect;
-        console.log(`Whiteboard Container dimensions: Width=${width}, Height=${height}`);
-        // Add a check for problematic dimensions
-        // Typical browser max canvas size is 32767x32767, but Excalidraw might be more restrictive.
-        // A width/height of 0 or excessively large values (e.g., above 10000) are likely problematic.
-        if (width <= 0 || height <= 0 || width > 10000 || height > 10000) { 
-          console.error(`!!!! Whiteboard Container has problematic dimensions: Width=${width}, Height=${height}`);
-        }
-      }
-    });
-
-    if (whiteboardContainerRef.current) {
-      observer.observe(whiteboardContainerRef.current);
-    }
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [isWhiteboardOpen]);
-
   // New useEffect to reset layout when panel visibility changes
+  /*
   useEffect(() => {
     if (panelGroupRef.current) {
       // Small delay to allow DOM updates to settle
@@ -128,6 +103,7 @@ function SessionPage() {
       return () => clearTimeout(timeoutId);
     }
   }, [isCodeOpen, isWhiteboardOpen]); // Trigger when these change
+  */
 
   useEffect(() => {
     setWhiteboardScene(null);
@@ -175,8 +151,8 @@ function SessionPage() {
         setIsWhiteboardOpen(Boolean(isOpen));
       });
 
-      socket.on("whiteboard-update", ({ elements, appState }) => {
-        console.log('SessionPage: Received whiteboard-update from server', elements); // ADDED LOG
+      socket.on("whiteboard-update", ({ elements, appState, senderSocketId }) => {
+        if (senderSocketId && senderSocketId === socket.id) return;
         if (!Array.isArray(elements)) return;
         setWhiteboardScene({ elements, appState: appState || null });
       });
@@ -548,15 +524,15 @@ function SessionPage() {
               <>
                 <Panel id="whiteboard-panel" order={2} defaultSize={whiteboardPanelDefaultSize} minSize={20}>
                   <WhiteboardErrorBoundary>
-                                      <div ref={whiteboardContainerRef} className="h-full w-full relative">
-                                        <WhiteboardPanel
-                                          roomId={id}
-                                          socket={socketRef.current}
-                                          userName={user?.fullName || "User"}
-                                          scene={whiteboardScene}
-                                          onSceneChange={setWhiteboardScene}
-                                        />
-                                      </div>                  </WhiteboardErrorBoundary>
+                    <div className="h-full w-full relative">
+                      <WhiteboardPanel
+                        roomId={id}
+                        socket={socketRef.current}
+                        userName={user?.fullName || "User"}
+                        scene={whiteboardScene}
+                      />
+                    </div>
+                  </WhiteboardErrorBoundary>
                 </Panel>
                 <PanelResizeHandle className="w-2 bg-base-300 hover:bg-primary transition-colors cursor-col-resize" />
               </>

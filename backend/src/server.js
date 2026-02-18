@@ -55,7 +55,7 @@ const isSafePoint = (point) => {
 const sanitizeWhiteboardElement = (element) => {
   if (!element || typeof element !== "object") return null;
 
-  const newElement = { ...element }; // Start with a copy of the original element
+  const newElement = { ...element };
 
   // Sanitize x, y
   newElement.x = isFiniteNumber(element.x) ? element.x : 0;
@@ -80,26 +80,24 @@ const sanitizeWhiteboardElement = (element) => {
   }
 
 
-  // Special handling for width and height:
+  // Keep freedraw geometry untouched. Excalidraw stores points relative to the
+  // element origin, so recomputing bounds here can break strokes.
   if (element.type === "freedraw") {
-    // If width or height is 0, set to a minimal positive value (e.g., 1)
-    // to give Excalidraw a valid bounding box, if it struggles with 0 values.
-    // Otherwise, ensure they are finite.
-    if (!isFiniteNumber(newElement.width) || newElement.width === 0) {
-      newElement.width = 1; // Or some small positive number
+    if (!newElement.points || newElement.points.length === 0) {
+      console.warn("Freedraw element with invalid or empty points array after sanitization, rejecting:", element);
+      return null;
     }
-    if (!isFiniteNumber(newElement.height) || newElement.height === 0) {
-      newElement.height = 1; // Or some small positive number
-    }
+    if (!isFiniteNumber(newElement.width)) newElement.width = 0;
+    if (!isFiniteNumber(newElement.height)) newElement.height = 0;
   } else {
-      // For other elements, ensure width/height are finite and not excessively large
-      if (!isFiniteNumber(newElement.width)) newElement.width = 0;
-      if (!isFiniteNumber(newElement.height)) newElement.height = 0;
+    // For other elements, ensure width/height are finite and not excessively large
+    if (!isFiniteNumber(newElement.width)) newElement.width = 0;
+    if (!isFiniteNumber(newElement.height)) newElement.height = 0;
 
-      if (Math.abs(newElement.width) > WHITEBOARD_MAX_COORDINATE || Math.abs(newElement.height) > WHITEBOARD_MAX_COORDINATE) {
-          console.warn("Element width/height out of bounds for non-freedraw type, rejecting:", element);
-          return null;
-      }
+    if (Math.abs(newElement.width) > WHITEBOARD_MAX_COORDINATE || Math.abs(newElement.height) > WHITEBOARD_MAX_COORDINATE) {
+      console.warn("Element width/height out of bounds for non-freedraw type, rejecting:", element);
+      return null;
+    }
   }
 
   return newElement;
@@ -111,6 +109,74 @@ const sanitizeWhiteboardElements = (elements) => {
     .slice(0, WHITEBOARD_MAX_ELEMENTS)
     .map(sanitizeWhiteboardElement)
     .filter(Boolean);
+};
+
+const getElementVersion = (element) => {
+  if (!element || typeof element !== "object") return 0;
+  return Number.isFinite(element.version) ? element.version : 0;
+};
+
+const getElementUpdated = (element) => {
+  if (!element || typeof element !== "object") return 0;
+  return Number.isFinite(element.updated) ? element.updated : 0;
+};
+
+const isIncomingElementNewer = (incoming, current) => {
+  const incomingVersion = getElementVersion(incoming);
+  const currentVersion = getElementVersion(current);
+  if (incomingVersion !== currentVersion) {
+    return incomingVersion > currentVersion;
+  }
+
+  const incomingUpdated = getElementUpdated(incoming);
+  const currentUpdated = getElementUpdated(current);
+  if (incomingUpdated !== currentUpdated) {
+    return incomingUpdated > currentUpdated;
+  }
+
+  return true;
+};
+
+const mergeWhiteboardElementsByVersion = (currentElements, incomingElements) => {
+  const current = Array.isArray(currentElements) ? currentElements : [];
+  const incoming = Array.isArray(incomingElements) ? incomingElements : [];
+
+  const mergedById = new Map();
+  for (const element of current) {
+    if (element?.id) mergedById.set(element.id, element);
+  }
+
+  for (const incomingElement of incoming) {
+    if (!incomingElement?.id) continue;
+
+    const currentElement = mergedById.get(incomingElement.id);
+    if (!currentElement || isIncomingElementNewer(incomingElement, currentElement)) {
+      mergedById.set(incomingElement.id, incomingElement);
+    }
+  }
+
+  const output = [];
+  const seenIds = new Set();
+
+  for (const element of incoming) {
+    if (!element?.id || seenIds.has(element.id)) continue;
+    const merged = mergedById.get(element.id);
+    if (merged) {
+      output.push(merged);
+      seenIds.add(element.id);
+    }
+  }
+
+  for (const element of current) {
+    if (!element?.id || seenIds.has(element.id)) continue;
+    const merged = mergedById.get(element.id);
+    if (merged) {
+      output.push(merged);
+      seenIds.add(element.id);
+    }
+  }
+
+  return output.slice(0, WHITEBOARD_MAX_ELEMENTS);
 };
 
 io.use(async (socket, next) => {
@@ -206,28 +272,29 @@ io.on("connection", (socket) => {
   socket.on("whiteboard-change", async ({ roomId, elements, appState }) => { // Made async
     if (!roomId || !socket.rooms.has(roomId)) return;
     if (!Array.isArray(elements)) return;
-    console.log('Server: Received whiteboard-change from client (before sanitization)', elements);
     const sanitizedElements = sanitizeWhiteboardElements(elements);
-    console.log('Server: Broadcasting whiteboard-update (after sanitization)', sanitizedElements);
 
     // Update in-memory cache
     const currentState = whiteboardStateByRoom.get(roomId) || { isOpen: false, elements: [], appState: {} }; // Ensure default structure
+    const currentSanitizedElements = sanitizeWhiteboardElements(currentState.elements);
+    const mergedElements = mergeWhiteboardElementsByVersion(currentSanitizedElements, sanitizedElements);
     whiteboardStateByRoom.set(roomId, {
       ...currentState,
-      elements: sanitizedElements,
+      elements: mergedElements,
       appState: appState || {}, // Ensure default empty object
     });
 
     // Save to DB
     await Session.findByIdAndUpdate(roomId, { 
-      whiteboardElements: sanitizedElements,
+      whiteboardElements: mergedElements,
       whiteboardAppState: appState || {},
     });
 
     // Broadcast to everyone in the room (including the sender)
     io.in(roomId).emit("whiteboard-update", {
-      elements: sanitizedElements,
+      elements: mergedElements,
       appState: appState || {},
+      senderSocketId: socket.id,
     });
   });
 

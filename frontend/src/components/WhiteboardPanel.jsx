@@ -27,7 +27,7 @@ const isSafePoint = (point) => {
 const sanitizeElement = (element) => {
   if (!element || typeof element !== "object") return null;
 
-  const newElement = { ...element }; // Start with a copy of the original element
+  const newElement = { ...element };
 
   // Sanitize x, y
   newElement.x = isFiniteNumber(element.x) ? element.x : 0;
@@ -52,26 +52,24 @@ const sanitizeElement = (element) => {
   }
 
 
-  // Special handling for width and height:
+  // Keep freedraw geometry as produced by Excalidraw. Recomputing x/y/width/height
+  // from points can corrupt strokes because points are element-local.
   if (element.type === "freedraw") {
-    // If width or height is 0, set to a minimal positive value (e.g., 1)
-    // to give Excalidraw a valid bounding box, if it struggles with 0 values.
-    // Otherwise, ensure they are finite.
-    if (!isFiniteNumber(newElement.width) || newElement.width === 0) {
-      newElement.width = 1; // Or some small positive number
+    if (!newElement.points || newElement.points.length === 0) {
+      console.warn("Freedraw element with invalid or empty points array after sanitization, rejecting:", element);
+      return null;
     }
-    if (!isFiniteNumber(newElement.height) || newElement.height === 0) {
-      newElement.height = 1; // Or some small positive number
-    }
+    if (!isFiniteNumber(newElement.width)) newElement.width = 0;
+    if (!isFiniteNumber(newElement.height)) newElement.height = 0;
   } else {
-      // For other elements, ensure width/height are finite and not excessively large
-      if (!isFiniteNumber(newElement.width)) newElement.width = 0;
-      if (!isFiniteNumber(newElement.height)) newElement.height = 0;
+    // For other elements, ensure width/height are finite and not excessively large
+    if (!isFiniteNumber(newElement.width)) newElement.width = 0;
+    if (!isFiniteNumber(newElement.height)) newElement.height = 0;
 
-      if (Math.abs(newElement.width) > MAX_COORDINATE || Math.abs(newElement.height) > MAX_COORDINATE) {
-          console.warn("Element width/height out of bounds for non-freedraw type, rejecting:", element);
-          return null;
-      }
+    if (Math.abs(newElement.width) > MAX_COORDINATE || Math.abs(newElement.height) > MAX_COORDINATE) {
+      console.warn("Element width/height out of bounds for non-freedraw type, rejecting:", element);
+      return null;
+    }
   }
 
   return newElement;
@@ -82,12 +80,16 @@ const sanitizeElements = (elements) => {
   return elements.slice(0, MAX_ELEMENTS).map(sanitizeElement).filter(Boolean);
 };
 
-const WhiteboardPanel = ({ roomId, socket, userName, scene, onSceneChange }) => {
+const sceneSignature = (elements = []) =>
+  elements.map((el) => `${el.id}:${el.version}:${el.versionNonce}:${el.isDeleted ? 1 : 0}`).join("|");
+
+const WhiteboardPanel = ({ roomId, socket, userName, scene }) => {
   const [excalidrawAPI, setExcalidrawAPI] = useState(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [isReady, setIsReady] = useState(false);
   const containerRef = useRef(null);
   const isApplyingRemoteScene = useRef(false);
+  const lastLocalSceneSignatureRef = useRef("");
 
   useEffect(() => {
     const container = containerRef.current;
@@ -120,12 +122,19 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, onSceneChange }) => 
     if (!excalidrawAPI || !Array.isArray(scene?.elements)) return;
 
     const safeElements = sanitizeElements(scene.elements);
+    const incomingSignature = sceneSignature(safeElements);
+
+    // Ignore server-echoed state that matches the scene we just emitted locally.
+    if (incomingSignature && incomingSignature === lastLocalSceneSignatureRef.current) {
+      return;
+    }
 
     isApplyingRemoteScene.current = true;
     excalidrawAPI.updateScene({
       elements: safeElements,
       appState: {
         ...SAFE_APP_STATE,
+        ...(scene?.appState || {}),
         collaborators: [],
       },
     });
@@ -146,8 +155,7 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, onSceneChange }) => 
     };
 
     const nextScene = { elements: safeElements, appState: normalizedAppState };
-    console.log('WhiteboardPanel: Emitting change to server', nextScene.elements); // ADDED LOG
-    // onSceneChange?.(nextScene); // REMOVED: Parent state should only be updated by server-echoed events
+    lastLocalSceneSignatureRef.current = sceneSignature(safeElements);
 
     socket.emit("whiteboard-change", {
       roomId,
@@ -190,8 +198,6 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, onSceneChange }) => 
         }}
         name="Cloud Desk Whiteboard"
         user={{ name: userName }}
-        width="100%"
-        height="100%"
       />
     </div>
   );
