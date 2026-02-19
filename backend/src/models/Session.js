@@ -60,6 +60,29 @@ const sessionSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    quizBank: {
+      type: Array,
+      default: [],
+    },
+    quizBankMeta: {
+      type: Object,
+      default: {
+        title: "",
+        version: "1.0",
+      },
+    },
+    quizLeaderboard: {
+      type: Array,
+      default: [],
+    },
+    quizHistory: {
+      type: Array,
+      default: [],
+    },
+    activeQuizRound: {
+      type: Object,
+      default: null,
+    },
   },
   { timestamps: true }
 );

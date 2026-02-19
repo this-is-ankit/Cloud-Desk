@@ -1,8 +1,6 @@
 // Piston API is a service for code execution
 import axiosInstance from "./axios";
 
-const PISTON_API = "https://emkc.org/api/v2/piston";
-
 const LANGUAGE_VERSIONS = {
   javascript: { language: "javascript", version: "18.15.0" },
   python: { language: "python", version: "3.10.0" },
@@ -21,46 +19,15 @@ const LANGUAGE_VERSIONS = {
  */
 export async function executeCode(language, code) {
   try {
-    const languageConfig = LANGUAGE_VERSIONS[language];
-
-    if (!languageConfig) {
+    if (!LANGUAGE_VERSIONS[language]) {
       return {
         success: false,
         error: `Unsupported language: ${language}`,
       };
     }
 
-    let data = null;
-    try {
-      const response = await axiosInstance.post("/code/execute", { language, code });
-      data = response.data;
-    } catch {
-      const response = await fetch(`${PISTON_API}/execute`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          language: languageConfig.language,
-          version: languageConfig.version,
-          files: [
-            {
-              name: `main.${getFileExtension(language)}`,
-              content: code,
-            },
-          ],
-        }),
-      });
-
-      if (!response.ok) {
-        return {
-          success: false,
-          error: `Execution failed (${response.status}).`,
-        };
-      }
-
-      data = await response.json();
-    }
+    const response = await axiosInstance.post("/code/execute", { language, code });
+    const data = response.data;
 
     const output = data.run.output || "";
     const stderr = data.run.stderr || "";
@@ -78,24 +45,13 @@ export async function executeCode(language, code) {
       output: output || "No output",
     };
   } catch (error) {
+    const serverError =
+      error?.response?.data?.details ||
+      error?.response?.data?.message;
+
     return {
       success: false,
-      error: `Failed to execute code: ${error.message}`,
+      error: serverError || `Failed to execute code: ${error.message}`,
     };
   }
-}
-
-function getFileExtension(language) {
-  const extensions = {
-    javascript: "js",
-    python: "py",
-    java: "java",
-
-    cpp: "cpp",
-    c: "c",
-    rust: "rs",
-    go: "go",
-  };
-
-  return extensions[language] || "txt";
 }

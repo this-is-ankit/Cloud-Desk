@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import cors from "cors";
 import http from "http";
+import { randomUUID } from "crypto";
 import { Server } from "socket.io";
 import { serve } from "inngest/express";
 import { clerkMiddleware, verifyToken } from "@clerk/express";
@@ -37,8 +38,15 @@ const io = new Server(httpServer, {
 });
 
 export const whiteboardStateByRoom = new Map();
+export const quizStateByRoom = new Map();
 const WHITEBOARD_MAX_COORDINATE = 4000;
 const WHITEBOARD_MAX_ELEMENTS = 2000;
+const QUIZ_MAX_QUESTIONS = 200;
+const QUIZ_MIN_TIME_SEC = 10;
+const QUIZ_MAX_TIME_SEC = 120;
+const QUIZ_MAX_TEXT_LENGTH = 500;
+const QUIZ_BASE_POINTS = 100;
+const QUIZ_SPEED_BONUS_MAX = 100;
 
 const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
 
@@ -180,6 +188,110 @@ const mergeWhiteboardElementsByVersion = (currentElements, incomingElements) => 
   return output.slice(0, WHITEBOARD_MAX_ELEMENTS);
 };
 
+const sanitizeQuizText = (value) => {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, QUIZ_MAX_TEXT_LENGTH);
+};
+
+const normalizeTimeLimitSec = (value, fallback = 30) => {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(QUIZ_MAX_TIME_SEC, Math.max(QUIZ_MIN_TIME_SEC, parsed));
+};
+
+const normalizeQuizQuestion = (question, defaultTimeLimitSec = 30) => {
+  if (!question || typeof question !== "object") {
+    return { valid: false, error: "Question must be an object" };
+  }
+
+  const prompt = sanitizeQuizText(question.prompt);
+  if (!prompt) {
+    return { valid: false, error: "Question prompt is required" };
+  }
+
+  const options = Array.isArray(question.options)
+    ? question.options.map((option) => sanitizeQuizText(option))
+    : [];
+
+  if (options.length !== 4 || options.some((option) => !option)) {
+    return { valid: false, error: "Question must contain exactly 4 non-empty options" };
+  }
+
+  const correctOptionIndex = Number.parseInt(question.correctOptionIndex, 10);
+  if (!Number.isFinite(correctOptionIndex) || correctOptionIndex < 0 || correctOptionIndex > 3) {
+    return { valid: false, error: "correctOptionIndex must be between 0 and 3" };
+  }
+
+  const normalized = {
+    id: sanitizeQuizText(question.id) || randomUUID(),
+    type: "single-choice",
+    prompt,
+    options,
+    correctOptionIndex,
+    timeLimitSec: normalizeTimeLimitSec(question.timeLimitSec, defaultTimeLimitSec),
+    explanation: sanitizeQuizText(question.explanation || ""),
+  };
+
+  return { valid: true, question: normalized };
+};
+
+const normalizeQuizPayload = (quizPayload) => {
+  if (!quizPayload || typeof quizPayload !== "object") {
+    return { valid: false, error: "Quiz payload must be an object" };
+  }
+
+  const defaultTimeLimitSec = normalizeTimeLimitSec(quizPayload.defaultTimeLimitSec, 30);
+  const questions = Array.isArray(quizPayload.questions) ? quizPayload.questions : null;
+  if (!questions || questions.length === 0) {
+    return { valid: false, error: "questions array is required" };
+  }
+  if (questions.length > QUIZ_MAX_QUESTIONS) {
+    return { valid: false, error: `Maximum ${QUIZ_MAX_QUESTIONS} questions are allowed` };
+  }
+
+  const normalizedQuestions = [];
+  const usedIds = new Set();
+  for (let index = 0; index < questions.length; index += 1) {
+    const result = normalizeQuizQuestion(questions[index], defaultTimeLimitSec);
+    if (!result.valid) {
+      return { valid: false, error: `Question ${index + 1}: ${result.error}` };
+    }
+    if (usedIds.has(result.question.id)) {
+      result.question.id = randomUUID();
+    }
+    usedIds.add(result.question.id);
+    normalizedQuestions.push(result.question);
+  }
+
+  return {
+    valid: true,
+    quizBank: normalizedQuestions,
+    quizBankMeta: {
+      title: sanitizeQuizText(quizPayload.title || ""),
+      version: sanitizeQuizText(quizPayload.version || "1.0") || "1.0",
+      defaultTimeLimitSec,
+    },
+  };
+};
+
+const computeSubmissionScore = ({ isCorrect, responseMs, durationMs }) => {
+  if (!isCorrect) return 0;
+  const safeDuration = Math.max(1, durationMs);
+  const remainingMs = Math.max(0, safeDuration - responseMs);
+  const speedBonus = Math.floor((remainingMs / safeDuration) * QUIZ_SPEED_BONUS_MAX);
+  return QUIZ_BASE_POINTS + speedBonus;
+};
+
+const sortLeaderboard = (leaderboard = []) =>
+  [...leaderboard].sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.correctCount !== a.correctCount) return b.correctCount - a.correctCount;
+    if (a.avgCorrectResponseMs !== b.avgCorrectResponseMs) {
+      return a.avgCorrectResponseMs - b.avgCorrectResponseMs;
+    }
+    return (a.lastCorrectAt || 0) - (b.lastCorrectAt || 0);
+  });
+
 io.use(async (socket, next) => {
   const token = socket.handshake.auth.token;
   
@@ -213,7 +325,7 @@ io.on("connection", (socket) => {
     const session = await Session.findById(roomId).populate("host", "clerkId");
     if (!session) return null;
 
-    const currentUser = await User.findOne({ clerkId: socket.clerkId }).select("_id");
+    const currentUser = await User.findOne({ clerkId: socket.clerkId }).select("_id name profileImage");
     if (!currentUser) return null;
 
     const mongoUserId = currentUser._id.toString();
@@ -222,7 +334,194 @@ io.on("connection", (socket) => {
 
     if (!isHost && !isParticipant) return null;
 
-    return { session, isHost };
+    return { session, isHost, currentUser };
+  };
+
+  const serializeActiveRoundForClient = (activeRound, socketUserId) => {
+    if (!activeRound) return null;
+
+    const submissions = activeRound.submissions || new Map();
+    const mySubmission = socketUserId ? submissions.get(socketUserId) : null;
+
+    return {
+      roundId: activeRound.roundId,
+      questionId: activeRound.question.id,
+      prompt: activeRound.question.prompt,
+      options: activeRound.question.options,
+      startedAt: activeRound.startedAt,
+      endsAt: activeRound.endsAt,
+      status: activeRound.status,
+      mySubmission: mySubmission
+        ? {
+            selectedOptionIndex: mySubmission.selectedOptionIndex,
+            submittedAt: mySubmission.submittedAt,
+            responseMs: mySubmission.responseMs,
+          }
+        : null,
+    };
+  };
+
+  const getOrCreateQuizState = async (roomId, session) => {
+    let state = quizStateByRoom.get(roomId);
+    if (state) return state;
+
+    state = {
+      quizBank: Array.isArray(session?.quizBank) ? session.quizBank : [],
+      quizBankMeta:
+        session?.quizBankMeta && typeof session.quizBankMeta === "object"
+          ? session.quizBankMeta
+          : { title: "", version: "1.0", defaultTimeLimitSec: 30 },
+      leaderboard: Array.isArray(session?.quizLeaderboard) ? sortLeaderboard(session.quizLeaderboard) : [],
+      history: Array.isArray(session?.quizHistory) ? session.quizHistory : [],
+      activeRound: null,
+      activeTimer: null,
+    };
+
+    if (session?.activeQuizRound?.status === "live") {
+      const question = state.quizBank.find((q) => q.id === session.activeQuizRound.questionId);
+      if (question) {
+        const now = Date.now();
+        const startedAt = Number(session.activeQuizRound.startedAt) || now;
+        const endsAt = Number(session.activeQuizRound.endsAt) || now;
+        const durationMs = Math.max(1, endsAt - startedAt);
+        state.activeRound = {
+          roundId: session.activeQuizRound.roundId || randomUUID(),
+          question,
+          startedAt,
+          endsAt,
+          durationMs,
+          status: now < endsAt ? "live" : "closed",
+          submissions: new Map(),
+        };
+      }
+    }
+
+    quizStateByRoom.set(roomId, state);
+    return state;
+  };
+
+  const persistQuizState = async (roomId, state) => {
+    if (!state) return;
+    const activeQuizRound = state.activeRound
+      ? {
+          roundId: state.activeRound.roundId,
+          questionId: state.activeRound.question.id,
+          startedAt: state.activeRound.startedAt,
+          endsAt: state.activeRound.endsAt,
+          status: state.activeRound.status,
+        }
+      : null;
+
+    await Session.findByIdAndUpdate(roomId, {
+      quizBank: state.quizBank,
+      quizBankMeta: state.quizBankMeta,
+      quizLeaderboard: state.leaderboard,
+      quizHistory: state.history,
+      activeQuizRound,
+    });
+  };
+
+  const buildTop3 = (leaderboard) => sortLeaderboard(leaderboard).slice(0, 3);
+
+  const closeQuizRound = async (roomId, trigger = "auto") => {
+    const state = quizStateByRoom.get(roomId);
+    if (!state?.activeRound || state.activeRound.status !== "live") return;
+
+    const round = state.activeRound;
+    round.status = "closed";
+    if (state.activeTimer) {
+      clearTimeout(state.activeTimer);
+      state.activeTimer = null;
+    }
+
+    const leaderboardByUser = new Map(
+      state.leaderboard.map((entry) => [entry.userId, { ...entry }]),
+    );
+
+    const roundParticipants = [];
+    for (const [userId, submission] of round.submissions.entries()) {
+      if (submission.isHost) continue;
+
+      const score = computeSubmissionScore({
+        isCorrect: submission.isCorrect,
+        responseMs: submission.responseMs,
+        durationMs: round.durationMs,
+      });
+
+      roundParticipants.push({
+        userId,
+        name: submission.name,
+        profileImage: submission.profileImage || "",
+        selectedOptionIndex: submission.selectedOptionIndex,
+        isCorrect: submission.isCorrect,
+        responseMs: submission.responseMs,
+        score,
+      });
+
+      const existing = leaderboardByUser.get(userId) || {
+        userId,
+        name: submission.name,
+        profileImage: submission.profileImage || "",
+        score: 0,
+        correctCount: 0,
+        totalCorrectResponseMs: 0,
+        avgCorrectResponseMs: Number.POSITIVE_INFINITY,
+        lastCorrectAt: 0,
+      };
+
+      existing.name = submission.name || existing.name;
+      existing.profileImage = submission.profileImage || existing.profileImage;
+      existing.score += score;
+
+      if (submission.isCorrect) {
+        existing.correctCount += 1;
+        existing.totalCorrectResponseMs += submission.responseMs;
+        existing.avgCorrectResponseMs = Math.floor(
+          existing.totalCorrectResponseMs / Math.max(1, existing.correctCount),
+        );
+        existing.lastCorrectAt = submission.submittedAt;
+      }
+
+      leaderboardByUser.set(userId, existing);
+    }
+
+    state.leaderboard = sortLeaderboard(
+      Array.from(leaderboardByUser.values()).map((entry) => ({
+        ...entry,
+        avgCorrectResponseMs:
+          Number.isFinite(entry.avgCorrectResponseMs) ? entry.avgCorrectResponseMs : 0,
+      })),
+    );
+
+    const roundSummary = {
+      roundId: round.roundId,
+      questionId: round.question.id,
+      prompt: round.question.prompt,
+      correctOptionIndex: round.question.correctOptionIndex,
+      endedAt: Date.now(),
+      trigger,
+      participants: roundParticipants.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.responseMs - b.responseMs;
+      }),
+    };
+
+    state.history = [...state.history, roundSummary].slice(-200);
+
+    io.in(roomId).emit("quiz-round-closed", {
+      roundId: round.roundId,
+      correctOptionIndex: round.question.correctOptionIndex,
+      explanation: round.question.explanation || "",
+      results: roundSummary.participants,
+    });
+
+    io.in(roomId).emit("quiz-leaderboard-updated", {
+      leaderboard: state.leaderboard,
+      top3: buildTop3(state.leaderboard),
+    });
+
+    state.activeRound = null;
+    await persistQuizState(roomId, state);
   };
 
   socket.on("join-session", async (roomId) => {
@@ -232,7 +531,7 @@ io.on("connection", (socket) => {
         socket.emit("error", { message: "Not authorized to join this session" });
         return;
       }
-      const { session } = access;
+      const { session, currentUser } = access;
 
       socket.join(roomId);
       console.log(`User ${socket.id} (${socket.clerkId}) joined room: ${roomId}`);
@@ -251,6 +550,18 @@ io.on("connection", (socket) => {
       }
       
       socket.emit("whiteboard-sync", roomWhiteboardState);
+
+      const quizState = await getOrCreateQuizState(roomId, session);
+      socket.emit("quiz-round-sync", {
+        quizBank: quizState.quizBank,
+        quizBankMeta: quizState.quizBankMeta,
+        leaderboard: quizState.leaderboard,
+        top3: buildTop3(quizState.leaderboard),
+        activeRound: serializeActiveRoundForClient(
+          quizState.activeRound,
+          currentUser?._id?.toString(),
+        ),
+      });
     } catch (error) {
       socket.emit("error", { message: "Failed to join session" });
     }
@@ -277,6 +588,163 @@ io.on("connection", (socket) => {
     if (!access) return;
 
     socket.to(roomId).emit("language-update", language);
+  });
+
+  socket.on("quiz-upload", async ({ roomId, quizJson }) => {
+    if (!roomId || !socket.rooms.has(roomId)) return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access?.isHost) return;
+
+    const normalizedQuiz = normalizeQuizPayload(quizJson);
+    if (!normalizedQuiz.valid) {
+      socket.emit("quiz-error", { message: normalizedQuiz.error });
+      return;
+    }
+
+    const state = await getOrCreateQuizState(roomId, access.session);
+    if (state.activeRound?.status === "live") {
+      socket.emit("quiz-error", { message: "Cannot replace quiz bank while a round is live" });
+      return;
+    }
+
+    state.quizBank = normalizedQuiz.quizBank;
+    state.quizBankMeta = normalizedQuiz.quizBankMeta;
+    await persistQuizState(roomId, state);
+
+    io.in(roomId).emit("quiz-bank-loaded", {
+      quizBank: state.quizBank,
+      quizBankMeta: state.quizBankMeta,
+    });
+  });
+
+  socket.on("quiz-add-question", async ({ roomId, question }) => {
+    if (!roomId || !socket.rooms.has(roomId)) return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access?.isHost) return;
+
+    const state = await getOrCreateQuizState(roomId, access.session);
+    if (state.quizBank.length >= QUIZ_MAX_QUESTIONS) {
+      socket.emit("quiz-error", { message: `Maximum ${QUIZ_MAX_QUESTIONS} questions are allowed` });
+      return;
+    }
+
+    const normalized = normalizeQuizQuestion(
+      question,
+      state.quizBankMeta?.defaultTimeLimitSec || 30,
+    );
+
+    if (!normalized.valid) {
+      socket.emit("quiz-error", { message: normalized.error });
+      return;
+    }
+
+    if (state.quizBank.some((q) => q.id === normalized.question.id)) {
+      normalized.question.id = randomUUID();
+    }
+
+    state.quizBank = [...state.quizBank, normalized.question];
+    await persistQuizState(roomId, state);
+
+    io.in(roomId).emit("quiz-bank-loaded", {
+      quizBank: state.quizBank,
+      quizBankMeta: state.quizBankMeta,
+    });
+  });
+
+  socket.on("quiz-start-round", async ({ roomId, questionId }) => {
+    if (!roomId || !socket.rooms.has(roomId)) return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access?.isHost) return;
+
+    const state = await getOrCreateQuizState(roomId, access.session);
+    if (state.activeRound?.status === "live") {
+      socket.emit("quiz-error", { message: "A round is already live" });
+      return;
+    }
+
+    const question = state.quizBank.find((item) => item.id === questionId);
+    if (!question) {
+      socket.emit("quiz-error", { message: "Question not found" });
+      return;
+    }
+
+    const startedAt = Date.now();
+    const durationMs = normalizeTimeLimitSec(question.timeLimitSec, 30) * 1000;
+    const endsAt = startedAt + durationMs;
+
+    state.activeRound = {
+      roundId: randomUUID(),
+      question,
+      startedAt,
+      endsAt,
+      durationMs,
+      status: "live",
+      submissions: new Map(),
+    };
+
+    if (state.activeTimer) clearTimeout(state.activeTimer);
+    state.activeTimer = setTimeout(() => {
+      closeQuizRound(roomId, "timeout").catch((error) => {
+        console.error("Error closing quiz round on timeout:", error.message);
+      });
+    }, durationMs + 50);
+
+    await persistQuizState(roomId, state);
+
+    io.in(roomId).emit("quiz-round-started", {
+      roundId: state.activeRound.roundId,
+      questionId: question.id,
+      prompt: question.prompt,
+      options: question.options,
+      startedAt,
+      endsAt,
+    });
+  });
+
+  socket.on("quiz-submit-answer", async ({ roomId, roundId, selectedOptionIndex }) => {
+    if (!roomId || !socket.rooms.has(roomId)) return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access?.session || access.isHost) return;
+
+    const state = await getOrCreateQuizState(roomId, access.session);
+    const round = state.activeRound;
+    if (!round || round.status !== "live") return;
+    if (round.roundId !== roundId) return;
+
+    const now = Date.now();
+    if (now > round.endsAt) return;
+
+    const participantId = access.currentUser?._id?.toString();
+    if (!participantId) return;
+    if (round.submissions.has(participantId)) return;
+
+    const answerIndex = Number.parseInt(selectedOptionIndex, 10);
+    if (!Number.isFinite(answerIndex) || answerIndex < 0 || answerIndex > 3) return;
+
+    const responseMs = Math.max(0, now - round.startedAt);
+    round.submissions.set(participantId, {
+      selectedOptionIndex: answerIndex,
+      submittedAt: now,
+      responseMs,
+      isCorrect: answerIndex === round.question.correctOptionIndex,
+      name: access.currentUser?.name || "Participant",
+      profileImage: access.currentUser?.profileImage || "",
+      isHost: false,
+    });
+
+    socket.emit("quiz-answer-accepted", {
+      roundId: round.roundId,
+      selectedOptionIndex: answerIndex,
+      responseMs,
+    });
+  });
+
+  socket.on("quiz-end-round", async ({ roomId }) => {
+    if (!roomId || !socket.rooms.has(roomId)) return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access?.isHost) return;
+
+    await closeQuizRound(roomId, "manual");
   });
 
   // 4. Whiteboard Sync (Add this)
@@ -347,6 +815,9 @@ io.on("connection", (socket) => {
       if (roomSize <= 1) { 
         console.log(`Room ${roomId} is empty. Auto-ending session...`); //
         whiteboardStateByRoom.delete(roomId);
+        const quizState = quizStateByRoom.get(roomId);
+        if (quizState?.activeTimer) clearTimeout(quizState.activeTimer);
+        quizStateByRoom.delete(roomId);
         try {
           const session = await Session.findById(roomId);
           

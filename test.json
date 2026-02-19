@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "title": "Cloud Desk Quiz Test",
+  "defaultTimeLimitSec": 25,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "What is the output of console.log(typeof null) in JavaScript?",
+      "options": ["null", "object", "undefined", "number"],
+      "correctOptionIndex": 1,
+      "timeLimitSec": 20,
+      "explanation": "This is a historical JavaScript quirk: typeof null returns 'object'."
+    },
+    {
+      "id": "q2",
+      "prompt": "Which data structure gives average O(1) lookup in most hash table implementations?",
+      "options": ["Array", "Hash map", "Linked list", "Binary search tree"],
+      "correctOptionIndex": 1,
+      "timeLimitSec": 30,
+      "explanation": "Hash maps provide average constant-time lookup."
+    },
+    {
+      "id": "q3",
+      "prompt": "In binary search on a sorted array of n elements, worst-case time complexity is:",
+      "options": ["O(n)", "O(log n)", "O(n log n)", "O(1)"],
+      "correctOptionIndex": 1,
+      "timeLimitSec": 20,
+      "explanation": "Binary search halves the search space each step."
+    },
+    {
+      "id": "q4",
+      "prompt": "Which SQL clause is used to filter groups after aggregation?",
+      "options": ["WHERE", "ORDER BY", "HAVING", "GROUP BY"],
+      "correctOptionIndex": 2,
+      "timeLimitSec": 25,
+      "explanation": "HAVING filters grouped records after aggregation."
+    },
+    {
+      "id": "q5",
+      "prompt": "What does HTTP status code 404 mean?",
+      "options": ["Unauthorized", "Forbidden", "Internal Server Error", "Not Found"],
+      "correctOptionIndex": 3,
+      "timeLimitSec": 15,
+      "explanation": "404 indicates the requested resource was not found."
+    }
+  ]
+}
