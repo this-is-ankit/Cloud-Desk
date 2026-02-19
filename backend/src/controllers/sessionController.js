@@ -1,6 +1,6 @@
 import { chatClient, streamClient } from "../lib/stream.js";
 import Session from "../models/Session.js";
-import { whiteboardStateByRoom } from "../server.js";
+import { quizStateByRoom, whiteboardStateByRoom } from "../server.js";
 
 export async function createSession(req, res) {
   try {
@@ -251,6 +251,9 @@ export async function endSession(req, res) {
 
     // ADD THIS LINE: Explicitly clear whiteboard state from memory
     whiteboardStateByRoom.delete(id);
+    const quizState = quizStateByRoom.get(id);
+    if (quizState?.activeTimer) clearTimeout(quizState.activeTimer);
+    quizStateByRoom.delete(id);
 
     res.status(200).json({ session, message: "Session ended successfully" });
   } catch (error) {

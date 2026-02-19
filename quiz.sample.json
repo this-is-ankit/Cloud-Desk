@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "title": "Sample Session Quiz",
+  "defaultTimeLimitSec": 25,
+  "questions": [
+    {
+      "id": "q1",
+      "prompt": "What is the time complexity of binary search on a sorted array?",
+      "options": ["O(n)", "O(log n)", "O(n log n)", "O(1)"],
+      "correctOptionIndex": 1,
+      "timeLimitSec": 20,
+      "explanation": "Each step halves the search space."
+    },
+    {
+      "id": "q2",
+      "prompt": "Which data structure is best for LRU cache eviction order?",
+      "options": ["Array only", "Linked list + hash map", "Queue only", "Stack + trie"],
+      "correctOptionIndex": 1,
+      "timeLimitSec": 30,
+      "explanation": "Hash map for lookup and linked list for recency order."
+    }
+  ]
+}

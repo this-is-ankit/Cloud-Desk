@@ -23,10 +23,12 @@ import {
   EyeOffIcon,
   ShieldAlertIcon,
   ShieldCheckIcon,
+  ListChecksIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import CodeEditorPanel from "../components/CodeEditorPanel";
 import OutputPanel from "../components/OutputPanel";
+import QuizPanel from "../components/QuizPanel";
 
 import useStreamClient from "../hooks/useStreamClient";
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
@@ -45,6 +47,13 @@ function SessionPage() {
   const [isAntiCheatEnabled, setIsAntiCheatEnabled] = useState(false);
   const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
   const [whiteboardScene, setWhiteboardScene] = useState(null);
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
+  const [quizBank, setQuizBank] = useState([]);
+  const [quizLeaderboard, setQuizLeaderboard] = useState([]);
+  const [quizTop3, setQuizTop3] = useState([]);
+  const [activeQuizRound, setActiveQuizRound] = useState(null);
+  const [myQuizSubmission, setMyQuizSubmission] = useState(null);
+  const [lastRoundResult, setLastRoundResult] = useState(null);
 
   const socketRef = useRef(null);
   const wasParticipantRef = useRef(false);
@@ -113,6 +122,13 @@ function SessionPage() {
 
   useEffect(() => {
     setWhiteboardScene(null);
+    setQuizBank([]);
+    setQuizLeaderboard([]);
+    setQuizTop3([]);
+    setActiveQuizRound(null);
+    setMyQuizSubmission(null);
+    setLastRoundResult(null);
+    setIsQuizOpen(false);
     wasParticipantRef.current = false;
     initializedSessionRef.current = null;
   }, [id]);
@@ -182,6 +198,44 @@ function SessionPage() {
         setIsWhiteboardOpen(Boolean(isOpen));
         if (!Array.isArray(elements)) return;
         setWhiteboardScene({ elements, appState: appState || null });
+      });
+
+      socket.on("quiz-bank-loaded", ({ quizBank: nextBank }) => {
+        setQuizBank(Array.isArray(nextBank) ? nextBank : []);
+      });
+
+      socket.on("quiz-round-sync", ({ quizBank: nextBank, leaderboard, top3, activeRound }) => {
+        setQuizBank(Array.isArray(nextBank) ? nextBank : []);
+        setQuizLeaderboard(Array.isArray(leaderboard) ? leaderboard : []);
+        setQuizTop3(Array.isArray(top3) ? top3 : []);
+        setActiveQuizRound(activeRound || null);
+        setMyQuizSubmission(activeRound?.mySubmission || null);
+      });
+
+      socket.on("quiz-round-started", (roundData) => {
+        setActiveQuizRound(roundData);
+        setMyQuizSubmission(null);
+        setLastRoundResult(null);
+        setIsQuizOpen(true);
+      });
+
+      socket.on("quiz-answer-accepted", ({ selectedOptionIndex, submittedAt, responseMs }) => {
+        setMyQuizSubmission({ selectedOptionIndex, submittedAt, responseMs });
+      });
+
+      socket.on("quiz-round-closed", (result) => {
+        setLastRoundResult(result);
+        setActiveQuizRound(null);
+      });
+
+      socket.on("quiz-leaderboard-updated", ({ leaderboard, top3 }) => {
+        setQuizLeaderboard(Array.isArray(leaderboard) ? leaderboard : []);
+        setQuizTop3(Array.isArray(top3) ? top3 : []);
+        setIsQuizOpen(true);
+      });
+
+      socket.on("quiz-error", ({ message }) => {
+        toast.error(message || "Quiz action failed");
       });
 
       socket.on("anti-cheat-update", (isEnabled) => {
@@ -299,6 +353,54 @@ function SessionPage() {
         isOpen: newState,
       });
     }
+  };
+
+  const toggleQuizPanel = () => {
+    setIsQuizOpen((prev) => !prev);
+  };
+
+  const handleUploadQuiz = (quizJson) => {
+    if (!socketRef.current) return;
+    if (!quizJson) {
+      toast.error("Invalid JSON file");
+      return;
+    }
+    socketRef.current.emit("quiz-upload", {
+      roomId: id,
+      quizJson,
+    });
+  };
+
+  const handleAddManualQuestion = (question) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit("quiz-add-question", {
+      roomId: id,
+      question,
+    });
+  };
+
+  const handleStartQuizRound = (questionId) => {
+    if (!socketRef.current || !questionId) return;
+    socketRef.current.emit("quiz-start-round", {
+      roomId: id,
+      questionId,
+    });
+  };
+
+  const handleEndQuizRound = () => {
+    if (!socketRef.current) return;
+    socketRef.current.emit("quiz-end-round", {
+      roomId: id,
+    });
+  };
+
+  const handleSubmitQuizAnswer = (selectedOptionIndex) => {
+    if (!socketRef.current || !activeQuizRound?.roundId) return;
+    socketRef.current.emit("quiz-submit-answer", {
+      roomId: id,
+      roundId: activeQuizRound.roundId,
+      selectedOptionIndex,
+    });
   };
 
   useEffect(() => {
@@ -441,8 +543,17 @@ function SessionPage() {
             </div>
           </div>
 
-          {isHost && session?.status === "active" && (
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleQuizPanel}
+              className={`btn btn-sm gap-2 ${isQuizOpen ? "btn-accent" : "btn-ghost"}`}
+            >
+              <ListChecksIcon className="w-4 h-4" />
+              Quiz
+            </button>
+
+            {isHost && session?.status === "active" && (
+              <>
               <button
                 onClick={() => {
                   const newState = !isAntiCheatEnabled;
@@ -518,8 +629,9 @@ function SessionPage() {
               >
                 <LogOutIcon className="w-4 h-4" /> End
               </button>
-            </div>
-          )}
+              </>
+            )}
+          </div>
         </div>
 
         <div className="flex-1 overflow-hidden relative">
@@ -579,7 +691,7 @@ function SessionPage() {
               defaultSize={videoPanelDefaultSize}
               minSize={20}
             >
-              <div className="h-full bg-base-200 p-4 overflow-auto">
+              <div className="h-full bg-base-200 p-4 overflow-auto relative">
                 {!streamClient || !call ? (
                   <div className="h-full flex items-center justify-center">
                     <Loader2Icon className="animate-spin size-10 text-primary" />
@@ -595,6 +707,23 @@ function SessionPage() {
                     </StreamCall>
                   </StreamVideo>
                 )}
+
+                <QuizPanel
+                  isHost={isHost}
+                  isOpen={isQuizOpen || Boolean(activeQuizRound)}
+                  activeRound={activeQuizRound}
+                  quizBank={quizBank}
+                  leaderboard={quizLeaderboard}
+                  top3={quizTop3}
+                  mySubmission={myQuizSubmission}
+                  roundResult={lastRoundResult}
+                  onClose={() => setIsQuizOpen(false)}
+                  onUploadQuiz={handleUploadQuiz}
+                  onAddManualQuestion={handleAddManualQuestion}
+                  onStartRound={handleStartQuizRound}
+                  onEndRound={handleEndQuizRound}
+                  onSubmitAnswer={handleSubmitQuizAnswer}
+                />
               </div>
             </Panel>
           </PanelGroup>
