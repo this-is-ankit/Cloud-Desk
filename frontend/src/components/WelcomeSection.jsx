@@ -10,9 +10,6 @@ function WelcomeSection({ onCreateSession }) {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="icon-box w-12 h-12">
-                <SparklesIcon className="w-6 h-6 text-base-content" />
-              </div>
               <h1 className="text-5xl font-black text-primary">
                 Welcome back, {user?.firstName || "there"}!
               </h1>
