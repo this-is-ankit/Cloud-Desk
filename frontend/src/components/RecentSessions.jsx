@@ -6,8 +6,8 @@ function RecentSessions({ sessions, isLoading }) {
     <div className="card bg-base-100 border-2 border-accent/20 hover:border-accent/30 mt-8">
       <div className="card-body">
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-primary rounded-xl">
-            <Clock className="w-5 h-5 text-primary-content" />
+          <div className="icon-box p-2">
+            <Clock className="w-5 h-5 text-base-content" />
           </div>
           <h2 className="text-2xl font-black">Your Past Sessions</h2>
         </div>
@@ -30,7 +30,7 @@ function RecentSessions({ sessions, isLoading }) {
                 {session.status === "active" && (
                   <div className="absolute top-3 right-3">
                     <div className="badge badge-success gap-1">
-                      <div className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
+                      <div className="w-1.5 h-1.5 bg-success rounded-none animate-pulse" />
                       ACTIVE
                     </div>
                   </div>
@@ -38,14 +38,8 @@ function RecentSessions({ sessions, isLoading }) {
 
                 <div className="card-body p-5">
                   <div className="flex items-start gap-3 mb-4">
-                    <div
-                      className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                        session.status === "active"
-                          ? "bg-primary/70"
-                          : "bg-primary"
-                      }`}
-                    >
-                      <Code2 className="w-6 h-6 text-primary-content" />
+                    <div className="icon-box w-12 h-12">
+                      <Code2 className="w-6 h-6 text-base-content" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-base mb-1 truncate">
@@ -83,8 +77,8 @@ function RecentSessions({ sessions, isLoading }) {
             ))
           ) : (
             <div className="col-span-full text-center py-16">
-              <div className="w-20 h-20 mx-auto mb-4 bg-primary/15 rounded-3xl flex items-center justify-center">
-                <Trophy className="w-10 h-10 text-primary/50" />
+              <div className="icon-box w-20 h-20 mx-auto mb-4">
+                <Trophy className="w-10 h-10 text-base-content/70" />
               </div>
               <p className="text-lg font-semibold opacity-70 mb-1">No sessions yet</p>
               <p className="text-sm opacity-50">Start your coding journey today!</p>

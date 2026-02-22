@@ -35,8 +35,8 @@ function Navbar() {
           to="/"
           className="group flex items-center gap-3 transition-transform duration-200 hover:scale-[1.02]"
         >
-          <div className="flex size-10 items-center justify-center rounded-xl bg-primary shadow-lg">
-            <SparklesIcon className="size-6 text-primary-content" />
+          <div className="icon-box size-10 shadow-sm">
+            <SparklesIcon className="size-6 text-base-content" />
           </div>
           <div className="flex flex-col">
             <span className="text-xl font-bold tracking-tight text-primary">Cloud Desk</span>
@@ -52,7 +52,7 @@ function Navbar() {
         <div className="flex items-center gap-1 md:gap-2">
           <Link
             to="/problems"
-            className={`px-4 py-2.5 rounded-lg transition-all duration-200 
+            className={`px-4 py-2.5 rounded-none transition-all duration-200 
               ${
                 isActive("/problems")
                   ? "bg-primary text-primary-content"
@@ -69,7 +69,7 @@ function Navbar() {
 
           <Link
             to="/dashboard"
-            className={`px-4 py-2.5 rounded-lg transition-all duration-200 
+            className={`px-4 py-2.5 rounded-none transition-all duration-200 
               ${
                 isActive("/dashboard")
                   ? "bg-primary text-primary-content"

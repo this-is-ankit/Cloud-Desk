@@ -22,8 +22,8 @@ function HomePage() {
             to={"/"}
             className="flex items-center gap-3 hover:scale-105 transition-transform duration-200"
           >
-            <div className="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg">
-              <SparklesIcon className="size-6 text-primary-content" />
+            <div className="icon-box size-10 shadow-sm">
+              <SparklesIcon className="size-6 text-base-content" />
             </div>
 
             <div className="flex flex-col">
@@ -37,9 +37,9 @@ function HomePage() {
               <ThemeToggle />
             </div>
             <SignInButton mode="modal">
-              <button className="group px-4 py-2 bg-primary rounded-sm text-primary-content font-semibold text-xs shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2 border border-primary-content/20">
+              <button className="btn btn-primary btn-xs rounded-none gap-2 px-3">
                 <span>Get Started</span>
-                <ArrowRightIcon className="size-4 group-hover:translate-x-0.5 transition-transform" />
+                <ArrowRightIcon className="size-4" />
               </button>
             </SignInButton>
           </div>
@@ -86,14 +86,14 @@ function HomePage() {
             {/* CTA Buttons */}
             <div className="flex flex-wrap gap-4">
               <SignInButton mode="modal">
-                <button className="btn btn-primary btn-sm rounded-sm">
+                <button className="btn btn-primary btn-xs rounded-none px-3">
                   Start Coding Now
-                  <ArrowRightIcon className="size-5" />
+                  <ArrowRightIcon className="size-4" />
                 </button>
               </SignInButton>
 
-              <button className="btn btn-outline btn-sm rounded-sm">
-                <VideoIcon className="size-5" />
+              <button className="btn btn-outline btn-xs rounded-none px-3">
+                <VideoIcon className="size-4" />
                 Watch Demo
               </button>
             </div>
@@ -119,7 +119,7 @@ function HomePage() {
           <img
             src="/hero.png"
             alt="CodeCollab Platform"
-            className="w-full h-auto rounded-3xl shadow-2xl border-4 border-base-100 hover:scale-105 transition-transform duration-500"
+            className="w-full h-auto rounded-none shadow-2xl border-4 border-base-100 hover:scale-105 transition-transform duration-500"
           />
         </div>
       </div>
@@ -138,8 +138,8 @@ function HomePage() {
           {/* Feature 1 */}
           <div className="card bg-base-100 shadow-xl">
             <div className="card-body items-center text-center">
-              <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
-                <VideoIcon className="size-8 text-primary" />
+              <div className="icon-box size-16 mb-4">
+                <VideoIcon className="size-8 text-base-content" />
               </div>
               <h3 className="card-title">HD Video Call</h3>
               <p className="text-base-content/70">
@@ -151,8 +151,8 @@ function HomePage() {
           {/* Feature 2 */}
           <div className="card bg-base-100 shadow-xl">
             <div className="card-body items-center text-center">
-              <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
-                <Code2Icon className="size-8 text-primary" />
+              <div className="icon-box size-16 mb-4">
+                <Code2Icon className="size-8 text-base-content" />
               </div>
               <h3 className="card-title">Live Code Editor</h3>
               <p className="text-base-content/70">
@@ -164,8 +164,8 @@ function HomePage() {
           {/* Feature 3 */}
           <div className="card bg-base-100 shadow-xl">
             <div className="card-body items-center text-center">
-              <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
-                <UsersIcon className="size-8 text-primary" />
+              <div className="icon-box size-16 mb-4">
+                <UsersIcon className="size-8 text-base-content" />
               </div>
               <h3 className="card-title">Easy Collaboration</h3>
               <p className="text-base-content/70">

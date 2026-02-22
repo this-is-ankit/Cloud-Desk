@@ -28,9 +28,9 @@
   --color-warning-content: #ffffff;
   --color-error: #000000;
   --color-error-content: #ffffff;
-  --radius-box: 0.25rem;
-  --radius-field: 0.25rem;
-  --radius-selector: 0.25rem;
+  --radius-box: 0rem;
+  --radius-field: 0rem;
+  --radius-selector: 0rem;
   --border: 1px;
   --depth: 1;
   --noise: 0;
@@ -61,9 +61,9 @@
   --color-warning-content: #000000;
   --color-error: #ffffff;
   --color-error-content: #000000;
-  --radius-box: 0.25rem;
-  --radius-field: 0.25rem;
-  --radius-selector: 0.25rem;
+  --radius-box: 0rem;
+  --radius-field: 0rem;
+  --radius-selector: 0rem;
   --border: 1px;
   --depth: 1;
   --noise: 0;
@@ -167,7 +167,7 @@
 
 @layer components {
   .btn {
-    border-radius: 0.2rem;
+    border-radius: 0 !important;
     min-height: 36px;
     height: 36px;
     padding-inline: 0.85rem;
@@ -181,6 +181,26 @@
 
   .btn:hover {
     transform: none;
+  }
+
+  .join .join-item,
+  .card,
+  .badge,
+  .input,
+  .select,
+  .textarea,
+  .modal-box,
+  .stats {
+    border-radius: 0 !important;
+  }
+
+  .icon-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 0;
   }
 }
 

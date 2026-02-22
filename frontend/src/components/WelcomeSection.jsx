@@ -10,8 +10,8 @@ function WelcomeSection({ onCreateSession }) {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center">
-                <SparklesIcon className="w-6 h-6 text-primary-content" />
+              <div className="icon-box w-12 h-12">
+                <SparklesIcon className="w-6 h-6 text-base-content" />
               </div>
               <h1 className="text-5xl font-black text-primary">
                 Welcome back, {user?.firstName || "there"}!
@@ -23,13 +23,11 @@ function WelcomeSection({ onCreateSession }) {
           </div>
           <button
             onClick={onCreateSession}
-            className="group px-8 py-4 bg-primary rounded-2xl transition-all duration-200 hover:opacity-90"
+            className="btn btn-primary btn-sm rounded-none px-4"
           >
-            <div className="flex items-center gap-3 text-primary-content font-bold text-lg">
-              <ZapIcon className="w-6 h-6" />
-              <span>Create Session</span>
-              <ArrowRightIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </div>
+            <ZapIcon className="size-4" />
+            <span>Create Session</span>
+            <ArrowRightIcon className="size-4" />
           </button>
         </div>
       </div>

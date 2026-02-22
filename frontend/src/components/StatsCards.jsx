@@ -7,8 +7,8 @@ function StatsCards({ activeSessionsCount, recentSessionsCount }) {
       <div className="card bg-base-100 border-2 border-primary/20 hover:border-primary/40">
         <div className="card-body">
           <div className="flex items-center justify-between mb-3">
-            <div className="p-3 bg-primary/10 rounded-2xl">
-              <UsersIcon className="w-7 h-7 text-primary" />
+            <div className="icon-box p-3">
+              <UsersIcon className="w-7 h-7 text-base-content" />
             </div>
             <div className="badge badge-primary">Live</div>
           </div>
@@ -21,8 +21,8 @@ function StatsCards({ activeSessionsCount, recentSessionsCount }) {
       <div className="card bg-base-100 border-2 border-secondary/20 hover:border-secondary/40">
         <div className="card-body">
           <div className="flex items-center justify-between mb-3">
-            <div className="p-3 bg-secondary/10 rounded-2xl">
-              <TrophyIcon className="w-7 h-7 text-secondary" />
+            <div className="icon-box p-3">
+              <TrophyIcon className="w-7 h-7 text-base-content" />
             </div>
           </div>
           <div className="text-4xl font-black mb-1">{recentSessionsCount}</div>
