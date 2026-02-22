@@ -1,11 +1,18 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Excalidraw } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
+import { useTheme } from "../context/ThemeProvider";
 
-const SAFE_APP_STATE = {
+const LIGHT_APP_STATE = {
   viewBackgroundColor: "#ffffff",
   theme: "light",
   currentItemStrokeColor: "#000000",
+};
+
+const DARK_APP_STATE = {
+  viewBackgroundColor: "#111a2b",
+  theme: "dark",
+  currentItemStrokeColor: "#e2e8f0",
 };
 
 const MAX_COORDINATE = 4000;
@@ -85,6 +92,8 @@ const sceneSignature = (elements = []) =>
   elements.map((el) => `${el.id}:${el.version}:${el.versionNonce}:${el.isDeleted ? 1 : 0}`).join("|");
 
 const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
+  const { isDark } = useTheme();
+  const safeAppState = isDark ? DARK_APP_STATE : LIGHT_APP_STATE;
   const [excalidrawAPI, setExcalidrawAPI] = useState(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [isReady, setIsReady] = useState(false);
@@ -137,7 +146,7 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
     excalidrawAPI.updateScene({
       elements: safeElements,
       appState: {
-        ...SAFE_APP_STATE,
+        ...safeAppState,
         ...(scene?.appState || {}),
         collaborators: [],
       },
@@ -146,7 +155,7 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
     requestAnimationFrame(() => {
       isApplyingRemoteScene.current = false;
     });
-  }, [scene, excalidrawAPI]);
+  }, [scene, excalidrawAPI, safeAppState]);
 
   const flushPendingScene = useCallback(() => {
     if (!socket || !roomId || !pendingSceneRef.current) return;
@@ -210,21 +219,21 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
     const safeElements = sanitizeElements(elements);
 
     const normalizedAppState = {
-      ...SAFE_APP_STATE,
-      currentItemStrokeColor: appState?.currentItemStrokeColor || SAFE_APP_STATE.currentItemStrokeColor,
+      ...safeAppState,
+      currentItemStrokeColor: appState?.currentItemStrokeColor || safeAppState.currentItemStrokeColor,
     };
 
     const nextScene = { elements: safeElements, appState: normalizedAppState };
     lastLocalSceneSignatureRef.current = sceneSignature(safeElements);
     pendingSceneRef.current = nextScene;
     scheduleSceneEmit();
-  }, [socket, roomId, canWrite, scheduleSceneEmit]);
+  }, [socket, roomId, canWrite, scheduleSceneEmit, safeAppState]);
 
   if (!isReady || dimensions.width === 0 || dimensions.height === 0) {
     return (
       <div 
         ref={containerRef}
-        className="h-full w-full bg-white border-r border-base-300 flex items-center justify-center"
+        className="h-full w-full bg-base-100 border-r border-base-300 flex items-center justify-center"
       >
         <div className="text-sm text-base-content/50">Loading whiteboard...</div>
       </div>
@@ -234,14 +243,14 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
   return (
     <div 
       ref={containerRef}
-      className="h-full w-full bg-white border-r border-base-300"
+      className="h-full w-full bg-base-100 border-r border-base-300"
       style={{ minWidth: 100, minHeight: 100 }}
     >
       <Excalidraw
-        theme="light"
+        theme={isDark ? "dark" : "light"}
         viewModeEnabled={!canWrite}
         initialData={{
-          appState: SAFE_APP_STATE
+          appState: safeAppState
         }}
         excalidrawAPI={(api) => setExcalidrawAPI(api)}
         onChange={handleChange}

@@ -1,12 +1,177 @@
 @import "tailwindcss";
 @plugin "daisyui" {
-  themes: all;
+  themes: cloud-light --default, cloud-dark --prefersdark;
 }
 
-/* Add cursor pointer to buttons by default - this is coming from tailwind docs */
+@plugin "daisyui/theme" {
+  name: "cloud-light";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #f6f8fc;
+  --color-base-300: #edf1f8;
+  --color-base-content: #111827;
+  --color-primary: #2457ff;
+  --color-primary-content: #ecf1ff;
+  --color-secondary: #0ea5a4;
+  --color-secondary-content: #ecfeff;
+  --color-accent: #ff7a18;
+  --color-accent-content: #fff4ec;
+  --color-neutral: #1f2937;
+  --color-neutral-content: #f9fafb;
+  --color-info: #0ea5e9;
+  --color-info-content: #ecfeff;
+  --color-success: #14b86a;
+  --color-success-content: #ecfdf4;
+  --color-warning: #f59e0b;
+  --color-warning-content: #fffbeb;
+  --color-error: #ef4444;
+  --color-error-content: #fef2f2;
+  --radius-box: 1.125rem;
+  --radius-field: 0.75rem;
+  --radius-selector: 0.75rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "cloud-dark";
+  default: false;
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: #111a2b;
+  --color-base-200: #0b1220;
+  --color-base-300: #18243a;
+  --color-base-content: #eef2ff;
+  --color-primary: #6d8bff;
+  --color-primary-content: #e8edff;
+  --color-secondary: #35d0c2;
+  --color-secondary-content: #ecfffd;
+  --color-accent: #ff9c5c;
+  --color-accent-content: #fff4ec;
+  --color-neutral: #1f2937;
+  --color-neutral-content: #f9fafb;
+  --color-info: #38bdf8;
+  --color-info-content: #ecfeff;
+  --color-success: #33d17a;
+  --color-success-content: #ecfdf4;
+  --color-warning: #ffbf47;
+  --color-warning-content: #fffbeb;
+  --color-error: #ff6b6b;
+  --color-error-content: #fef2f2;
+  --radius-box: 1.125rem;
+  --radius-field: 0.75rem;
+  --radius-selector: 0.75rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
+:root[data-theme="cloud-light"] {
+  --bg-0: #f6f8fc;
+  --bg-1: #ffffff;
+  --bg-2: #edf1f8;
+  --text-1: #111827;
+  --text-2: #4b5563;
+  --text-3: #6b7280;
+  --primary: #2457ff;
+  --secondary: #0ea5a4;
+  --accent: #ff7a18;
+  --success: #14b86a;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --border: #dbe2ee;
+  --surface-glass: rgba(255, 255, 255, 0.72);
+}
+
+:root[data-theme="cloud-dark"] {
+  --bg-0: #0b1220;
+  --bg-1: #111a2b;
+  --bg-2: #18243a;
+  --text-1: #eef2ff;
+  --text-2: #b8c2d9;
+  --text-3: #8c98b4;
+  --primary: #6d8bff;
+  --secondary: #35d0c2;
+  --accent: #ff9c5c;
+  --success: #33d17a;
+  --warning: #ffbf47;
+  --danger: #ff6b6b;
+  --border: #26324b;
+  --surface-glass: rgba(17, 26, 43, 0.62);
+}
+
 @layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    font-family: "Plus Jakarta Sans", sans-serif;
+    background: radial-gradient(circle at 15% 20%, rgba(36, 87, 255, 0.12), transparent 36%),
+      radial-gradient(circle at 85% 0%, rgba(14, 165, 164, 0.12), transparent 34%),
+      var(--bg-0);
+    color: var(--text-1);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Space Grotesk", sans-serif;
+    letter-spacing: -0.015em;
+  }
+
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: "JetBrains Mono", monospace;
+  }
+
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
+
+  button,
+  [type="button"],
+  [type="submit"],
+  [role="button"],
+  a,
+  input,
+  textarea,
+  select {
+    min-height: 40px;
+  }
+
+  :focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--primary) 70%, white 30%);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@utility glass-surface {
+  background-color: var(--surface-glass);
+  backdrop-filter: blur(14px);
 }
