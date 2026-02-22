@@ -39,8 +39,11 @@ const io = new Server(httpServer, {
 
 export const whiteboardStateByRoom = new Map();
 export const quizStateByRoom = new Map();
+export const whiteboardPersistTimersByRoom = new Map();
 const WHITEBOARD_MAX_COORDINATE = 4000;
 const WHITEBOARD_MAX_ELEMENTS = 2000;
+const WHITEBOARD_DB_PERSIST_DEBOUNCE_MS = 1200;
+const SOCKET_ACCESS_CACHE_TTL_MS = 5000;
 const QUIZ_MAX_QUESTIONS = 200;
 const QUIZ_MIN_TIME_SEC = 10;
 const QUIZ_MAX_TIME_SEC = 120;
@@ -188,6 +191,74 @@ const mergeWhiteboardElementsByVersion = (currentElements, incomingElements) => 
   return output.slice(0, WHITEBOARD_MAX_ELEMENTS);
 };
 
+const normalizeWhiteboardWriteMode = (mode) => {
+  if (mode === "all" || mode === "approved" || mode === "host-only") return mode;
+  return "host-only";
+};
+
+const normalizeWriterIds = (writerIds = []) =>
+  Array.isArray(writerIds)
+    ? writerIds
+        .map((id) => (id == null ? "" : id.toString()))
+        .filter(Boolean)
+    : [];
+
+const sceneSignature = (elements = []) =>
+  (Array.isArray(elements) ? elements : [])
+    .map((el) => `${el.id}:${el.version}:${el.versionNonce}:${el.isDeleted ? 1 : 0}`)
+    .join("|");
+
+const buildWhiteboardPermissions = ({ isHost, writeMode, writerIds, socketMongoUserId }) => {
+  const normalizedMode = normalizeWhiteboardWriteMode(writeMode);
+  const normalizedWriterIds = normalizeWriterIds(writerIds);
+  const canWrite =
+    isHost ||
+    normalizedMode === "all" ||
+    (normalizedMode === "approved" && normalizedWriterIds.includes(socketMongoUserId));
+
+  return {
+    writeMode: normalizedMode,
+    writerIds: normalizedWriterIds,
+    canWrite,
+  };
+};
+
+const clearWhiteboardPersistTimer = (roomId) => {
+  const timer = whiteboardPersistTimersByRoom.get(roomId);
+  if (timer) {
+    clearTimeout(timer);
+    whiteboardPersistTimersByRoom.delete(roomId);
+  }
+};
+
+const persistWhiteboardStateNow = async (roomId) => {
+  const state = whiteboardStateByRoom.get(roomId);
+  if (!state) return;
+
+  await Session.findByIdAndUpdate(roomId, {
+    whiteboardElements: state.elements || [],
+    whiteboardAppState: state.appState || {},
+    whiteboardIsOpen: Boolean(state.isOpen),
+    whiteboardWriteMode: normalizeWhiteboardWriteMode(state.writeMode),
+    whiteboardWriters: normalizeWriterIds(state.writerIds),
+  });
+};
+
+const scheduleWhiteboardPersistence = (roomId, delay = WHITEBOARD_DB_PERSIST_DEBOUNCE_MS) => {
+  clearWhiteboardPersistTimer(roomId);
+  const timer = setTimeout(async () => {
+    try {
+      await persistWhiteboardStateNow(roomId);
+    } catch (error) {
+      console.error("Error persisting whiteboard state:", error.message);
+    } finally {
+      whiteboardPersistTimersByRoom.delete(roomId);
+    }
+  }, delay);
+
+  whiteboardPersistTimersByRoom.set(roomId, timer);
+};
+
 const sanitizeQuizText = (value) => {
   if (typeof value !== "string") return "";
   return value.trim().slice(0, QUIZ_MAX_TEXT_LENGTH);
@@ -318,9 +389,17 @@ io.use(async (socket, next) => {
 
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id, "Clerk ID:", socket.clerkId);
+  socket.data.sessionAccessByRoom = new Map();
 
-  const getAuthorizedSessionForSocket = async (roomId) => {
+  const getAuthorizedSessionForSocket = async (roomId, { useCache = true } = {}) => {
     if (!roomId) return null;
+
+    if (useCache) {
+      const cachedAccess = socket.data.sessionAccessByRoom.get(roomId);
+      if (cachedAccess && Date.now() - (cachedAccess.validatedAt || 0) < SOCKET_ACCESS_CACHE_TTL_MS) {
+        return cachedAccess;
+      }
+    }
 
     const session = await Session.findById(roomId).populate("host", "clerkId");
     if (!session) return null;
@@ -334,7 +413,31 @@ io.on("connection", (socket) => {
 
     if (!isHost && !isParticipant) return null;
 
-    return { session, isHost, currentUser };
+    const access = {
+      session,
+      isHost,
+      isParticipant,
+      currentUser,
+      mongoUserId,
+      validatedAt: Date.now(),
+    };
+    socket.data.sessionAccessByRoom.set(roomId, access);
+    return access;
+  };
+
+  const getSocketRoomAccess = (roomId) => socket.data.sessionAccessByRoom.get(roomId) || null;
+
+  const canCurrentSocketWriteWhiteboard = (roomId) => {
+    const access = getSocketRoomAccess(roomId);
+    if (!access) return false;
+    const roomState = whiteboardStateByRoom.get(roomId);
+    const permissions = buildWhiteboardPermissions({
+      isHost: access.isHost,
+      writeMode: roomState?.writeMode || access.session?.whiteboardWriteMode,
+      writerIds: roomState?.writerIds || access.session?.whiteboardWriters,
+      socketMongoUserId: access.mongoUserId,
+    });
+    return permissions.canWrite;
   };
 
   const serializeActiveRoundForClient = (activeRound, socketUserId) => {
@@ -526,12 +629,12 @@ io.on("connection", (socket) => {
 
   socket.on("join-session", async (roomId) => {
     try {
-      const access = await getAuthorizedSessionForSocket(roomId);
+      const access = await getAuthorizedSessionForSocket(roomId, { useCache: false });
       if (!access?.session) {
         socket.emit("error", { message: "Not authorized to join this session" });
         return;
       }
-      const { session, currentUser } = access;
+      const { session, currentUser, isHost, mongoUserId } = access;
 
       socket.join(roomId);
       console.log(`User ${socket.id} (${socket.clerkId}) joined room: ${roomId}`);
@@ -545,11 +648,26 @@ io.on("connection", (socket) => {
           isOpen: session.whiteboardIsOpen,
           elements: session.whiteboardElements,
           appState: session.whiteboardAppState,
+          writeMode: normalizeWhiteboardWriteMode(session.whiteboardWriteMode),
+          writerIds: normalizeWriterIds(session.whiteboardWriters),
+          signature: sceneSignature(session.whiteboardElements),
         };
         whiteboardStateByRoom.set(roomId, roomWhiteboardState); // Cache it
       }
+
+      const permissions = buildWhiteboardPermissions({
+        isHost,
+        writeMode: roomWhiteboardState.writeMode,
+        writerIds: roomWhiteboardState.writerIds,
+        socketMongoUserId: mongoUserId,
+      });
       
-      socket.emit("whiteboard-sync", roomWhiteboardState);
+      socket.emit("whiteboard-sync", {
+        isOpen: roomWhiteboardState.isOpen,
+        elements: roomWhiteboardState.elements || [],
+        appState: roomWhiteboardState.appState || {},
+        ...permissions,
+      });
 
       const quizState = await getOrCreateQuizState(roomId, session);
       socket.emit("quiz-round-sync", {
@@ -561,6 +679,11 @@ io.on("connection", (socket) => {
           quizState.activeRound,
           currentUser?._id?.toString(),
         ),
+      });
+
+      io.in(roomId).emit("whiteboard-permissions-updated", {
+        writeMode: permissions.writeMode,
+        writerIds: permissions.writerIds,
       });
     } catch (error) {
       socket.emit("error", { message: "Failed to join session" });
@@ -753,24 +876,42 @@ io.on("connection", (socket) => {
     if (!Array.isArray(elements)) return;
     const access = await getAuthorizedSessionForSocket(roomId);
     if (!access) return;
+    if (!canCurrentSocketWriteWhiteboard(roomId)) {
+      socket.emit("whiteboard-write-denied", { message: "You do not have write access to the whiteboard." });
+      return;
+    }
 
     const sanitizedElements = sanitizeWhiteboardElements(elements);
+    const incomingSignature = sceneSignature(sanitizedElements);
 
     // Update in-memory cache
-    const currentState = whiteboardStateByRoom.get(roomId) || { isOpen: false, elements: [], appState: {} }; // Ensure default structure
-    const currentSanitizedElements = sanitizeWhiteboardElements(currentState.elements);
+    const currentState = whiteboardStateByRoom.get(roomId) || {
+      isOpen: false,
+      elements: [],
+      appState: {},
+      writeMode: normalizeWhiteboardWriteMode(access.session?.whiteboardWriteMode),
+      writerIds: normalizeWriterIds(access.session?.whiteboardWriters),
+      signature: "",
+    };
+
+    if (incomingSignature && incomingSignature === currentState.signature) {
+      return;
+    }
+
+    const currentSanitizedElements = Array.isArray(currentState.elements)
+      ? currentState.elements
+      : sanitizeWhiteboardElements(currentState.elements);
     const mergedElements = mergeWhiteboardElementsByVersion(currentSanitizedElements, sanitizedElements);
+    const mergedSignature = sceneSignature(mergedElements);
     whiteboardStateByRoom.set(roomId, {
       ...currentState,
       elements: mergedElements,
       appState: appState || {}, // Ensure default empty object
+      signature: mergedSignature,
     });
 
-    // Save to DB
-    await Session.findByIdAndUpdate(roomId, { 
-      whiteboardElements: mergedElements,
-      whiteboardAppState: appState || {},
-    });
+    // Persist with debounce to avoid DB write on every draw tick.
+    scheduleWhiteboardPersistence(roomId);
 
     // Broadcast to everyone in the room (including the sender)
     io.in(roomId).emit("whiteboard-update", {
@@ -788,25 +929,129 @@ io.on("connection", (socket) => {
       const access = await getAuthorizedSessionForSocket(roomId);
       if (!access?.isHost) return;
 
-      const currentState = whiteboardStateByRoom.get(roomId) || { elements: null, appState: null };
+      const currentState = whiteboardStateByRoom.get(roomId) || {
+        elements: [],
+        appState: {},
+        writeMode: normalizeWhiteboardWriteMode(access.session?.whiteboardWriteMode),
+        writerIds: normalizeWriterIds(access.session?.whiteboardWriters),
+        signature: sceneSignature(access.session?.whiteboardElements || []),
+      };
       whiteboardStateByRoom.set(roomId, {
         ...currentState,
         isOpen: Boolean(isOpen),
       });
 
-      // Save to DB
-      await Session.findByIdAndUpdate(roomId, { whiteboardIsOpen: Boolean(isOpen) });
+      scheduleWhiteboardPersistence(roomId, 100);
 
       io.in(roomId).emit("whiteboard-state", isOpen);
     } catch (error) {
       console.error("Error toggling whiteboard:", error.message);
     }
   });
+
+  socket.on("whiteboard-set-write-mode", async ({ roomId, mode }) => {
+    if (!roomId || !socket.rooms.has(roomId)) return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access?.isHost) return;
+
+    const nextMode = normalizeWhiteboardWriteMode(mode);
+    const currentState = whiteboardStateByRoom.get(roomId) || {
+      isOpen: Boolean(access.session?.whiteboardIsOpen),
+      elements: access.session?.whiteboardElements || [],
+      appState: access.session?.whiteboardAppState || {},
+      signature: sceneSignature(access.session?.whiteboardElements || []),
+      writeMode: normalizeWhiteboardWriteMode(access.session?.whiteboardWriteMode),
+      writerIds: normalizeWriterIds(access.session?.whiteboardWriters),
+    };
+
+    const nextState = {
+      ...currentState,
+      writeMode: nextMode,
+    };
+    whiteboardStateByRoom.set(roomId, nextState);
+
+    await Session.findByIdAndUpdate(roomId, {
+      whiteboardWriteMode: nextMode,
+      whiteboardWriters: normalizeWriterIds(nextState.writerIds),
+    });
+
+    io.in(roomId).emit("whiteboard-permissions-updated", {
+      writeMode: nextMode,
+      writerIds: normalizeWriterIds(nextState.writerIds),
+    });
+  });
+
+  socket.on("whiteboard-grant-writer", async ({ roomId, userId }) => {
+    if (!roomId || !socket.rooms.has(roomId) || !userId) return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access?.isHost) return;
+
+    const nextUserId = userId.toString();
+    const participantIds = (access.session?.participants || []).map((participantId) =>
+      participantId.toString(),
+    );
+    if (!participantIds.includes(nextUserId)) return;
+
+    const currentState = whiteboardStateByRoom.get(roomId) || {
+      isOpen: Boolean(access.session?.whiteboardIsOpen),
+      elements: access.session?.whiteboardElements || [],
+      appState: access.session?.whiteboardAppState || {},
+      signature: sceneSignature(access.session?.whiteboardElements || []),
+      writeMode: normalizeWhiteboardWriteMode(access.session?.whiteboardWriteMode),
+      writerIds: normalizeWriterIds(access.session?.whiteboardWriters),
+    };
+
+    const nextWriterIds = Array.from(new Set([...normalizeWriterIds(currentState.writerIds), nextUserId]));
+    whiteboardStateByRoom.set(roomId, {
+      ...currentState,
+      writerIds: nextWriterIds,
+    });
+
+    await Session.findByIdAndUpdate(roomId, { whiteboardWriters: nextWriterIds });
+    io.in(roomId).emit("whiteboard-permissions-updated", {
+      writeMode: normalizeWhiteboardWriteMode(currentState.writeMode),
+      writerIds: nextWriterIds,
+    });
+  });
+
+  socket.on("whiteboard-revoke-writer", async ({ roomId, userId }) => {
+    if (!roomId || !socket.rooms.has(roomId) || !userId) return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access?.isHost) return;
+
+    const targetUserId = userId.toString();
+    const participantIds = (access.session?.participants || []).map((participantId) =>
+      participantId.toString(),
+    );
+    if (!participantIds.includes(targetUserId)) return;
+
+    const currentState = whiteboardStateByRoom.get(roomId) || {
+      isOpen: Boolean(access.session?.whiteboardIsOpen),
+      elements: access.session?.whiteboardElements || [],
+      appState: access.session?.whiteboardAppState || {},
+      signature: sceneSignature(access.session?.whiteboardElements || []),
+      writeMode: normalizeWhiteboardWriteMode(access.session?.whiteboardWriteMode),
+      writerIds: normalizeWriterIds(access.session?.whiteboardWriters),
+    };
+
+    const nextWriterIds = normalizeWriterIds(currentState.writerIds).filter((id) => id !== targetUserId);
+    whiteboardStateByRoom.set(roomId, {
+      ...currentState,
+      writerIds: nextWriterIds,
+    });
+
+    await Session.findByIdAndUpdate(roomId, { whiteboardWriters: nextWriterIds });
+    io.in(roomId).emit("whiteboard-permissions-updated", {
+      writeMode: normalizeWhiteboardWriteMode(currentState.writeMode),
+      writerIds: nextWriterIds,
+    });
+  });
   socket.on("disconnecting", async () => {
     const rooms = [...socket.rooms];
 
     for (const roomId of rooms) {
       if (roomId === socket.id) continue; //
+      socket.data.sessionAccessByRoom.delete(roomId);
 
       const roomSize = io.sockets.adapter.rooms.get(roomId)?.size || 0;
 
@@ -814,6 +1059,10 @@ io.on("connection", (socket) => {
       // This prevents a group session from ending just because one participant leaves.
       if (roomSize <= 1) { 
         console.log(`Room ${roomId} is empty. Auto-ending session...`); //
+        clearWhiteboardPersistTimer(roomId);
+        await persistWhiteboardStateNow(roomId).catch((error) => {
+          console.error("Error flushing whiteboard state on room close:", error.message);
+        });
         whiteboardStateByRoom.delete(roomId);
         const quizState = quizStateByRoom.get(roomId);
         if (quizState?.activeTimer) clearTimeout(quizState.activeTimer);

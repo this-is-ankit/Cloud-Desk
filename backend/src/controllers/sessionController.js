@@ -1,6 +1,6 @@
 import { chatClient, streamClient } from "../lib/stream.js";
 import Session from "../models/Session.js";
-import { quizStateByRoom, whiteboardStateByRoom } from "../server.js";
+import { quizStateByRoom, whiteboardPersistTimersByRoom, whiteboardStateByRoom } from "../server.js";
 
 export async function createSession(req, res) {
   try {
@@ -250,6 +250,9 @@ export async function endSession(req, res) {
     await session.save();
 
     // ADD THIS LINE: Explicitly clear whiteboard state from memory
+    const whiteboardPersistTimer = whiteboardPersistTimersByRoom.get(id);
+    if (whiteboardPersistTimer) clearTimeout(whiteboardPersistTimer);
+    whiteboardPersistTimersByRoom.delete(id);
     whiteboardStateByRoom.delete(id);
     const quizState = quizStateByRoom.get(id);
     if (quizState?.activeTimer) clearTimeout(quizState.activeTimer);
