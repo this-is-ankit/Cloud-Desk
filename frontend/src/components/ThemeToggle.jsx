@@ -1,4 +1,4 @@
-import { LaptopIcon, MoonIcon, SunIcon } from "lucide-react";
+import { LaptopIcon, MoonIcon, SunIcon } from "./icons/ModernIcons";
 import { useTheme } from "../context/ThemeProvider";
 
 function ThemeToggle() {

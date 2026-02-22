@@ -12,12 +12,12 @@
   --color-base-200: #f6f8fc;
   --color-base-300: #edf1f8;
   --color-base-content: #111827;
-  --color-primary: #2457ff;
-  --color-primary-content: #ecf1ff;
-  --color-secondary: #0ea5a4;
-  --color-secondary-content: #ecfeff;
-  --color-accent: #ff7a18;
-  --color-accent-content: #fff4ec;
+  --color-primary: #2563eb;
+  --color-primary-content: #eff6ff;
+  --color-secondary: #2563eb;
+  --color-secondary-content: #eff6ff;
+  --color-accent: #2563eb;
+  --color-accent-content: #eff6ff;
   --color-neutral: #1f2937;
   --color-neutral-content: #f9fafb;
   --color-info: #0ea5e9;
@@ -41,16 +41,16 @@
   default: false;
   prefersdark: true;
   color-scheme: dark;
-  --color-base-100: #111a2b;
-  --color-base-200: #0b1220;
-  --color-base-300: #18243a;
+  --color-base-100: #0e1625;
+  --color-base-200: #060c17;
+  --color-base-300: #141f34;
   --color-base-content: #eef2ff;
-  --color-primary: #6d8bff;
+  --color-primary: #7aa2ff;
   --color-primary-content: #e8edff;
-  --color-secondary: #35d0c2;
-  --color-secondary-content: #ecfffd;
-  --color-accent: #ff9c5c;
-  --color-accent-content: #fff4ec;
+  --color-secondary: #7aa2ff;
+  --color-secondary-content: #e8edff;
+  --color-accent: #7aa2ff;
+  --color-accent-content: #e8edff;
   --color-neutral: #1f2937;
   --color-neutral-content: #f9fafb;
   --color-info: #38bdf8;
@@ -76,9 +76,9 @@
   --text-1: #111827;
   --text-2: #4b5563;
   --text-3: #6b7280;
-  --primary: #2457ff;
-  --secondary: #0ea5a4;
-  --accent: #ff7a18;
+  --primary: #2563eb;
+  --secondary: #2563eb;
+  --accent: #2563eb;
   --success: #14b86a;
   --warning: #f59e0b;
   --danger: #ef4444;
@@ -87,15 +87,15 @@
 }
 
 :root[data-theme="cloud-dark"] {
-  --bg-0: #0b1220;
-  --bg-1: #111a2b;
-  --bg-2: #18243a;
+  --bg-0: #060c17;
+  --bg-1: #0e1625;
+  --bg-2: #141f34;
   --text-1: #eef2ff;
   --text-2: #b8c2d9;
   --text-3: #8c98b4;
-  --primary: #6d8bff;
-  --secondary: #35d0c2;
-  --accent: #ff9c5c;
+  --primary: #7aa2ff;
+  --secondary: #7aa2ff;
+  --accent: #7aa2ff;
   --success: #33d17a;
   --warning: #ffbf47;
   --danger: #ff6b6b;
@@ -116,9 +116,7 @@
 
   body {
     font-family: "Plus Jakarta Sans", sans-serif;
-    background: radial-gradient(circle at 15% 20%, rgba(36, 87, 255, 0.12), transparent 36%),
-      radial-gradient(circle at 85% 0%, rgba(14, 165, 164, 0.12), transparent 34%),
-      var(--bg-0);
+    background: var(--bg-0);
     color: var(--text-1);
   }
 
@@ -137,6 +135,12 @@
   kbd,
   samp {
     font-family: "JetBrains Mono", monospace;
+  }
+
+  iconify-icon {
+    display: block;
+    line-height: 1;
+    vertical-align: middle;
   }
 
   button:not(:disabled),

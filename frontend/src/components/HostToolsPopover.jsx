@@ -10,7 +10,7 @@ import {
   ShieldCheckIcon,
   UserMinusIcon,
   WrenchIcon,
-} from "lucide-react";
+} from "./icons/ModernIcons";
 
 function HostToolsPopover({
   session,
@@ -63,7 +63,7 @@ function HostToolsPopover({
           <button
             onClick={onToggleCodeSpace}
             className={`btn btn-sm w-full justify-start gap-2 ${
-              isCodeOpen ? "btn-ghost" : "btn-secondary"
+              isCodeOpen ? "btn-secondary" : "btn-ghost"
             }`}
           >
             {isCodeOpen ? <EyeOffIcon className="w-4 h-4" /> : <CodeIcon className="w-4 h-4" />}

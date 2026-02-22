@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router";
-import { BookOpenIcon, LayoutDashboardIcon, SparklesIcon } from "lucide-react";
+import { BookOpenIcon, LayoutDashboardIcon, SparklesIcon } from "./icons/ModernIcons";
 import { UserButton } from "@clerk/clerk-react";
 import ThemeToggle from "./ThemeToggle";
 
@@ -35,13 +35,11 @@ function Navbar() {
           to="/"
           className="group flex items-center gap-3 transition-transform duration-200 hover:scale-[1.02]"
         >
-          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-r from-primary via-secondary to-accent shadow-lg">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-primary shadow-lg">
             <SparklesIcon className="size-6 text-white" />
           </div>
           <div className="flex flex-col">
-            <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-xl font-bold tracking-tight text-transparent">
-              Cloud Desk
-            </span>
+            <span className="text-xl font-bold tracking-tight text-primary">Cloud Desk</span>
             <span className="-mt-1 text-xs text-base-content/60">Code Together</span>
           </div>
         </Link>

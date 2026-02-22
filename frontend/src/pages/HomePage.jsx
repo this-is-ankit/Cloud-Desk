@@ -7,13 +7,13 @@ import {
   UsersIcon,
   VideoIcon,
   ZapIcon,
-} from "lucide-react";
+} from "../components/icons/ModernIcons";
 import { SignInButton } from "@clerk/clerk-react";
 import ThemeToggle from "../components/ThemeToggle";
 
 function HomePage() {
   return (
-    <div className="bg-gradient-to-br from-base-100 via-base-200 to-base-300">
+    <div className="bg-base-200">
       {/* NAVBAR */}
       <nav className="sticky top-0 z-50 border-b border-base-300/80 glass-surface">
         <div className="mx-auto flex max-w-[1320px] items-center justify-between px-4 py-3 md:px-6">
@@ -22,14 +22,12 @@ function HomePage() {
             to={"/"}
             className="flex items-center gap-3 hover:scale-105 transition-transform duration-200"
           >
-            <div className="size-10 rounded-xl bg-gradient-to-br from-primary via-secondary to-accent flex items-center justify-center shadow-lg">
+            <div className="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg">
               <SparklesIcon className="size-6 text-white" />
             </div>
 
             <div className="flex flex-col">
-              <span className="font-black text-xl bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent font-mono tracking-wider">
-                Cloud Desk
-              </span>
+              <span className="font-black text-xl text-primary font-mono tracking-wider">Cloud Desk</span>
               <span className="text-xs text-base-content/60 font-medium -mt-1">Code Together</span>
             </div>
           </Link>
@@ -39,7 +37,7 @@ function HomePage() {
               <ThemeToggle />
             </div>
             <SignInButton mode="modal">
-              <button className="group px-6 py-3 bg-gradient-to-r from-primary to-secondary rounded-xl text-white font-semibold text-sm shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center gap-2">
+              <button className="group px-6 py-3 bg-primary rounded-xl text-white font-semibold text-sm shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center gap-2">
                 <span>Get Started</span>
                 <ArrowRightIcon className="size-4 group-hover:translate-x-0.5 transition-transform" />
               </button>
@@ -59,9 +57,7 @@ function HomePage() {
             </div>
 
             <h1 className="text-5xl lg:text-7xl font-black leading-tight">
-              <span className="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
-                Code Together,
-              </span>
+              <span className="text-primary">Code Together,</span>
               <br />
               <span className="text-base-content">Learn Together</span>
             </h1>
@@ -131,9 +127,7 @@ function HomePage() {
       {/* FEATURES SECTION */}
       <div className="max-w-7xl mx-auto px-4 py-20">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold mb-4">
-            Everything You Need to <span className="text-primary font-mono">Succeed</span>
-          </h2>
+          <h2 className="text-4xl font-bold mb-4">Everything You Need to <span className="text-primary font-mono">Succeed</span></h2>
           <p className="text-lg text-base-content/70 max-w-2xl mx-auto">
             Powerful features designed to make your coding interviews seamless and productive
           </p>

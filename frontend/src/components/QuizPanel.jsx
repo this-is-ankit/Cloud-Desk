@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Clock3Icon, SendIcon, TrophyIcon, UploadIcon, XIcon } from "lucide-react";
+import { Clock3Icon, SendIcon, TrophyIcon, UploadIcon, XIcon } from "./icons/ModernIcons";
 
 const formatRemaining = (endsAt) => {
   const remainingMs = Math.max(0, (endsAt || 0) - Date.now());

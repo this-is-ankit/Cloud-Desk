@@ -13,7 +13,7 @@ import {
 import { executeCode } from "../lib/piston";
 import Navbar from "../components/Navbar";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { Loader2Icon, KeyIcon, ListChecksIcon, PencilOffIcon } from "lucide-react";
+import { Loader2Icon, KeyIcon, ListChecksIcon, PencilOffIcon } from "../components/icons/ModernIcons";
 import toast from "react-hot-toast";
 import CodeEditorPanel from "../components/CodeEditorPanel";
 import OutputPanel from "../components/OutputPanel";

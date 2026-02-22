@@ -1,5 +1,5 @@
 import Editor from "@monaco-editor/react";
-import { Loader2Icon, PlayIcon } from "lucide-react";
+import { Loader2Icon, PlayIcon } from "./icons/ModernIcons";
 import { LANGUAGE_CONFIG } from "../data/problems";
 import { useTheme } from "../context/ThemeProvider";
 
