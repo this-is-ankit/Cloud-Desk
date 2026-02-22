@@ -10,6 +10,7 @@ const SAFE_APP_STATE = {
 
 const MAX_COORDINATE = 4000;
 const MAX_ELEMENTS = 2000;
+const EMIT_INTERVAL_MS = 40;
 
 const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
 
@@ -83,13 +84,16 @@ const sanitizeElements = (elements) => {
 const sceneSignature = (elements = []) =>
   elements.map((el) => `${el.id}:${el.version}:${el.versionNonce}:${el.isDeleted ? 1 : 0}`).join("|");
 
-const WhiteboardPanel = ({ roomId, socket, userName, scene }) => {
+const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
   const [excalidrawAPI, setExcalidrawAPI] = useState(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [isReady, setIsReady] = useState(false);
   const containerRef = useRef(null);
   const isApplyingRemoteScene = useRef(false);
   const lastLocalSceneSignatureRef = useRef("");
+  const pendingSceneRef = useRef(null);
+  const emitTimeoutRef = useRef(null);
+  const lastEmitAtRef = useRef(0);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -144,8 +148,64 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene }) => {
     });
   }, [scene, excalidrawAPI]);
 
+  const flushPendingScene = useCallback(() => {
+    if (!socket || !roomId || !pendingSceneRef.current) return;
+
+    const nextScene = pendingSceneRef.current;
+    pendingSceneRef.current = null;
+    lastEmitAtRef.current = Date.now();
+
+    socket.emit("whiteboard-change", {
+      roomId,
+      ...nextScene,
+    });
+  }, [socket, roomId]);
+
+  const scheduleSceneEmit = useCallback(() => {
+    if (emitTimeoutRef.current) return;
+    const elapsed = Date.now() - lastEmitAtRef.current;
+    const waitMs = Math.max(0, EMIT_INTERVAL_MS - elapsed);
+
+    emitTimeoutRef.current = setTimeout(() => {
+      emitTimeoutRef.current = null;
+      flushPendingScene();
+    }, waitMs);
+  }, [flushPendingScene]);
+
+  useEffect(() => {
+    const flushOnPointerUp = () => {
+      if (emitTimeoutRef.current) {
+        clearTimeout(emitTimeoutRef.current);
+        emitTimeoutRef.current = null;
+      }
+      flushPendingScene();
+    };
+
+    window.addEventListener("pointerup", flushOnPointerUp);
+    window.addEventListener("blur", flushOnPointerUp);
+
+    return () => {
+      window.removeEventListener("pointerup", flushOnPointerUp);
+      window.removeEventListener("blur", flushOnPointerUp);
+      if (emitTimeoutRef.current) {
+        clearTimeout(emitTimeoutRef.current);
+        emitTimeoutRef.current = null;
+      }
+      pendingSceneRef.current = null;
+    };
+  }, [flushPendingScene]);
+
+  useEffect(() => {
+    if (canWrite) return;
+    pendingSceneRef.current = null;
+    if (emitTimeoutRef.current) {
+      clearTimeout(emitTimeoutRef.current);
+      emitTimeoutRef.current = null;
+    }
+  }, [canWrite]);
+
   const handleChange = useCallback((elements, appState) => {
-    if (isApplyingRemoteScene.current || !socket || !roomId) return;
+    if (isApplyingRemoteScene.current || !socket || !roomId || !canWrite) return;
 
     const safeElements = sanitizeElements(elements);
 
@@ -156,12 +216,9 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene }) => {
 
     const nextScene = { elements: safeElements, appState: normalizedAppState };
     lastLocalSceneSignatureRef.current = sceneSignature(safeElements);
-
-    socket.emit("whiteboard-change", {
-      roomId,
-      ...nextScene,
-    });
-  }, [socket, roomId]);
+    pendingSceneRef.current = nextScene;
+    scheduleSceneEmit();
+  }, [socket, roomId, canWrite, scheduleSceneEmit]);
 
   if (!isReady || dimensions.width === 0 || dimensions.height === 0) {
     return (
@@ -182,6 +239,7 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene }) => {
     >
       <Excalidraw
         theme="light"
+        viewModeEnabled={!canWrite}
         initialData={{
           appState: SAFE_APP_STATE
         }}

@@ -60,6 +60,17 @@ const sessionSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    whiteboardWriteMode: {
+      type: String,
+      enum: ["host-only", "approved", "all"],
+      default: "host-only",
+    },
+    whiteboardWriters: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
     quizBank: {
       type: Array,
       default: [],

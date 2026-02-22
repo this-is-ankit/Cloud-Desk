@@ -1,5 +1,5 @@
 import { useUser, useAuth } from "@clerk/clerk-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router";
 import io from "socket.io-client";
 import { PresentationIcon } from "lucide-react";
@@ -24,6 +24,9 @@ import {
   ShieldAlertIcon,
   ShieldCheckIcon,
   ListChecksIcon,
+  CheckIcon,
+  PencilIcon,
+  PencilOffIcon,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import CodeEditorPanel from "../components/CodeEditorPanel";
@@ -47,6 +50,8 @@ function SessionPage() {
   const [isAntiCheatEnabled, setIsAntiCheatEnabled] = useState(false);
   const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
   const [whiteboardScene, setWhiteboardScene] = useState(null);
+  const [whiteboardWriteMode, setWhiteboardWriteMode] = useState("host-only");
+  const [whiteboardWriterIds, setWhiteboardWriterIds] = useState([]);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [quizBank, setQuizBank] = useState([]);
   const [quizLeaderboard, setQuizLeaderboard] = useState([]);
@@ -75,6 +80,16 @@ function SessionPage() {
   const isHost = session?.host?.clerkId === user?.id;
   const isParticipant = session?.participants?.some(
     (p) => p.clerkId === user?.id
+  );
+  const currentMongoUserId = isHost
+    ? session?.host?._id
+    : session?.participants?.find((p) => p.clerkId === user?.id)?._id;
+  const canWriteWhiteboard = Boolean(
+    isHost ||
+      whiteboardWriteMode === "all" ||
+      (whiteboardWriteMode === "approved" &&
+        currentMongoUserId &&
+        whiteboardWriterIds.includes(currentMongoUserId))
   );
 
   // --- FIX: Live Reference for Host Status ---
@@ -106,6 +121,21 @@ function SessionPage() {
 
   const panelGroupRef = useRef(null);
 
+  const applyWhiteboardPermissions = useCallback(({ writeMode, writerIds }) => {
+    if (typeof writeMode === "string") {
+      setWhiteboardWriteMode(writeMode);
+    }
+    if (Array.isArray(writerIds)) {
+      setWhiteboardWriterIds(
+        writerIds
+          .map((id) =>
+            typeof id === "string" ? id : id?._id?.toString?.() || id?.toString?.() || ""
+          )
+          .filter(Boolean)
+      );
+    }
+  }, []);
+
   // New useEffect to reset layout when panel visibility changes
   /*
   useEffect(() => {
@@ -122,6 +152,8 @@ function SessionPage() {
 
   useEffect(() => {
     setWhiteboardScene(null);
+    setWhiteboardWriteMode("host-only");
+    setWhiteboardWriterIds([]);
     setQuizBank([]);
     setQuizLeaderboard([]);
     setQuizTop3([]);
@@ -194,10 +226,19 @@ function SessionPage() {
         setWhiteboardScene({ elements, appState: appState || null });
       });
 
-      socket.on("whiteboard-sync", ({ isOpen, elements, appState }) => {
+      socket.on("whiteboard-sync", ({ isOpen, elements, appState, writeMode, writerIds }) => {
         setIsWhiteboardOpen(Boolean(isOpen));
+        applyWhiteboardPermissions({ writeMode, writerIds });
         if (!Array.isArray(elements)) return;
         setWhiteboardScene({ elements, appState: appState || null });
+      });
+
+      socket.on("whiteboard-permissions-updated", ({ writeMode, writerIds }) => {
+        applyWhiteboardPermissions({ writeMode, writerIds });
+      });
+
+      socket.on("whiteboard-write-denied", ({ message }) => {
+        toast.error(message || "You do not have write access to this whiteboard.");
       });
 
       socket.on("quiz-bank-loaded", ({ quizBank: nextBank }) => {
@@ -269,7 +310,7 @@ function SessionPage() {
       }
       socketRef.current = null;
     };
-  }, [id, getToken, user?.id]);
+  }, [id, getToken, user?.id, applyWhiteboardPermissions]);
 
   useEffect(() => {
     if (!id || !socketRef.current) return;
@@ -281,6 +322,18 @@ function SessionPage() {
     if (session?.isCodeOpen !== undefined) setIsCodeOpen(session.isCodeOpen);
     if (session?.isAntiCheatEnabled !== undefined)
       setIsAntiCheatEnabled(session.isAntiCheatEnabled);
+    if (typeof session?.whiteboardWriteMode === "string") {
+      setWhiteboardWriteMode(session.whiteboardWriteMode);
+    }
+    if (Array.isArray(session?.whiteboardWriters)) {
+      setWhiteboardWriterIds(
+        session.whiteboardWriters
+          .map((id) =>
+            typeof id === "string" ? id : id?._id?.toString?.() || id?.toString?.() || ""
+          )
+          .filter(Boolean)
+      );
+    }
   }, [session]);
 
   // --- Candidate Detection Logic ---
@@ -353,6 +406,24 @@ function SessionPage() {
         isOpen: newState,
       });
     }
+  };
+
+  const handleWhiteboardWriteModeChange = (event) => {
+    const nextMode = event.target.value;
+    setWhiteboardWriteMode(nextMode);
+    if (!isHost || !socketRef.current) return;
+    socketRef.current.emit("whiteboard-set-write-mode", {
+      roomId: id,
+      mode: nextMode,
+    });
+  };
+
+  const handleToggleWriterAccess = (participantId, hasAccess) => {
+    if (!isHost || !socketRef.current || !participantId) return;
+    socketRef.current.emit(hasAccess ? "whiteboard-revoke-writer" : "whiteboard-grant-writer", {
+      roomId: id,
+      userId: participantId,
+    });
   };
 
   const toggleQuizPanel = () => {
@@ -601,6 +672,58 @@ function SessionPage() {
                 {isWhiteboardOpen ? "Close Board" : "Whiteboard"}
               </button>
 
+              {isWhiteboardOpen && (
+                <>
+                  <select
+                    className="select select-bordered select-sm"
+                    value={whiteboardWriteMode}
+                    onChange={handleWhiteboardWriteModeChange}
+                  >
+                    <option value="host-only">Host writes</option>
+                    <option value="approved">Approved writers</option>
+                    <option value="all">Everyone writes</option>
+                  </select>
+
+                  <div className="dropdown dropdown-end">
+                    <label tabIndex={0} className="btn btn-ghost btn-sm gap-2">
+                      <PencilIcon className="w-4 h-4" />
+                      Writers
+                    </label>
+                    <ul
+                      tabIndex={0}
+                      className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-60 max-h-72 overflow-y-auto"
+                    >
+                      {session?.participants?.length ? (
+                        session.participants.map((participant) => {
+                          const hasWriteAccess = whiteboardWriterIds.includes(participant._id);
+                          return (
+                            <li key={participant._id}>
+                              <button
+                                onClick={() =>
+                                  handleToggleWriterAccess(participant._id, hasWriteAccess)
+                                }
+                                className="flex items-center justify-between gap-2"
+                              >
+                                <span className="truncate">{participant.name}</span>
+                                {hasWriteAccess ? (
+                                  <CheckIcon className="w-4 h-4 text-success" />
+                                ) : (
+                                  <PencilOffIcon className="w-4 h-4 opacity-60" />
+                                )}
+                              </button>
+                            </li>
+                          );
+                        })
+                      ) : (
+                        <li>
+                          <span className="opacity-70">No participants yet</span>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </>
+              )}
+
               {session?.participants?.length > 0 && (
                 <div className="dropdown dropdown-end">
                   <label
@@ -630,6 +753,13 @@ function SessionPage() {
                 <LogOutIcon className="w-4 h-4" /> End
               </button>
               </>
+            )}
+
+            {isWhiteboardOpen && !canWriteWhiteboard && (
+              <span className="badge badge-warning gap-1">
+                <PencilOffIcon className="w-3 h-3" />
+                View only
+              </span>
             )}
           </div>
         </div>
@@ -676,6 +806,7 @@ function SessionPage() {
                         socket={socketRef.current}
                         userName={user?.fullName || "User"}
                         scene={whiteboardScene}
+                        canWrite={canWriteWhiteboard}
                       />
                     </div>
                   </WhiteboardErrorBoundary>
