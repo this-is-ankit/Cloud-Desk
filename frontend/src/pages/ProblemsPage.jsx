@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 
 import { PROBLEMS } from "../data/problems";
 import { ChevronRightIcon, Code2Icon } from "../components/icons/ModernIcons";
@@ -90,6 +91,8 @@ function ProblemsPage() {
           </div>
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 }

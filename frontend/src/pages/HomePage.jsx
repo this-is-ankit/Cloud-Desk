@@ -10,6 +10,7 @@ import {
 } from "../components/icons/ModernIcons";
 import { SignInButton } from "@clerk/clerk-react";
 import ThemeToggle from "../components/ThemeToggle";
+import Footer from "../components/Footer";
 
 function HomePage() {
   return (
@@ -175,6 +176,8 @@ function HomePage() {
           </div>
         </div>
       </div>
+
+      <Footer />
     </div>
   );
 }
