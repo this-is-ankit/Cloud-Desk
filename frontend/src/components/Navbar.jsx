@@ -36,7 +36,7 @@ function Navbar() {
           className="group flex items-center gap-3 transition-transform duration-200 hover:scale-[1.02]"
         >
           <div className="flex size-10 items-center justify-center rounded-xl bg-primary shadow-lg">
-            <SparklesIcon className="size-6 text-white" />
+            <SparklesIcon className="size-6 text-primary-content" />
           </div>
           <div className="flex flex-col">
             <span className="text-xl font-bold tracking-tight text-primary">Cloud Desk</span>

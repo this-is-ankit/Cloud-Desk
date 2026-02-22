@@ -23,7 +23,7 @@ function HomePage() {
             className="flex items-center gap-3 hover:scale-105 transition-transform duration-200"
           >
             <div className="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg">
-              <SparklesIcon className="size-6 text-white" />
+              <SparklesIcon className="size-6 text-primary-content" />
             </div>
 
             <div className="flex flex-col">
@@ -37,7 +37,7 @@ function HomePage() {
               <ThemeToggle />
             </div>
             <SignInButton mode="modal">
-              <button className="group px-6 py-3 bg-primary rounded-xl text-white font-semibold text-sm shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 flex items-center gap-2">
+              <button className="group px-4 py-2 bg-primary rounded-sm text-primary-content font-semibold text-xs shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2 border border-primary-content/20">
                 <span>Get Started</span>
                 <ArrowRightIcon className="size-4 group-hover:translate-x-0.5 transition-transform" />
               </button>
@@ -86,13 +86,13 @@ function HomePage() {
             {/* CTA Buttons */}
             <div className="flex flex-wrap gap-4">
               <SignInButton mode="modal">
-                <button className="btn btn-primary btn-lg">
+                <button className="btn btn-primary btn-sm rounded-sm">
                   Start Coding Now
                   <ArrowRightIcon className="size-5" />
                 </button>
               </SignInButton>
 
-              <button className="btn btn-outline btn-lg">
+              <button className="btn btn-outline btn-sm rounded-sm">
                 <VideoIcon className="size-5" />
                 Watch Demo
               </button>

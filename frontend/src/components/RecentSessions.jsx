@@ -7,7 +7,7 @@ function RecentSessions({ sessions, isLoading }) {
       <div className="card-body">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-primary rounded-xl">
-            <Clock className="w-5 h-5 text-white" />
+            <Clock className="w-5 h-5 text-primary-content" />
           </div>
           <h2 className="text-2xl font-black">Your Past Sessions</h2>
         </div>
@@ -45,7 +45,7 @@ function RecentSessions({ sessions, isLoading }) {
                           : "bg-primary"
                       }`}
                     >
-                      <Code2 className="w-6 h-6 text-white" />
+                      <Code2 className="w-6 h-6 text-primary-content" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-base mb-1 truncate">

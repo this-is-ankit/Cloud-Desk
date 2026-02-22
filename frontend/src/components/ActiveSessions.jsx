@@ -45,7 +45,7 @@ function ActiveSessions({ sessions, isLoading, isUserInSession }) {
                   {/* LEFT SIDE */}
                   <div className="flex items-center gap-4 flex-1">
                     <div className="relative size-14 rounded-xl bg-primary flex items-center justify-center">
-                      <Code2Icon className="size-7 text-white" />
+                      <Code2Icon className="size-7 text-primary-content" />
                       <div className="absolute -top-1 -right-1 size-4 bg-success rounded-full border-2 border-base-100" />
                     </div>
 
