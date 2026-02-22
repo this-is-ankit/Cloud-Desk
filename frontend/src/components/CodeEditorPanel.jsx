@@ -1,6 +1,7 @@
 import Editor from "@monaco-editor/react";
-import { Loader2Icon, PlayIcon } from "lucide-react";
+import { Loader2Icon, PlayIcon } from "./icons/ModernIcons";
 import { LANGUAGE_CONFIG } from "../data/problems";
+import { useTheme } from "../context/ThemeProvider";
 
 function CodeEditorPanel({
   selectedLanguage,
@@ -10,6 +11,8 @@ function CodeEditorPanel({
   onCodeChange,
   onRunCode,
 }) {
+  const { isDark } = useTheme();
+
   return (
     <div className="h-full bg-base-300 flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 bg-base-100 border-t border-base-300">
@@ -49,13 +52,15 @@ function CodeEditorPanel({
           language={LANGUAGE_CONFIG[selectedLanguage].monacoLang}
           value={code}
           onChange={onCodeChange}
-          theme="vs-dark"
+          theme={isDark ? "vs-dark" : "vs"}
           options={{
-            fontSize: 16,
+            fontFamily: "JetBrains Mono",
+            fontSize: 15,
             lineNumbers: "on",
             scrollBeyondLastLine: false,
             automaticLayout: true,
             minimap: { enabled: false },
+            padding: { top: 12, bottom: 12 },
           }}
         />
       </div>

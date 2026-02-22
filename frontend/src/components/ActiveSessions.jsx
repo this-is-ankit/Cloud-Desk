@@ -6,7 +6,7 @@ import {
   UsersIcon,
   ZapIcon,
   LoaderIcon,
-} from "lucide-react";
+} from "./icons/ModernIcons";
 import { Link } from "react-router";
 
 function ActiveSessions({ sessions, isLoading, isUserInSession }) {
@@ -17,14 +17,14 @@ function ActiveSessions({ sessions, isLoading, isUserInSession }) {
         <div className="flex items-center justify-between mb-6">
           {/* TITLE AND ICON */}
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-primary to-secondary rounded-xl">
-              <ZapIcon className="size-5" />
+            <div className="icon-box p-2">
+              <ZapIcon className="size-5 text-base-content" />
             </div>
             <h2 className="text-2xl font-black">Live Sessions</h2>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="size-2 bg-success rounded-full" />
+            <div className="size-2 bg-success rounded-none" />
             <span className="text-sm font-medium text-success">{sessions.length} active</span>
           </div>
         </div>
@@ -44,9 +44,9 @@ function ActiveSessions({ sessions, isLoading, isUserInSession }) {
                 <div className="flex items-center justify-between gap-4 p-5">
                   {/* LEFT SIDE */}
                   <div className="flex items-center gap-4 flex-1">
-                    <div className="relative size-14 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-                      <Code2Icon className="size-7 text-white" />
-                      <div className="absolute -top-1 -right-1 size-4 bg-success rounded-full border-2 border-base-100" />
+                    <div className="icon-box relative size-14">
+                      <Code2Icon className="size-7 text-base-content" />
+                      <div className="absolute -top-1 -right-1 size-4 bg-success rounded-none border-2 border-base-100" />
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -87,8 +87,8 @@ function ActiveSessions({ sessions, isLoading, isUserInSession }) {
             ))
           ) : (
             <div className="text-center py-16">
-              <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-3xl flex items-center justify-center">
-                <SparklesIcon className="w-10 h-10 text-primary/50" />
+              <div className="icon-box w-20 h-20 mx-auto mb-4">
+                <SparklesIcon className="w-10 h-10 text-base-content/70" />
               </div>
               <p className="text-lg font-semibold opacity-70 mb-1">No active sessions</p>
               <p className="text-sm opacity-50">Be the first to create one!</p>

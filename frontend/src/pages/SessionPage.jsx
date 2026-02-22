@@ -2,7 +2,6 @@ import { useUser, useAuth } from "@clerk/clerk-react";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router";
 import io from "socket.io-client";
-import { PresentationIcon } from "lucide-react";
 import WhiteboardPanel from "../components/WhiteboardPanel";
 import WhiteboardErrorBoundary from "../components/WhiteboardErrorBoundary";
 import {
@@ -14,24 +13,12 @@ import {
 import { executeCode } from "../lib/piston";
 import Navbar from "../components/Navbar";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import {
-  Loader2Icon,
-  LogOutIcon,
-  KeyIcon,
-  UserMinusIcon,
-  CodeIcon,
-  EyeOffIcon,
-  ShieldAlertIcon,
-  ShieldCheckIcon,
-  ListChecksIcon,
-  CheckIcon,
-  PencilIcon,
-  PencilOffIcon,
-} from "lucide-react";
+import { Loader2Icon, KeyIcon, ListChecksIcon, PencilOffIcon } from "../components/icons/ModernIcons";
 import toast from "react-hot-toast";
 import CodeEditorPanel from "../components/CodeEditorPanel";
 import OutputPanel from "../components/OutputPanel";
 import QuizPanel from "../components/QuizPanel";
+import HostToolsPopover from "../components/HostToolsPopover";
 
 import useStreamClient from "../hooks/useStreamClient";
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
@@ -408,6 +395,16 @@ function SessionPage() {
     }
   };
 
+  const toggleAntiCheat = () => {
+    const newState = !isAntiCheatEnabled;
+    setIsAntiCheatEnabled(newState);
+    if (!socketRef.current) return;
+    socketRef.current.emit("toggle-anti-cheat", {
+      roomId: id,
+      isEnabled: newState,
+    });
+  };
+
   const handleWhiteboardWriteModeChange = (event) => {
     const nextMode = event.target.value;
     setWhiteboardWriteMode(nextMode);
@@ -624,135 +621,22 @@ function SessionPage() {
             </button>
 
             {isHost && session?.status === "active" && (
-              <>
-              <button
-                onClick={() => {
-                  const newState = !isAntiCheatEnabled;
-                  setIsAntiCheatEnabled(newState);
-                  if (!socketRef.current) return;
-                  socketRef.current.emit("toggle-anti-cheat", {
-                    roomId: id,
-                    isEnabled: newState,
-                  });
-                }}
-                className={`btn btn-sm gap-2 ${
-                  isAntiCheatEnabled ? "btn-warning" : "btn-ghost"
-                }`}
-              >
-                {isAntiCheatEnabled ? (
-                  <ShieldAlertIcon className="w-4 h-4" />
-                ) : (
-                  <ShieldCheckIcon className="w-4 h-4" />
-                )}
-                {isAntiCheatEnabled ? "Monitor On" : "Monitor Off"}
-              </button>
-
-              <button
-                onClick={toggleCodeSpace}
-                className={`btn btn-sm gap-2 ${
-                  isCodeOpen ? "btn-ghost" : "btn-primary"
-                }`}
-              >
-                {isCodeOpen ? (
-                  <EyeOffIcon className="w-4 h-4" />
-                ) : (
-                  <CodeIcon className="w-4 h-4" />
-                )}
-                {isCodeOpen ? "Close Code" : "Start Coding"}
-              </button>
-
-              {/* NEW: Whiteboard Toggle Button */}
-              <button
-                onClick={toggleWhiteboard}
-                className={`btn btn-sm gap-2 ${
-                  isWhiteboardOpen ? "btn-secondary" : "btn-ghost"
-                }`}
-              >
-                <PresentationIcon className="w-4 h-4" />
-                {isWhiteboardOpen ? "Close Board" : "Whiteboard"}
-              </button>
-
-              {isWhiteboardOpen && (
-                <>
-                  <select
-                    className="select select-bordered select-sm"
-                    value={whiteboardWriteMode}
-                    onChange={handleWhiteboardWriteModeChange}
-                  >
-                    <option value="host-only">Host writes</option>
-                    <option value="approved">Approved writers</option>
-                    <option value="all">Everyone writes</option>
-                  </select>
-
-                  <div className="dropdown dropdown-end">
-                    <label tabIndex={0} className="btn btn-ghost btn-sm gap-2">
-                      <PencilIcon className="w-4 h-4" />
-                      Writers
-                    </label>
-                    <ul
-                      tabIndex={0}
-                      className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-60 max-h-72 overflow-y-auto"
-                    >
-                      {session?.participants?.length ? (
-                        session.participants.map((participant) => {
-                          const hasWriteAccess = whiteboardWriterIds.includes(participant._id);
-                          return (
-                            <li key={participant._id}>
-                              <button
-                                onClick={() =>
-                                  handleToggleWriterAccess(participant._id, hasWriteAccess)
-                                }
-                                className="flex items-center justify-between gap-2"
-                              >
-                                <span className="truncate">{participant.name}</span>
-                                {hasWriteAccess ? (
-                                  <CheckIcon className="w-4 h-4 text-success" />
-                                ) : (
-                                  <PencilOffIcon className="w-4 h-4 opacity-60" />
-                                )}
-                              </button>
-                            </li>
-                          );
-                        })
-                      ) : (
-                        <li>
-                          <span className="opacity-70">No participants yet</span>
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                </>
-              )}
-
-              {session?.participants?.length > 0 && (
-                <div className="dropdown dropdown-end">
-                  <label
-                    tabIndex={0}
-                    className="btn btn-ghost btn-sm text-error"
-                  >
-                    <UserMinusIcon className="w-4 h-4" />
-                  </label>
-                  <ul
-                    tabIndex={0}
-                    className="dropdown-content z-[1] menu p-2 shadow bg-base-200 rounded-box w-52"
-                  >
-                    {session.participants.map((p) => (
-                      <li key={p._id}>
-                        <button onClick={() => handleKickParticipant(p._id)}>
-                          Kick {p.name}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <button
-                onClick={handleEndSession}
-                className="btn btn-error btn-sm gap-2"
-              >
-                <LogOutIcon className="w-4 h-4" /> End
-              </button>
-              </>
+              <HostToolsPopover
+                session={session}
+                isAntiCheatEnabled={isAntiCheatEnabled}
+                isCodeOpen={isCodeOpen}
+                isWhiteboardOpen={isWhiteboardOpen}
+                whiteboardWriteMode={whiteboardWriteMode}
+                whiteboardWriterIds={whiteboardWriterIds}
+                onToggleAntiCheat={toggleAntiCheat}
+                onToggleCodeSpace={toggleCodeSpace}
+                onToggleWhiteboard={toggleWhiteboard}
+                onWhiteboardWriteModeChange={handleWhiteboardWriteModeChange}
+                onToggleWriterAccess={handleToggleWriterAccess}
+                onToggleQuizPanel={toggleQuizPanel}
+                onKickParticipant={handleKickParticipant}
+                onEndSession={handleEndSession}
+              />
             )}
 
             {isWhiteboardOpen && !canWriteWhiteboard && (

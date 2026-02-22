@@ -1,4 +1,4 @@
-import { LoaderIcon, PlusIcon, Users, User } from "lucide-react";
+import { LoaderIcon, PlusIcon, Users, User } from "./icons/ModernIcons";
 import { LANGUAGE_CONFIG } from "../data/problems"; 
 import { useState } from "react";
 

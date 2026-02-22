@@ -1,12 +1,220 @@
 @import "tailwindcss";
 @plugin "daisyui" {
-  themes: all;
+  themes: cloud-light --default, cloud-dark --prefersdark;
 }
 
-/* Add cursor pointer to buttons by default - this is coming from tailwind docs */
+@plugin "daisyui/theme" {
+  name: "cloud-light";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #ffffff;
+  --color-base-300: #f0f0f0;
+  --color-base-content: #000000;
+  --color-primary: #000000;
+  --color-primary-content: #ffffff;
+  --color-secondary: #000000;
+  --color-secondary-content: #ffffff;
+  --color-accent: #000000;
+  --color-accent-content: #ffffff;
+  --color-neutral: #000000;
+  --color-neutral-content: #ffffff;
+  --color-info: #111111;
+  --color-info-content: #ffffff;
+  --color-success: #111111;
+  --color-success-content: #ffffff;
+  --color-warning: #2a2a2a;
+  --color-warning-content: #ffffff;
+  --color-error: #000000;
+  --color-error-content: #ffffff;
+  --radius-box: 0rem;
+  --radius-field: 0rem;
+  --radius-selector: 0rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "cloud-dark";
+  default: false;
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: #000000;
+  --color-base-200: #000000;
+  --color-base-300: #131313;
+  --color-base-content: #ffffff;
+  --color-primary: #ffffff;
+  --color-primary-content: #000000;
+  --color-secondary: #ffffff;
+  --color-secondary-content: #000000;
+  --color-accent: #ffffff;
+  --color-accent-content: #000000;
+  --color-neutral: #ffffff;
+  --color-neutral-content: #000000;
+  --color-info: #f2f2f2;
+  --color-info-content: #000000;
+  --color-success: #f2f2f2;
+  --color-success-content: #000000;
+  --color-warning: #d8d8d8;
+  --color-warning-content: #000000;
+  --color-error: #ffffff;
+  --color-error-content: #000000;
+  --radius-box: 0rem;
+  --radius-field: 0rem;
+  --radius-selector: 0rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
+:root[data-theme="cloud-light"] {
+  --bg-0: #ffffff;
+  --bg-1: #ffffff;
+  --bg-2: #f0f0f0;
+  --text-1: #000000;
+  --text-2: #333333;
+  --text-3: #555555;
+  --primary: #000000;
+  --secondary: #000000;
+  --accent: #000000;
+  --success: #111111;
+  --warning: #2a2a2a;
+  --danger: #000000;
+  --border: #d4d4d4;
+  --surface-glass: rgba(255, 255, 255, 0.94);
+}
+
+:root[data-theme="cloud-dark"] {
+  --bg-0: #000000;
+  --bg-1: #000000;
+  --bg-2: #131313;
+  --text-1: #ffffff;
+  --text-2: #d4d4d4;
+  --text-3: #afafaf;
+  --primary: #ffffff;
+  --secondary: #ffffff;
+  --accent: #ffffff;
+  --success: #f2f2f2;
+  --warning: #d8d8d8;
+  --danger: #ffffff;
+  --border: #2a2a2a;
+  --surface-glass: rgba(0, 0, 0, 0.9);
+}
+
 @layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    font-family: "Plus Jakarta Sans", sans-serif;
+    background: var(--bg-0);
+    color: var(--text-1);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Space Grotesk", sans-serif;
+    letter-spacing: -0.015em;
+  }
+
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  iconify-icon {
+    display: block;
+    line-height: 1;
+    vertical-align: middle;
+  }
+
   button:not(:disabled),
   [role="button"]:not(:disabled) {
     cursor: pointer;
   }
+
+  button,
+  [type="button"],
+  [type="submit"],
+  [role="button"],
+  a,
+  input,
+  textarea,
+  select {
+    min-height: 40px;
+  }
+
+  :focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--primary) 70%, white 30%);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .btn {
+    border-radius: 0 !important;
+    min-height: 36px;
+    height: 36px;
+    padding-inline: 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    border-width: 1px;
+    box-shadow: none;
+  }
+
+  .btn:hover {
+    transform: none;
+  }
+
+  .join .join-item,
+  .card,
+  .badge,
+  .input,
+  .select,
+  .textarea,
+  .modal-box,
+  .stats {
+    border-radius: 0 !important;
+  }
+
+  .icon-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@utility glass-surface {
+  background-color: var(--surface-glass);
+  backdrop-filter: blur(14px);
 }

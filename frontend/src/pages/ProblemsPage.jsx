@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import Navbar from "../components/Navbar";
 
 import { PROBLEMS } from "../data/problems";
-import { ChevronRightIcon, Code2Icon } from "lucide-react";
+import { ChevronRightIcon, Code2Icon } from "../components/icons/ModernIcons";
 import { getDifficultyBadgeClass } from "../lib/utils";
 
 function ProblemsPage() {
@@ -38,8 +38,8 @@ function ProblemsPage() {
                   {/* LEFT SIDE */}
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="size-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Code2Icon className="size-6 text-primary" />
+                      <div className="icon-box size-12">
+                        <Code2Icon className="size-6 text-base-content" />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
