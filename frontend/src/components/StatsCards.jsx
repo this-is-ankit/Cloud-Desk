@@ -10,7 +10,6 @@ function StatsCards({ activeSessionsCount, recentSessionsCount }) {
             <div className="icon-box p-3">
               <UsersIcon className="w-7 h-7 text-base-content" />
             </div>
-            <div className="badge badge-primary">Live</div>
           </div>
           <div className="text-4xl font-black mb-1">{activeSessionsCount}</div>
           <div className="text-sm opacity-60">Active Sessions</div>
