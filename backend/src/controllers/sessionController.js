@@ -2,6 +2,7 @@ import { chatClient, streamClient } from "../lib/stream.js";
 import Course from "../models/Course.js";
 import Session from "../models/Session.js";
 import { quizStateByRoom, whiteboardPersistTimersByRoom, whiteboardStateByRoom } from "../server.js";
+import { saveCourseWithRepair } from "../lib/coursePersistence.js";
 
 const isTeacher = (user) => user?.role === "teacher";
 
@@ -39,7 +40,7 @@ const markCourseAttendanceJoin = async (session, userId) => {
       status: "joined",
       joinedAt: new Date(),
     });
-    await course.save();
+    await saveCourseWithRepair(course);
   }
 };
 
@@ -63,7 +64,7 @@ const completeLinkedCourseClass = async (session) => {
     }
   }
 
-  await course.save();
+  await saveCourseWithRepair(course);
 };
 
 export async function createSession(req, res) {

@@ -1,8 +1,8 @@
-import { useUser } from "@clerk/clerk-react";
 import { ArrowRightIcon, ZapIcon } from "./icons/ModernIcons";
+import { useRuntimeAuth } from "../hooks/useRuntimeAuth";
 
 function WelcomeSection({ role = "student", primaryAction, secondaryAction, tertiaryAction }) {
-  const { user } = useUser();
+  const { user } = useRuntimeAuth();
   const isTeacher = role === "teacher";
 
   return (

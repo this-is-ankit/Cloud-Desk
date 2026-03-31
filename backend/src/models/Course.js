@@ -277,7 +277,7 @@ courseSchema.index({
   category: "text",
   language: "text",
   tags: "text",
-});
+}, { language_override: "searchLanguage" });
 
 const Course = mongoose.model("Course", courseSchema);
 

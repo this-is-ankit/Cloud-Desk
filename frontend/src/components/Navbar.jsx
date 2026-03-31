@@ -1,13 +1,16 @@
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { BookOpenIcon, LayoutDashboardIcon, SparklesIcon } from "./icons/ModernIcons";
 import { LibraryBig, UserRound } from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
 import ThemeToggle from "./ThemeToggle";
 import { useAppUser } from "../hooks/useAppUser";
+import { useRuntimeAuth } from "../hooks/useRuntimeAuth";
 
 function Navbar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { role } = useAppUser();
+  const { authMode, signOut, user } = useRuntimeAuth();
 
   const isActive = (path) => location.pathname === path;
   const isSessionRoute = location.pathname.startsWith("/session/");
@@ -149,7 +152,19 @@ function Navbar() {
           </Link>
 
           <div className="ml-2 mt-1">
-            <UserButton />
+            {authMode === "dev" ? (
+              <button
+                className="btn btn-outline btn-sm rounded-xl"
+                onClick={async () => {
+                  await signOut();
+                  navigate("/");
+                }}
+              >
+                {user?.firstName || "Demo"} Sign Out
+              </button>
+            ) : (
+              <UserButton />
+            )}
           </div>
         </div>
       </div>

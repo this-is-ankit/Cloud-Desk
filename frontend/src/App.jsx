@@ -1,4 +1,3 @@
-import { useUser } from "@clerk/clerk-react";
 import { Navigate, Route, Routes } from "react-router";
 import HomePage from "./pages/HomePage";
 
@@ -11,6 +10,7 @@ import CoursesPage from "./pages/CoursesPage";
 import CourseDetailPage from "./pages/CourseDetailPage";
 import { useTheme } from "./context/ThemeProvider";
 import { useAppUser } from "./hooks/useAppUser";
+import { useRuntimeAuth } from "./hooks/useRuntimeAuth";
 import OnboardingPage from "./pages/OnboardingPage";
 import ProfileSettingsPage from "./pages/ProfileSettingsPage";
 import TeachersPage from "./pages/TeachersPage";
@@ -18,7 +18,7 @@ import TeacherDetailPage from "./pages/TeacherDetailPage";
 import { Loader2 } from "lucide-react";
 
 function ProtectedAppRoute({ children }) {
-  const { isSignedIn, isLoaded } = useUser();
+  const { isSignedIn, isLoaded } = useRuntimeAuth();
   const { onboardingCompleted, isLoading } = useAppUser();
 
   if (!isLoaded || (isSignedIn && isLoading)) {
@@ -35,7 +35,7 @@ function ProtectedAppRoute({ children }) {
 }
 
 function App() {
-  const { isSignedIn, isLoaded } = useUser();
+  const { isSignedIn, isLoaded } = useRuntimeAuth();
   const { isDark } = useTheme();
   const { onboardingCompleted, isLoading } = useAppUser();
 

@@ -11,8 +11,12 @@ import {
 import { SignInButton } from "@clerk/clerk-react";
 import ThemeToggle from "../components/ThemeToggle";
 import Footer from "../components/Footer";
+import { useRuntimeAuth } from "../hooks/useRuntimeAuth";
 
 function HomePage() {
+  const { authMode, signInAs } = useRuntimeAuth();
+  const isDevAuth = authMode === "dev";
+
   return (
     <div className="bg-base-200">
       {/* NAVBAR */}
@@ -37,12 +41,24 @@ function HomePage() {
             <div className="hidden sm:block">
               <ThemeToggle />
             </div>
-            <SignInButton mode="modal">
-              <button className="btn btn-primary btn-xs rounded-none gap-2 px-3">
-                <span>Get Started</span>
-                <ArrowRightIcon className="size-4" />
-              </button>
-            </SignInButton>
+            {isDevAuth ? (
+              <div className="flex gap-2">
+                <button className="btn btn-primary btn-xs rounded-none gap-2 px-3" onClick={() => signInAs("teacher")}>
+                  <span>Teacher Demo</span>
+                  <ArrowRightIcon className="size-4" />
+                </button>
+                <button className="btn btn-outline btn-xs rounded-none gap-2 px-3" onClick={() => signInAs("student")}>
+                  <span>Student Demo</span>
+                </button>
+              </div>
+            ) : (
+              <SignInButton mode="modal">
+                <button className="btn btn-primary btn-xs rounded-none gap-2 px-3">
+                  <span>Get Started</span>
+                  <ArrowRightIcon className="size-4" />
+                </button>
+              </SignInButton>
+            )}
           </div>
         </div>
       </nav>
@@ -86,12 +102,24 @@ function HomePage() {
 
             {/* CTA Buttons */}
             <div className="flex flex-wrap gap-4">
-              <SignInButton mode="modal">
-                <button className="btn btn-primary btn-xs rounded-none px-3">
-                  Start Coding Now
-                  <ArrowRightIcon className="size-4" />
-                </button>
-              </SignInButton>
+              {isDevAuth ? (
+                <>
+                  <button className="btn btn-primary btn-xs rounded-none px-3" onClick={() => signInAs("teacher")}>
+                    Start as Teacher
+                    <ArrowRightIcon className="size-4" />
+                  </button>
+                  <button className="btn btn-outline btn-xs rounded-none px-3" onClick={() => signInAs("student")}>
+                    Start as Student
+                  </button>
+                </>
+              ) : (
+                <SignInButton mode="modal">
+                  <button className="btn btn-primary btn-xs rounded-none px-3">
+                    Start Coding Now
+                    <ArrowRightIcon className="size-4" />
+                  </button>
+                </SignInButton>
+              )}
 
               <button className="btn btn-outline btn-xs rounded-none px-3">
                 <VideoIcon className="size-4" />

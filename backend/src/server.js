@@ -19,7 +19,10 @@ import userRoutes from "./routes/userRoute.js";
 
 import Session from "./models/Session.js";
 import User from "./models/User.js";
+import Course from "./models/Course.js";
 import { chatClient, streamClient } from "./lib/stream.js";
+import { extractDevSocketAuth, findOrCreateDevUser } from "./lib/devAuth.js";
+import { repairLegacyCourseTextIndex } from "./lib/coursePersistence.js";
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -366,8 +369,19 @@ const sortLeaderboard = (leaderboard = []) =>
   });
 
 io.use(async (socket, next) => {
+  const devAuth = extractDevSocketAuth(socket.handshake.auth);
+  if (devAuth) {
+    try {
+      const user = await findOrCreateDevUser(devAuth);
+      socket.userId = user.clerkId;
+      socket.clerkId = user.clerkId;
+      return next();
+    } catch (error) {
+      return next(new Error("Invalid dev auth"));
+    }
+  }
+
   const token = socket.handshake.auth.token;
-  
   if (!token) {
     return next(new Error("Authentication required"));
   }
@@ -1168,6 +1182,7 @@ if (ENV.NODE_ENV === "production") {
 const startServer = async () => {
   try {
     await connectDB();
+    await repairLegacyCourseTextIndex();
     httpServer.listen(ENV.PORT, () => console.log("Server is running on port:", ENV.PORT));
   } catch (error) {
     console.error("💥 Error starting the server", error);

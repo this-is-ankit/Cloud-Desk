@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@clerk/clerk-react";
 import toast from "react-hot-toast";
 import { userApi } from "../api/users";
+import { useRuntimeAuth } from "./useRuntimeAuth";
 
 export const useAppProfile = () => {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn } = useRuntimeAuth();
 
   return useQuery({
     queryKey: ["app-profile"],

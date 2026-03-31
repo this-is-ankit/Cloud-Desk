@@ -2,11 +2,20 @@ import mongoose from "mongoose";
 import Course from "../models/Course.js";
 import Session from "../models/Session.js";
 import { chatClient, streamClient } from "../lib/stream.js";
+import { createCourseWithRepair, saveCourseWithRepair } from "../lib/coursePersistence.js";
 
 const COURSE_LEVELS = new Set(["Beginner", "Intermediate", "Advanced", "All Levels"]);
 const COURSE_SORTS = new Set(["relevance", "newest", "oldest", "popular", "title", "upcoming"]);
 const COURSE_ENROLLMENT_MODES = new Set(["open", "approval", "invite"]);
 const MAX_COURSE_LIMIT = 100;
+const COURSE_FIELD_LIMITS = {
+  title: 120,
+  code: 24,
+  category: 80,
+  language: 50,
+  shortDescription: 220,
+  description: 4000,
+};
 
 const normalizeText = (value) => (typeof value === "string" ? value.trim() : "");
 
@@ -34,6 +43,17 @@ const ensureEnrolledStudent = (course, userId, statuses = ["approved"]) =>
       statuses.includes(entry.status) &&
       (entry.student?._id?.toString?.() === userId || entry.student?.toString?.() === userId),
   );
+
+const getCourseFieldLengthError = (fields) => {
+  for (const [field, limit] of Object.entries(COURSE_FIELD_LIMITS)) {
+    const value = fields[field];
+    if (typeof value === "string" && value.length > limit) {
+      return `${field} must be ${limit} characters or fewer`;
+    }
+  }
+
+  return null;
+};
 
 const getNextUpcomingClass = (classSessions = []) => {
   const now = Date.now();
@@ -351,12 +371,24 @@ export async function createCourse(req, res) {
       return res.status(400).json({ message: "Title, code, category, language, and short description are required" });
     }
 
+    const fieldLengthError = getCourseFieldLengthError({
+      title,
+      code,
+      category,
+      language,
+      shortDescription,
+      description,
+    });
+    if (fieldLengthError) {
+      return res.status(400).json({ message: fieldLengthError });
+    }
+
     const existingCourse = await Course.findOne({ code });
     if (existingCourse) {
       return res.status(409).json({ message: "Course code already exists" });
     }
 
-    const course = await Course.create({
+    const course = await createCourseWithRepair({
       title,
       code,
       category,
@@ -376,7 +408,7 @@ export async function createCourse(req, res) {
     res.status(201).json({ course: serializeCourseDetail(populatedCourse, req.user) });
   } catch (error) {
     console.error("Error in createCourse controller:", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
+    res.status(500).json({ message: error?.name === "ValidationError" ? "Invalid course data" : "Internal Server Error" });
   }
 }
 
@@ -514,12 +546,24 @@ export async function updateCourse(req, res) {
       course.inviteCode = normalizeText(req.body.inviteCode).toUpperCase() || generateInviteCode();
     }
 
-    await course.save();
+    const fieldLengthError = getCourseFieldLengthError({
+      title: course.title,
+      code: course.code,
+      category: course.category,
+      language: course.language,
+      shortDescription: course.shortDescription,
+      description: course.description,
+    });
+    if (fieldLengthError) {
+      return res.status(400).json({ message: fieldLengthError });
+    }
+
+    await saveCourseWithRepair(course);
     const populatedCourse = await coursePopulate(Course.findById(course._id));
     res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user) });
   } catch (error) {
     console.error("Error in updateCourse controller:", error.message);
-    res.status(500).json({ message: "Internal Server Error" });
+    res.status(500).json({ message: error?.name === "ValidationError" ? "Invalid course data" : "Internal Server Error" });
   }
 }
 
@@ -539,7 +583,7 @@ export async function publishCourse(req, res) {
     }
 
     course.status = "published";
-    await course.save();
+    await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
     res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Course published successfully" });
@@ -558,7 +602,7 @@ export async function archiveCourse(req, res) {
     }
 
     course.status = "archived";
-    await course.save();
+    await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
     res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Course archived" });
@@ -595,7 +639,7 @@ export async function requestEnrollment(req, res) {
       requestedAt: new Date(),
       decidedAt: course.enrollmentMode === "open" ? new Date() : null,
     });
-    await course.save();
+    await saveCourseWithRepair(course);
 
     const enrollmentStatus = course.enrollmentMode === "open" ? "approved" : "pending";
     res.status(200).json({
@@ -639,7 +683,7 @@ export async function joinCourseWithInvite(req, res) {
       requestedAt: new Date(),
       decidedAt: new Date(),
     });
-    await course.save();
+    await saveCourseWithRepair(course);
 
     res.status(200).json({ message: "You joined the course successfully", enrollmentStatus: "approved" });
   } catch (error) {
@@ -661,7 +705,7 @@ export async function approveEnrollment(req, res) {
 
     enrollment.status = "approved";
     enrollment.decidedAt = new Date();
-    await course.save();
+    await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
     res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Enrollment approved" });
@@ -684,7 +728,7 @@ export async function rejectEnrollment(req, res) {
 
     enrollment.status = "rejected";
     enrollment.decidedAt = new Date();
-    await course.save();
+    await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
     res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Enrollment rejected" });
@@ -724,7 +768,7 @@ export async function createClassSession(req, res) {
       usePersistentRoom,
       status: "scheduled",
     });
-    await course.save();
+    await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
     res.status(201).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Class scheduled successfully" });
@@ -754,7 +798,7 @@ export async function updateClassSession(req, res) {
     if ("scheduledStart" in req.body) classSession.scheduledStart = new Date(req.body.scheduledStart);
     if ("scheduledEnd" in req.body) classSession.scheduledEnd = new Date(req.body.scheduledEnd);
 
-    await course.save();
+    await saveCourseWithRepair(course);
     const populatedCourse = await coursePopulate(Course.findById(course._id));
     res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Class updated" });
   } catch (error) {
@@ -801,7 +845,7 @@ export async function startClassSession(req, res) {
     if (classSession.usePersistentRoom) {
       course.persistentSessionId = session._id;
     }
-    await course.save();
+    await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
     res.status(200).json({
@@ -838,7 +882,7 @@ export async function startPersistentRoom(req, res) {
         sessionKind: "course_room",
       });
       course.persistentSessionId = session._id;
-      await course.save();
+      await saveCourseWithRepair(course);
     }
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
@@ -876,7 +920,7 @@ export async function createAssignment(req, res) {
       status: "open",
       submissions: [],
     });
-    await course.save();
+    await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
     res.status(201).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Assignment created" });
@@ -929,7 +973,7 @@ export async function submitAssignment(req, res) {
       });
     }
 
-    await course.save();
+    await saveCourseWithRepair(course);
     const populatedCourse = await coursePopulate(Course.findById(course._id));
     res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Assignment submitted" });
   } catch (error) {
@@ -955,7 +999,7 @@ export async function reviewAssignmentSubmission(req, res) {
     submission.status = "reviewed";
     submission.feedback = normalizeText(req.body.feedback);
     submission.reviewedAt = new Date();
-    await course.save();
+    await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
     res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Submission reviewed" });

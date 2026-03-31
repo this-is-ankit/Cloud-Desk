@@ -152,8 +152,10 @@ function CreateCourseModal({ isOpen, onClose, onSubmit, isSubmitting }) {
               onChange={handleChange}
               className="textarea textarea-bordered min-h-28 rounded-2xl"
               placeholder="What will students learn in these live classes?"
+              maxLength={220}
               required
             />
+            <span className="mt-2 text-xs text-base-content/55">{form.shortDescription.length}/220 characters</span>
           </label>
 
           <label className="form-control">

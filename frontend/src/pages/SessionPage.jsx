@@ -1,4 +1,3 @@
-import { useUser, useAuth } from "@clerk/clerk-react";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router";
 import io from "socket.io-client";
@@ -23,12 +22,12 @@ import HostToolsPopover from "../components/HostToolsPopover";
 import useStreamClient from "../hooks/useStreamClient";
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
 import VideoCallUI from "../components/VideoCallUI";
+import { useRuntimeAuth } from "../hooks/useRuntimeAuth";
 
 function SessionPage() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { user } = useUser();
-  const { getToken } = useAuth();
+  const { user, getToken, authMode, devAuth } = useRuntimeAuth();
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const [accessCode, setAccessCode] = useState("");
@@ -174,12 +173,19 @@ function SessionPage() {
       const socketURL =
         import.meta.env.MODE === "development" ? "http://localhost:3000" : "/";
 
-      const token = await getToken();
-      if (!token || !isActive) return;
+      if (!isActive) return;
 
-      socket = io(socketURL, {
-        auth: { token },
-      });
+      if (authMode === "dev") {
+        socket = io(socketURL, {
+          auth: { devAuth },
+        });
+      } else {
+        const token = await getToken();
+        if (!token || !isActive) return;
+        socket = io(socketURL, {
+          auth: { token },
+        });
+      }
       socketRef.current = socket;
 
       socket.on("error", (error) => {
@@ -309,7 +315,7 @@ function SessionPage() {
       }
       socketRef.current = null;
     };
-  }, [id, getToken, user?.id, applyWhiteboardPermissions]);
+  }, [id, getToken, user?.id, applyWhiteboardPermissions, authMode, devAuth]);
 
   useEffect(() => {
     if (!id || !socketRef.current) return;
