@@ -17,6 +17,9 @@ function Footer() {
           <Link to="/dashboard" className="btn btn-ghost btn-xs rounded-none">
             Dashboard
           </Link>
+          <Link to="/courses" className="btn btn-ghost btn-xs rounded-none">
+            Courses
+          </Link>
           <Link to="/problems" className="btn btn-ghost btn-xs rounded-none">
             Problems
           </Link>

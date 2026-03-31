@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router";
 import { BookOpenIcon, LayoutDashboardIcon, SparklesIcon } from "./icons/ModernIcons";
+import { LibraryBig } from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
 import ThemeToggle from "./ThemeToggle";
 
@@ -11,11 +12,14 @@ function Navbar() {
   const isProblemRoute = location.pathname.startsWith("/problem/");
   const isProblemsRoute = location.pathname === "/problems";
   const isDashboardRoute = location.pathname === "/dashboard";
+  const isCoursesRoute = location.pathname === "/courses";
 
   const pageTitle = isSessionRoute
     ? "Live Session"
     : isProblemRoute
       ? "Problem Workspace"
+      : isCoursesRoute
+        ? "Courses"
       : isProblemsRoute
         ? "Practice Problems"
         : isDashboardRoute
@@ -24,6 +28,8 @@ function Navbar() {
 
   const modeBadgeLabel = isSessionRoute
     ? "Interview mode"
+    : isCoursesRoute
+      ? "Learning mode"
     : isProblemRoute || isProblemsRoute
       ? "Practice mode"
       : "Studio mode";
@@ -64,6 +70,23 @@ function Navbar() {
             <div className="flex items-center gap-2.5">
               <BookOpenIcon className="size-4" />
               <span className="font-medium hidden sm:inline">Problems</span>
+            </div>
+          </Link>
+
+          <Link
+            to="/courses"
+            className={`px-4 py-2.5 rounded-none transition-all duration-200 
+              ${
+                isActive("/courses")
+                  ? "bg-primary text-primary-content"
+                  : "hover:bg-base-200 text-base-content/70 hover:text-base-content"
+              }
+              
+              `}
+          >
+            <div className="flex items-center gap-2.5">
+              <LibraryBig className="size-4" />
+              <span className="font-medium hidden sm:inline">Courses</span>
             </div>
           </Link>
 

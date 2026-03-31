@@ -14,6 +14,7 @@ import { inngest, functions } from "./lib/inngest.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import sessionRoutes from "./routes/sessionRoute.js";
 import codeExecutionRoutes from "./routes/codeExecutionRoute.js";
+import courseRoutes from "./routes/courseRoute.js";
 
 import Session from "./models/Session.js";
 import User from "./models/User.js";
@@ -1146,6 +1147,7 @@ io.on("connection", (socket) => {
 app.use("/api/inngest", serve({ client: inngest, functions }));
 app.use("/api/chat", chatRoutes);
 app.use("/api/sessions", sessionRoutes);
+app.use("/api/courses", courseRoutes);
 app.use("/api/code", codeExecutionRoutes);
 
 app.get("/health", (req, res) => {

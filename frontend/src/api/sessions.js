@@ -20,6 +20,11 @@ export const sessionApi = {
     return response.data;
   },
 
+  joinSessionByCode: async (code) => {
+    const response = await axiosInstance.post("/sessions/join-by-code", { code });
+    return response.data;
+  },
+
   //Accept object with id and code
   joinSession: async ({ id, code }) => {
     const response = await axiosInstance.post(`/sessions/${id}/join`, { code });

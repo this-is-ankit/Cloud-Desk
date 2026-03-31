@@ -1,10 +1,82 @@
 import { chatClient, streamClient } from "../lib/stream.js";
+import Course from "../models/Course.js";
 import Session from "../models/Session.js";
 import { quizStateByRoom, whiteboardPersistTimersByRoom, whiteboardStateByRoom } from "../server.js";
 
+const isTeacher = (user) => user?.role === "teacher";
+
+const findApprovedEnrollment = (course, userId) =>
+  (course.enrollments || []).find(
+    (entry) =>
+      entry.status === "approved" &&
+      (entry.student?._id?.toString?.() === userId || entry.student?.toString?.() === userId),
+  );
+
+const canJoinCourseSession = (course, user) => {
+  if (!course || !user) return false;
+  if (course.teacher?._id?.toString?.() === user._id.toString() || course.teacher?.toString?.() === user._id.toString()) {
+    return true;
+  }
+  return Boolean(findApprovedEnrollment(course, user._id.toString()));
+};
+
+const markCourseAttendanceJoin = async (session, userId) => {
+  if (!session.courseId || !session.classSessionId) return;
+
+  const course = await Course.findById(session.courseId);
+  if (!course) return;
+
+  const classSession = course.classSessions.id(session.classSessionId);
+  if (!classSession) return;
+
+  const alreadyTracked = (classSession.attendance || []).some(
+    (entry) => entry.student?.toString() === userId.toString(),
+  );
+
+  if (!alreadyTracked) {
+    classSession.attendance.push({
+      student: userId,
+      status: "joined",
+      joinedAt: new Date(),
+    });
+    await course.save();
+  }
+};
+
+const completeLinkedCourseClass = async (session) => {
+  if (!session.courseId || !session.classSessionId) return;
+
+  const course = await Course.findById(session.courseId);
+  if (!course) return;
+
+  const classSession = course.classSessions.id(session.classSessionId);
+  if (!classSession) return;
+
+  classSession.status = "completed";
+  classSession.endedAt = new Date();
+  for (const attendance of classSession.attendance || []) {
+    if (!attendance.leftAt) {
+      attendance.leftAt = classSession.endedAt;
+      const durationMs = attendance.leftAt.getTime() - new Date(attendance.joinedAt).getTime();
+      attendance.durationMinutes = Math.max(0, Math.round(durationMs / 60000));
+      attendance.status = "completed";
+    }
+  }
+
+  await course.save();
+};
+
 export async function createSession(req, res) {
   try {
-    const { language, sessionType = "one-on-one", maxParticipants } = req.body;
+    const {
+      language,
+      sessionType = "one-on-one",
+      maxParticipants,
+      title = "",
+      courseId = null,
+      classSessionId = null,
+      sessionKind = "ad_hoc",
+    } = req.body;
     const userId = req.user._id;
     const clerkId = req.user.clerkId;
 
@@ -14,22 +86,23 @@ export async function createSession(req, res) {
 
     let participantLimit;
     if (sessionType === "group") {
-      const parsedMax = parseInt(maxParticipants);
-      if (isNaN(parsedMax) || parsedMax < 2 || parsedMax > 20) {
-        participantLimit = 10;
-      } else {
-        participantLimit = parsedMax;
-      }
+      const parsedMax = parseInt(maxParticipants, 10);
+      participantLimit = Number.isNaN(parsedMax) || parsedMax < 2 || parsedMax > 200 ? 10 : parsedMax;
     } else {
       participantLimit = 1;
     }
 
-    const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    if (courseId) {
+      const course = await Course.findById(courseId);
+      if (!course) return res.status(404).json({ message: "Course not found" });
+      if (!isTeacher(req.user) || course.teacher.toString() !== userId.toString()) {
+        return res.status(403).json({ message: "Only the course teacher can create course live sessions" });
+      }
+    }
 
-    // GENERATE A RANDOM 6-CHARACTER CODE
+    const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    // SAVE THE CODE TO THE DB
     const session = await Session.create({
       language,
       host: userId,
@@ -37,18 +110,22 @@ export async function createSession(req, res) {
       code,
       sessionType,
       maxParticipants: participantLimit,
-      participants: [], // Initialize empty array
+      participants: [],
+      title,
+      courseId,
+      classSessionId,
+      sessionKind,
     });
 
     await streamClient.video.call("default", callId).getOrCreate({
       data: {
         created_by_id: clerkId,
-        custom: { language, sessionId: session._id.toString() },
+        custom: { language, sessionId: session._id.toString(), courseId, classSessionId, sessionKind },
       },
     });
 
     const channel = chatClient.channel("messaging", callId, {
-      name: `${language.charAt(0).toUpperCase() + language.slice(1)} Session`,
+      name: title || `${language.charAt(0).toUpperCase() + language.slice(1)} Session`,
       created_by_id: clerkId,
       members: [clerkId],
     });
@@ -64,9 +141,9 @@ export async function createSession(req, res) {
 
 export async function getActiveSessions(_, res) {
   try {
-    const sessions = await Session.find({ status: "active" })
-      .populate("host", "name profileImage email clerkId")
-      .populate("participants", "name profileImage email clerkId")
+    const sessions = await Session.find({ status: "active", sessionKind: "ad_hoc" })
+      .populate("host", "name profileImage email clerkId role")
+      .populate("participants", "name profileImage email clerkId role")
       .sort({ createdAt: -1 })
       .limit(20);
 
@@ -81,7 +158,6 @@ export async function getMyRecentSessions(req, res) {
   try {
     const userId = req.user._id;
 
-    // get sessions where user is either host or participant
     const sessions = await Session.find({
       status: "completed",
       $or: [{ host: userId }, { participants: userId }],
@@ -101,12 +177,33 @@ export async function getSessionById(req, res) {
     const { id } = req.params;
 
     const session = await Session.findById(id)
-      .populate("host", "name email profileImage clerkId")
-      .populate("participants", "name email profileImage clerkId");
+      .populate("host", "name email profileImage clerkId role")
+      .populate("participants", "name email profileImage clerkId role")
+      .populate("courseId", "title code teacher enrollments")
+      .lean();
 
     if (!session) return res.status(404).json({ message: "Session not found" });
 
-    res.status(200).json({ session });
+    let courseAccess = null;
+    if (session.courseId) {
+      const isTeacherOwner = session.courseId.teacher?.toString?.() === req.user._id.toString();
+      const approvedEnrollment = (session.courseId.enrollments || []).find(
+        (entry) =>
+          entry.status === "approved" && entry.student?.toString?.() === req.user._id.toString(),
+      );
+
+      if (!isTeacherOwner && !approvedEnrollment && session.host?.clerkId !== req.user.clerkId) {
+        return res.status(403).json({ message: "You are not approved to access this course session" });
+      }
+
+      courseAccess = {
+        courseId: session.courseId._id,
+        courseTitle: session.courseId.title,
+        canJoinWithoutCode: Boolean(isTeacherOwner || approvedEnrollment),
+      };
+    }
+
+    res.status(200).json({ session: { ...session, courseAccess } });
   } catch (error) {
     console.log("Error in getSessionById controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -123,39 +220,39 @@ export async function joinSession(req, res) {
     const session = await Session.findById(id);
 
     if (!session) return res.status(404).json({ message: "Session not found" });
-
     if (session.status !== "active") {
-      return res
-        .status(400)
-        .json({ message: "Cannot join a completed session" });
+      return res.status(400).json({ message: "Cannot join a completed session" });
     }
 
-    // VERIFY THE CODE
-    if (session.code !== code) {
+    let canJoinWithoutCode = false;
+    if (session.courseId) {
+      const course = await Course.findById(session.courseId).populate("teacher", "_id");
+      if (!course || !canJoinCourseSession(course, req.user)) {
+        return res.status(403).json({ message: "You are not approved to join this live class" });
+      }
+      canJoinWithoutCode = true;
+    }
+
+    if (!canJoinWithoutCode && session.code !== code) {
       return res.status(400).json({ message: "Invalid access code" });
     }
 
     if (session.host.toString() === userId.toString()) {
-      return res
-        .status(400)
-        .json({ message: "Host cannot join as a participant" });
+      return res.status(400).json({ message: "Host cannot join as a participant" });
     }
 
-    const isAlreadyJoined = session.participants.some(
-      (p) => p.toString() === userId.toString(),
-    );
-
+    const isAlreadyJoined = session.participants.some((p) => p.toString() === userId.toString());
     if (isAlreadyJoined) {
       return res.status(200).json({ session });
     }
 
     if (session.participants.length >= session.maxParticipants) {
-      console.log(`Join rejected: Room full. Current: ${session.participants.length}, Max: ${session.maxParticipants}`);
       return res.status(409).json({ message: "Session is full" });
     }
 
     session.participants.push(userId);
     await session.save();
+    await markCourseAttendanceJoin(session, userId);
 
     const channel = chatClient.channel("messaging", session.callId);
     await channel.addMembers([clerkId]);
@@ -167,32 +264,73 @@ export async function joinSession(req, res) {
   }
 }
 
+export async function joinSessionByCode(req, res) {
+  try {
+    const code = typeof req.body.code === "string" ? req.body.code.trim().toUpperCase() : "";
+    const userId = req.user._id;
+    const clerkId = req.user.clerkId;
+
+    if (!code) {
+      return res.status(400).json({ message: "Access code is required" });
+    }
+
+    const session = await Session.findOne({ code, status: "active" });
+
+    if (!session) {
+      return res.status(404).json({ message: "No active session found for this code" });
+    }
+
+    if (session.courseId) {
+      const course = await Course.findById(session.courseId).populate("teacher", "_id");
+      if (!course || !canJoinCourseSession(course, req.user)) {
+        return res.status(403).json({ message: "You are not approved to join this live class" });
+      }
+    }
+
+    if (session.host.toString() === userId.toString()) {
+      return res.status(200).json({ sessionId: session._id, session });
+    }
+
+    const isAlreadyJoined = session.participants.some((participantId) => participantId.toString() === userId.toString());
+
+    if (!isAlreadyJoined) {
+      if (session.participants.length >= session.maxParticipants) {
+        return res.status(409).json({ message: "Session is full" });
+      }
+
+      session.participants.push(userId);
+      await session.save();
+      await markCourseAttendanceJoin(session, userId);
+
+      const channel = chatClient.channel("messaging", session.callId);
+      await channel.addMembers([clerkId]);
+    }
+
+    res.status(200).json({ sessionId: session._id, session });
+  } catch (error) {
+    console.log("Error in joinSessionByCode controller:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
 export async function kickParticipant(req, res) {
   try {
     const { id } = req.params;
     const { participantId } = req.body;
     const userId = req.user._id;
 
-    // Populate participant to get their Clerk ID fosession.participant = userId;r Stream removal
     const session = await Session.findById(id).populate("participants");
 
     if (!session) return res.status(404).json({ message: "Session not found" });
-
     if (session.host.toString() !== userId.toString()) {
-      return res
-        .status(403)
-        .json({ message: "Only the host can kick a participant" });
+      return res.status(403).json({ message: "Only the host can kick a participant" });
     }
 
-    const targetUser = session.participants.find(
-      (p) => p._id.toString() === participantId,
-    );
-    if (!targetUser)
-      return res
-        .status(404)
-        .json({ message: "Participant not found in session" });
+    const targetUser = session.participants.find((p) => p._id.toString() === participantId);
+    if (!targetUser) {
+      return res.status(404).json({ message: "Participant not found in session" });
+    }
 
-    // Remove from Stream Channel (Chat/Video)
     if (targetUser.clerkId) {
       try {
         const channel = chatClient.channel("messaging", session.callId);
@@ -202,15 +340,10 @@ export async function kickParticipant(req, res) {
       }
     }
 
-    // Remove from Database
-    session.participants = session.participants.filter(
-      (p) => p._id.toString() !== participantId,
-    );
+    session.participants = session.participants.filter((p) => p._id.toString() !== participantId);
     await session.save();
 
-    res
-      .status(200)
-      .json({ message: "Participant kicked successfully", session });
+    res.status(200).json({ message: "Participant kicked successfully", session });
   } catch (error) {
     console.log("Error in kickParticipant controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -225,31 +358,23 @@ export async function endSession(req, res) {
     const session = await Session.findById(id);
 
     if (!session) return res.status(404).json({ message: "Session not found" });
-
-    // check if user is the host
     if (session.host.toString() !== userId.toString()) {
-      return res
-        .status(403)
-        .json({ message: "Only the host can end the session" });
+      return res.status(403).json({ message: "Only the host can end the session" });
     }
-
-    // check if session is already completed
     if (session.status === "completed") {
       return res.status(400).json({ message: "Session is already completed" });
     }
 
-    // delete stream video call
     const call = streamClient.video.call("default", session.callId);
     await call.delete({ hard: true });
 
-    // delete stream chat channel
     const channel = chatClient.channel("messaging", session.callId);
     await channel.delete();
 
     session.status = "completed";
     await session.save();
+    await completeLinkedCourseClass(session);
 
-    // ADD THIS LINE: Explicitly clear whiteboard state from memory
     const whiteboardPersistTimer = whiteboardPersistTimersByRoom.get(id);
     if (whiteboardPersistTimer) clearTimeout(whiteboardPersistTimer);
     whiteboardPersistTimersByRoom.delete(id);

@@ -40,6 +40,25 @@ const sessionSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    title: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    courseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Course",
+      default: null,
+    },
+    classSessionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
+    sessionKind: {
+      type: String,
+      enum: ["ad_hoc", "course_room", "class", "office_hours"],
+      default: "ad_hoc",
+    },
     isCodeOpen: {
       type: Boolean,
       default: false, // Starts hidden by default (Interviewer focuses on intro first)

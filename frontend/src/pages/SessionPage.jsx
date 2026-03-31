@@ -92,6 +92,18 @@ function SessionPage() {
     isParticipantRef.current = isParticipant;
   }, [isParticipant]);
 
+  useEffect(() => {
+    if (!session?.courseAccess?.canJoinWithoutCode) return;
+    if (loadingSession || isHost || isParticipant || joinSessionMutation.isPending) return;
+
+    joinSessionMutation.mutate(
+      { id, code: "" },
+      {
+        onSuccess: refetch,
+      },
+    );
+  }, [id, isHost, isParticipant, joinSessionMutation, loadingSession, refetch, session?.courseAccess?.canJoinWithoutCode]);
+
   const { call, channel, chatClient, streamClient } = useStreamClient(
     session,
     loadingSession,
@@ -515,9 +527,9 @@ function SessionPage() {
 
   const handleJoinSession = (e) => {
     e.preventDefault();
-    if (!accessCode) return;
+    if (!accessCode && !session?.courseAccess?.canJoinWithoutCode) return;
     joinSessionMutation.mutate(
-      { id, code: accessCode },
+      { id, code: accessCode || "" },
       { onSuccess: refetch }
     );
   };
@@ -546,6 +558,14 @@ function SessionPage() {
   }
 
   if (!isHost && !isParticipant) {
+    if (session?.courseAccess?.canJoinWithoutCode && joinSessionMutation.isPending) {
+      return (
+        <div className="h-screen bg-base-100 flex items-center justify-center">
+          <Loader2Icon className="size-10 animate-spin text-primary" />
+        </div>
+      );
+    }
+
     return (
       <div className="h-screen bg-base-100 flex flex-col">
         <Navbar />
@@ -553,28 +573,39 @@ function SessionPage() {
           <div className="card bg-base-200 w-full max-w-md shadow-xl border border-base-300">
             <div className="card-body">
               <h2 className="card-title text-2xl justify-center mb-2">
-                Join Session
+                {session?.courseAccess?.canJoinWithoutCode ? "Joining class" : "Join Session"}
               </h2>
-              <form onSubmit={handleJoinSession} className="space-y-4">
-                <div className="form-control">
-                  <div className="relative">
-                    <KeyIcon className="absolute left-3 top-3 size-5 text-base-content/40" />
-                    <input
-                      type="text"
-                      placeholder="Access Code"
-                      className="input input-bordered w-full pl-10 font-mono uppercase"
-                      value={accessCode}
-                      onChange={(e) =>
-                        setAccessCode(e.target.value.toUpperCase())
-                      }
-                      required
-                    />
-                  </div>
+              {session?.courseAccess?.canJoinWithoutCode ? (
+                <div className="space-y-4">
+                  <p className="text-sm text-base-content/70">
+                    You are approved for <span className="font-semibold">{session.courseAccess.courseTitle}</span>. Entering the live class now.
+                  </p>
+                  <button type="button" className="btn btn-primary w-full" onClick={handleJoinSession}>
+                    Join Live Class
+                  </button>
                 </div>
-                <button type="submit" className="btn btn-primary w-full">
-                  Join Session
-                </button>
-              </form>
+              ) : (
+                <form onSubmit={handleJoinSession} className="space-y-4">
+                  <div className="form-control">
+                    <div className="relative">
+                      <KeyIcon className="absolute left-3 top-3 size-5 text-base-content/40" />
+                      <input
+                        type="text"
+                        placeholder="Access Code"
+                        className="input input-bordered w-full pl-10 font-mono uppercase"
+                        value={accessCode}
+                        onChange={(e) =>
+                          setAccessCode(e.target.value.toUpperCase())
+                        }
+                        required
+                      />
+                    </div>
+                  </div>
+                  <button type="submit" className="btn btn-primary w-full">
+                    Join Session
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         </div>

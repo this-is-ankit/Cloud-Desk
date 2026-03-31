@@ -83,6 +83,21 @@ export const useJoinSession = () => {
   return result;
 };
 
+export const useJoinSessionByCode = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["joinSessionByCode"],
+    mutationFn: sessionApi.joinSessionByCode,
+    onSuccess: () => {
+      toast.success("Joined session successfully!");
+      queryClient.invalidateQueries({ queryKey: ["activeSessions"] });
+      queryClient.invalidateQueries({ queryKey: ["session"] });
+    },
+    onError: (error) => toast.error(error.response?.data?.message || "Failed to join session"),
+  });
+};
+
 export const useEndSession = () => {
   const queryClient = useQueryClient();
 
