@@ -1,9 +1,9 @@
 import { getDifficultyBadgeClass } from "../lib/utils";
 function ProblemDescription({ problem, currentProblemId, onProblemChange, allProblems }) {
   return (
-    <div className="h-full overflow-y-auto bg-base-200">
+    <div className="h-full overflow-y-auto bg-base-100">
       {/* HEADER SECTION */}
-      <div className="p-6 bg-base-100 border-b border-base-300">
+      <div className="p-6 md:p-8 bg-base-100">
         <div className="flex items-start justify-between mb-3">
           <h1 className="text-3xl font-bold text-base-content">{problem.title}</h1>
           <span className={`badge ${getDifficultyBadgeClass(problem.difficulty)}`}>
@@ -28,10 +28,10 @@ function ProblemDescription({ problem, currentProblemId, onProblemChange, allPro
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="px-6 md:px-8 pb-8 space-y-8">
         {/* PROBLEM DESC */}
-        <div className="bg-base-100 rounded-xl shadow-sm p-5 border border-base-300">
-          <h2 className="text-xl font-bold text-base-content">Description</h2>
+        <div>
+          <h2 className="text-xl font-bold text-base-content mb-4">Description</h2>
 
           <div className="space-y-3 text-base leading-relaxed">
             <p className="text-base-content/90">{problem.description.text}</p>
@@ -44,7 +44,7 @@ function ProblemDescription({ problem, currentProblemId, onProblemChange, allPro
         </div>
 
         {/* EXAMPLES SECTION */}
-        <div className="bg-base-100 rounded-xl shadow-sm p-5 border border-base-300">
+        <div>
           <h2 className="text-xl font-bold mb-4 text-base-content">Examples</h2>
           <div className="space-y-4">
             {problem.examples.map((example, idx) => (
@@ -76,7 +76,7 @@ function ProblemDescription({ problem, currentProblemId, onProblemChange, allPro
         </div>
 
         {/* CONSTRAINTS */}
-        <div className="bg-base-100 rounded-xl shadow-sm p-5 border border-base-300">
+        <div>
           <h2 className="text-xl font-bold mb-4 text-base-content">Constraints</h2>
           <ul className="space-y-2 text-base-content/90">
             {problem.constraints.map((constraint, idx) => (

@@ -1,4 +1,5 @@
 import { BookOpen, CalendarClock, ClipboardList, Loader2, RadioTower, UserCheck, Users } from "lucide-react";
+import PageContainer from "../components/PageContainer";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 
@@ -166,7 +167,7 @@ function DashboardPage() {
   const activeQuery = isTeacher ? teacherCoursesQuery : studentCoursesQuery;
   if (activeQuery.isLoading) {
     return (
-      <div className="min-h-screen bg-base-300 flex items-center justify-center">
+      <div className="min-h-screen bg-base-200 flex items-center justify-center">
         <Loader2 className="size-10 animate-spin text-primary" />
       </div>
     );
@@ -174,7 +175,7 @@ function DashboardPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-base-300 flex flex-col font-jakarta">
+      <div className="min-h-screen bg-base-200 flex flex-col">
         <Navbar />
         <WelcomeSection
           role={role}
@@ -199,10 +200,10 @@ function DashboardPage() {
           }
         />
 
-        <div className="flex-grow max-w-[1320px] mx-auto w-full px-6 py-8">
+        <PageContainer className="flex-grow py-8">
           <RoleBasedQuickStats stats={dashboardData.stats} />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
             <div className="lg:col-span-2 flex flex-col">
               <CoursesGrid
                 title={dashboardData.gridTitle}
@@ -224,7 +225,7 @@ function DashboardPage() {
               />
             </div>
           </div>
-        </div>
+        </PageContainer>
 
         <Footer />
       </div>

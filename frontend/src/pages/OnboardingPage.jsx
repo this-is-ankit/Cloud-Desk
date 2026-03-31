@@ -2,20 +2,21 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useCompleteOnboarding } from "../hooks/useUsers";
-
-const INITIAL_FORM = {
-  role: "teacher",
-  headline: "",
-  bio: "",
-  subjects: "",
-  languagesSpoken: "",
-  availabilityNote: "",
-  profileVisible: true,
-};
+import { clearAuthIntent, getAuthIntent } from "../lib/authIntent";
+import PageContainer from "../components/PageContainer";
 
 function OnboardingPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState(INITIAL_FORM);
+  const [form, setForm] = useState(() => ({
+    role: getAuthIntent() || "teacher",
+    headline: "",
+    bio: "",
+    subjects: "",
+    languagesSpoken: "",
+    availabilityNote: "",
+    profileVisible: true,
+  }));
+  const authIntent = getAuthIntent();
   const completeOnboardingMutation = useCompleteOnboarding();
 
   const handleChange = (event) => {
@@ -26,18 +27,27 @@ function OnboardingPage() {
   const handleSubmit = (event) => {
     event.preventDefault();
     completeOnboardingMutation.mutate(form, {
-      onSuccess: () => navigate("/dashboard"),
+      onSuccess: () => {
+        clearAuthIntent();
+        navigate("/dashboard");
+      },
     });
   };
 
   return (
-    <div className="min-h-screen bg-base-200 px-4 py-10">
+    <div className="min-h-screen bg-base-200">
+      <PageContainer className="py-12">
       <div className="mx-auto max-w-4xl rounded-[2rem] border border-base-content/10 bg-base-100 p-8 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Welcome to Cloud Desk</p>
-        <h1 className="mt-3 text-4xl font-black tracking-tight">Set up how you want to use the platform.</h1>
+        <h1 className="mt-3 text-4xl font-black tracking-tight">Set up the workspace you want to use.</h1>
         <p className="mt-4 max-w-2xl text-base text-base-content/65">
-          Choose whether you want to join as a teacher or a student. Teachers can immediately create live courses. Students can discover teachers and join live classes.
+          Confirm your account role, add a short profile, and finish onboarding. Your role is locked after this step so the platform can stay consistent.
         </p>
+        {authIntent && (
+          <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
+            Account mode selected: {authIntent === "teacher" ? "Teacher" : "Student"}
+          </div>
+        )}
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2">
@@ -104,6 +114,7 @@ function OnboardingPage() {
           </button>
         </form>
       </div>
+      </PageContainer>
     </div>
   );
 }

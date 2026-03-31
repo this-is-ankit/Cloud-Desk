@@ -39,6 +39,7 @@ const serializeProfile = (user, stats = null) => ({
   email: user.email,
   profileImage: user.profileImage,
   role: normalizeRole(user.role),
+  roleLocked: Boolean(user.onboardingCompleted),
   onboardingCompleted: Boolean(user.onboardingCompleted),
   headline: user.headline || "",
   bio: user.bio || "",
@@ -61,6 +62,10 @@ export async function getCurrentUser(req, res) {
 
 export async function completeOnboarding(req, res) {
   try {
+    if (req.user.onboardingCompleted) {
+      return res.status(409).json({ message: "Onboarding has already been completed" });
+    }
+
     req.user.role = normalizeRole(req.body.role);
     req.user.onboardingCompleted = true;
     req.user.headline = normalizeText(req.body.headline);
@@ -82,6 +87,10 @@ export async function completeOnboarding(req, res) {
 
 export async function updateRole(req, res) {
   try {
+    if (req.user.onboardingCompleted) {
+      return res.status(403).json({ message: "Role is locked after onboarding" });
+    }
+
     req.user.role = normalizeRole(req.body.role);
     req.user.onboardingCompleted = true;
     await req.user.save();

@@ -8,6 +8,7 @@ import CreateCourseModal from "../components/CreateCourseModal";
 import { useCourses, useCreateCourse, useJoinCourseWithInvite, useRequestEnrollment } from "../hooks/useCourses";
 import { useAppUser } from "../hooks/useAppUser";
 import { getSessionLanguageLabel } from "../lib/sessionLanguage";
+import PageContainer from "../components/PageContainer";
 
 const INITIAL_FILTERS = {
   q: "",
@@ -84,9 +85,9 @@ function CoursesPage() {
       <div className="min-h-screen bg-base-200">
         <Navbar />
 
-        <div className="mx-auto w-full max-w-[1320px] px-4 py-10 md:px-6">
+        <PageContainer className="py-10">
           <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="rounded-[2rem] border border-base-content/10 bg-gradient-to-br from-base-100 via-base-100 to-primary/5 p-7">
+            <div className="rounded-[2rem] border border-base-content/10 bg-gradient-to-br from-base-100 via-base-100 to-primary/5 p-7 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
                 {isTeacher ? "Teacher Course Hub" : "Live Course Catalog"}
               </p>
@@ -113,7 +114,7 @@ function CoursesPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-              <div className="rounded-[1.75rem] border border-base-content/10 bg-base-100/80 p-5">
+              <div className="rounded-[1.75rem] border border-base-content/10 bg-base-100/80 p-5 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-base-content/60">Matching Courses</p>
@@ -122,7 +123,7 @@ function CoursesPage() {
                   <Sparkles className="size-6 text-primary" />
                 </div>
               </div>
-              <div className="rounded-[1.75rem] border border-base-content/10 bg-base-100/80 p-5">
+              <div className="rounded-[1.75rem] border border-base-content/10 bg-base-100/80 p-5 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-base-content/60">{isTeacher ? "Published" : "Approved"}</p>
@@ -133,7 +134,7 @@ function CoursesPage() {
                   <BookOpenText className="size-6 text-success" />
                 </div>
               </div>
-              <div className="rounded-[1.75rem] border border-base-content/10 bg-base-100/80 p-5">
+              <div className="rounded-[1.75rem] border border-base-content/10 bg-base-100/80 p-5 shadow-sm">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-base-content/60">{isTeacher ? "Pending approvals" : "Pending requests"}</p>
@@ -150,7 +151,7 @@ function CoursesPage() {
             </div>
           </div>
 
-          <div className="mt-8 rounded-[2rem] border border-base-content/10 bg-base-100/80 p-5 md:p-6">
+          <div className="mt-8 rounded-[2rem] border border-base-content/10 bg-base-100/85 p-5 shadow-sm md:p-6">
             <div className="grid gap-4 xl:grid-cols-[1.5fr_repeat(5,0.7fr)]">
               <label className="form-control xl:col-span-2">
                 <span className="mb-2 text-sm font-medium text-base-content/75">Search</span>
@@ -267,7 +268,7 @@ function CoursesPage() {
             ) : courses.length > 0 ? (
               <div className="grid gap-5 lg:grid-cols-2 2xl:grid-cols-3">
                 {courses.map((course) => (
-                  <article key={course._id} className="rounded-[2rem] border border-base-content/10 bg-base-100/85 p-6 shadow-sm">
+                  <article key={course._id} className="rounded-[2rem] border border-base-content/10 bg-base-100/92 p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">{course.code}</p>
@@ -349,7 +350,7 @@ function CoursesPage() {
               </div>
             )}
           </div>
-        </div>
+        </PageContainer>
 
         <Footer />
       </div>

@@ -4,6 +4,7 @@ import { Loader2, Search } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { useTeachers } from "../hooks/useUsers";
+import PageContainer from "../components/PageContainer";
 
 function TeachersPage() {
   const navigate = useNavigate();
@@ -20,11 +21,13 @@ function TeachersPage() {
   return (
     <div className="min-h-screen bg-base-200 flex flex-col">
       <Navbar />
-      <div className="mx-auto w-full max-w-[1280px] flex-grow px-4 py-10 md:px-6">
-        <div className="rounded-[2rem] border border-base-content/10 bg-base-100 p-7">
+      <PageContainer className="flex-grow py-10">
+        <div className="rounded-[2rem] border border-base-content/10 bg-gradient-to-br from-base-100 via-base-100 to-secondary/5 p-7 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Teacher Discovery</p>
-          <h1 className="mt-3 text-4xl font-black">Find teachers running live courses.</h1>
-          <p className="mt-4 max-w-2xl text-base-content/65">Search by teacher name, subject, and spoken language to discover live educators on the platform.</p>
+          <h1 className="mt-3 text-4xl font-black tracking-tight">Find teachers running live cohorts.</h1>
+          <p className="mt-4 max-w-2xl text-base-content/65">
+            Search by teacher name, subject, and spoken language to discover live educators, compare profiles, and join better-fit courses.
+          </p>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             <label className="form-control md:col-span-1">
@@ -53,7 +56,7 @@ function TeachersPage() {
           ) : (
             <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-3">
               {teachers.map((teacher) => (
-                <article key={teacher._id} className="rounded-[2rem] border border-base-content/10 bg-base-100 p-6">
+                <article key={teacher._id} className="rounded-[2rem] border border-base-content/10 bg-base-100 p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                   <div className="flex items-center gap-4">
                     <img src={teacher.profileImage} alt={teacher.name} className="size-14 rounded-2xl object-cover" />
                     <div>
@@ -80,7 +83,7 @@ function TeachersPage() {
             </div>
           )}
         </div>
-      </div>
+      </PageContainer>
       <Footer />
     </div>
   );

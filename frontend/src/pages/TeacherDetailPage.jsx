@@ -3,6 +3,7 @@ import { Loader2 } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { useTeacherById } from "../hooks/useUsers";
+import PageContainer from "../components/PageContainer";
 
 function TeacherDetailPage() {
   const navigate = useNavigate();
@@ -22,14 +23,14 @@ function TeacherDetailPage() {
   return (
     <div className="min-h-screen bg-base-200 flex flex-col">
       <Navbar />
-      <div className="mx-auto w-full max-w-[1180px] flex-grow px-4 py-10 md:px-6">
+      <PageContainer className="flex-grow py-10">
         {!teacher ? (
-          <div className="rounded-[2rem] border border-base-content/10 bg-base-100 p-8">
+          <div className="rounded-[2rem] border border-base-content/10 bg-base-100 p-8 shadow-sm">
             <h1 className="text-3xl font-black">Teacher not found</h1>
           </div>
         ) : (
           <>
-            <div className="rounded-[2rem] border border-base-content/10 bg-base-100 p-7">
+            <div className="rounded-[2rem] border border-base-content/10 bg-gradient-to-br from-base-100 via-base-100 to-primary/5 p-7 shadow-sm">
               <div className="flex flex-col gap-5 md:flex-row md:items-center">
                 <img src={teacher.profileImage} alt={teacher.name} className="size-24 rounded-[2rem] object-cover" />
                 <div>
@@ -47,7 +48,7 @@ function TeacherDetailPage() {
 
             <div className="mt-8 grid gap-5 lg:grid-cols-2">
               {courses.map((course) => (
-                <article key={course._id} className="rounded-[2rem] border border-base-content/10 bg-base-100 p-6">
+                <article key={course._id} className="rounded-[2rem] border border-base-content/10 bg-base-100 p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">{course.code}</p>
                   <h2 className="mt-2 text-2xl font-black">{course.title}</h2>
                   <p className="mt-3 text-sm text-base-content/70">{course.shortDescription}</p>
@@ -63,7 +64,7 @@ function TeacherDetailPage() {
             </div>
           </>
         )}
-      </div>
+      </PageContainer>
       <Footer />
     </div>
   );

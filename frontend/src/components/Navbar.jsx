@@ -1,174 +1,131 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import { BookOpenIcon, LayoutDashboardIcon, SparklesIcon } from "./icons/ModernIcons";
-import { LibraryBig, UserRound } from "lucide-react";
+import { LibraryBig, UserRound, Menu, X } from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
 import ThemeToggle from "./ThemeToggle";
 import { useAppUser } from "../hooks/useAppUser";
 import { useRuntimeAuth } from "../hooks/useRuntimeAuth";
+import PageContainer from "./PageContainer";
 
-function Navbar() {
+export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { role } = useAppUser();
   const { authMode, signOut, user } = useRuntimeAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const isActive = (path) => location.pathname === path;
-  const isSessionRoute = location.pathname.startsWith("/session/");
-  const isProblemRoute = location.pathname.startsWith("/problem/");
-  const isProblemsRoute = location.pathname === "/problems";
-  const isDashboardRoute = location.pathname === "/dashboard";
-  const isCoursesRoute = location.pathname === "/courses";
-  const isTeachersRoute = location.pathname === "/teachers";
-  const isSettingsRoute = location.pathname === "/settings/profile";
+  const navItems = [
+    { to: "/dashboard", icon: LayoutDashboardIcon, label: "Dashboard" },
+    { to: "/courses", icon: LibraryBig, label: "Courses" },
+    { to: "/problems", icon: BookOpenIcon, label: "Practice" },
+    { to: "/teachers", icon: UserRound, label: "Teachers" },
+  ];
 
-  const pageTitle = isSessionRoute
-    ? "Live Session"
-    : isProblemRoute
-      ? "Problem Workspace"
-      : isCoursesRoute
-        ? "Courses"
-      : isProblemsRoute
-        ? "Practice Problems"
-        : isDashboardRoute
-          ? "Dashboard"
-          : "Cloud Desk";
-
-  const modeBadgeLabel = isSessionRoute
-    ? "Interview mode"
-      : isCoursesRoute
-        ? "Learning mode"
-      : isTeachersRoute
-        ? "Discovery mode"
-      : isProblemRoute || isProblemsRoute
-        ? "Practice mode"
-        : "Studio mode";
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+  
+  const NavLink = ({ to, icon, label }) => {
+    const active = isActive(to);
+    const IconComponent = icon;
+    return (
+      <Link
+        to={to}
+        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors duration-200
+          ${active 
+            ? "bg-primary text-primary-content shadow-sm shadow-primary/20" 
+            : "text-base-content/70 hover:bg-base-200/80 hover:text-base-content"
+          }`}
+      >
+        <IconComponent className="w-4 h-4" />
+        <span>{label}</span>
+      </Link>
+    );
+  };
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-base-300/80 glass-surface">
-      <div className="mx-auto flex max-w-[1320px] items-center justify-between gap-4 px-4 py-3 md:px-6">
-        <Link
-          to="/"
-          className="group flex items-center gap-3 transition-transform duration-200 hover:scale-[1.02]"
-        >
-          <div className="icon-box size-10 shadow-sm">
-            <SparklesIcon className="size-6 text-base-content" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xl font-bold tracking-tight text-primary">Cloud Desk</span>
-            <span className="-mt-1 text-xs text-base-content/60">Code Together</span>
-          </div>
-        </Link>
-
-        <div className="hidden items-center gap-3 lg:flex">
-          <h1 className="text-lg font-semibold text-base-content">{pageTitle}</h1>
-          <span className="badge badge-outline font-medium">{modeBadgeLabel}</span>
-        </div>
-
-        <div className="flex items-center gap-1 md:gap-2">
+    <nav className="sticky top-0 z-50 border-b border-base-content/10 bg-base-100/80 backdrop-blur-xl">
+      <PageContainer className="py-4">
+        <div className="flex items-center justify-between gap-4">
           <Link
-            to="/problems"
-            className={`px-4 py-2.5 rounded-none transition-all duration-200 
-              ${
-                isActive("/problems")
-                  ? "bg-primary text-primary-content"
-                  : "hover:bg-base-200 text-base-content/70 hover:text-base-content"
-              }
-              
-              `}
+            to="/"
+            className="group flex items-center gap-3 transition-transform duration-200 hover:scale-[1.02]"
           >
-            <div className="flex items-center gap-2.5">
-              <BookOpenIcon className="size-4" />
-              <span className="font-medium hidden sm:inline">Problems</span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-content shadow-sm">
+              <SparklesIcon className="h-5 w-5" />
+            </div>
+            <div className="hidden sm:flex flex-col">
+              <span className="text-lg font-bold tracking-tight text-base-content leading-none">Cloud Desk</span>
+              <span className="text-[11px] font-medium text-base-content/50 uppercase tracking-widest mt-1">Platform</span>
             </div>
           </Link>
 
-          <Link
-            to="/courses"
-            className={`px-4 py-2.5 rounded-none transition-all duration-200 
-              ${
-                isActive("/courses")
-                  ? "bg-primary text-primary-content"
-                  : "hover:bg-base-200 text-base-content/70 hover:text-base-content"
-              }
-              
-              `}
-          >
-            <div className="flex items-center gap-2.5">
-              <LibraryBig className="size-4" />
-              <span className="font-medium hidden sm:inline">Courses</span>
-            </div>
-          </Link>
-
-          <Link
-            to="/teachers"
-            className={`px-4 py-2.5 rounded-none transition-all duration-200 
-              ${
-                isActive("/teachers")
-                  ? "bg-primary text-primary-content"
-                  : "hover:bg-base-200 text-base-content/70 hover:text-base-content"
-              }
-              
-              `}
-          >
-            <div className="flex items-center gap-2.5">
-              <UserRound className="size-4" />
-              <span className="font-medium hidden sm:inline">Teachers</span>
-            </div>
-          </Link>
-
-          <Link
-            to="/dashboard"
-            className={`px-4 py-2.5 rounded-none transition-all duration-200 
-              ${
-                isActive("/dashboard")
-                  ? "bg-primary text-primary-content"
-                  : "hover:bg-base-200 text-base-content/70 hover:text-base-content"
-              }
-              
-              `}
-          >
-            <div className="flex items-center gap-2.5">
-              <LayoutDashboardIcon className="size-4" />
-              <span className="font-medium hidden sm:inline">Dashboard</span>
-            </div>
-          </Link>
-
-          <div className="ml-2 hidden sm:block">
-            <ThemeToggle />
+          <div className="hidden items-center gap-1 rounded-2xl border border-base-content/10 bg-base-200/50 p-1 md:flex">
+            {navItems.map((item) => (
+              <NavLink key={item.to} to={item.to} icon={item.icon} label={item.label} />
+            ))}
           </div>
 
-          <Link
-            to="/settings/profile"
-            className={`hidden px-4 py-2.5 rounded-none transition-all duration-200 md:block 
-              ${
-                isSettingsRoute
-                  ? "bg-primary text-primary-content"
-                  : "hover:bg-base-200 text-base-content/70 hover:text-base-content"
-              }
-              
-              `}
-          >
-            <span className="font-medium">{role === "teacher" ? "Teacher Profile" : "Profile"}</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:block">
+              <ThemeToggle />
+            </div>
 
-          <div className="ml-2 mt-1">
+            <Link
+              to="/settings/profile"
+              className="hidden rounded-2xl border border-base-content/10 bg-base-200/50 px-4 py-2 text-sm font-semibold text-base-content/75 transition hover:bg-base-200 hover:text-base-content lg:inline-flex"
+            >
+              {role === "teacher" ? "Teacher profile" : "Profile"}
+            </Link>
+
             {authMode === "dev" ? (
               <button
-                className="btn btn-outline btn-sm rounded-xl"
+                className="btn btn-outline btn-sm rounded-xl border-base-content/15 text-base-content/75 hover:bg-base-200"
                 onClick={async () => {
                   await signOut();
                   navigate("/");
                 }}
               >
-                {user?.firstName || "Demo"} Sign Out
+                Log out ({user?.firstName || "Dev"})
               </button>
             ) : (
-              <UserButton />
+              <UserButton appearance={{ elements: { avatarBox: "w-10 h-10 rounded-xl border border-base-content/10 shadow-sm" } }} />
             )}
+
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm btn-square rounded-xl md:hidden"
+              onClick={() => setIsMobileMenuOpen((current) => !current)}
+              aria-label="Toggle navigation menu"
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
         </div>
-      </div>
+
+        {isMobileMenuOpen && (
+          <div className="mt-4 rounded-3xl border border-base-content/10 bg-base-100 p-3 shadow-xl md:hidden">
+            <div className="space-y-2">
+              {navItems.map((item) => (
+                <NavLink key={item.to} to={item.to} icon={item.icon} label={item.label} />
+              ))}
+              <Link
+                to="/settings/profile"
+                className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
+                  isActive("/settings/profile")
+                    ? "bg-primary text-primary-content shadow-sm shadow-primary/20"
+                    : "text-base-content/70 hover:bg-base-200 hover:text-base-content"
+                }`}
+              >
+                <UserRound className="w-4 h-4" />
+                <span>{role === "teacher" ? "Teacher profile" : "Profile"}</span>
+              </Link>
+            </div>
+          </div>
+        )}
+      </PageContainer>
     </nav>
   );
 }
-export default Navbar;

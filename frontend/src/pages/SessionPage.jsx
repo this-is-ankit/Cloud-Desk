@@ -575,32 +575,38 @@ function SessionPage() {
     }
 
     return (
-      <div className="h-screen bg-base-100 flex flex-col">
+      <div className="h-screen bg-base-200 flex flex-col">
         <Navbar />
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="card bg-base-200 w-full max-w-md shadow-xl border border-base-300">
-            <div className="card-body">
-              <h2 className="card-title text-2xl justify-center mb-2">
+        <div className="flex flex-1 items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded-[2rem] border border-base-content/10 bg-base-100 p-7 shadow-xl">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Live classroom</p>
+              <h2 className="mt-3 text-3xl font-black tracking-tight text-base-content">
                 {session?.courseAccess?.canJoinWithoutCode ? "Joining class" : "Join Session"}
               </h2>
+              <p className="mt-3 text-sm leading-6 text-base-content/62">
+                {session?.courseAccess?.canJoinWithoutCode
+                  ? "You already have course access. Join the room when you are ready."
+                  : "Enter the access code shared by the host to join the live classroom."}
+              </p>
               {session?.courseAccess?.canJoinWithoutCode ? (
-                <div className="space-y-4">
+                <div className="mt-6 space-y-4">
                   <p className="text-sm text-base-content/70">
                     You are approved for <span className="font-semibold">{session.courseAccess.courseTitle}</span>. Entering the live class now.
                   </p>
-                  <button type="button" className="btn btn-primary w-full" onClick={handleJoinSession}>
+                  <button type="button" className="btn btn-primary h-12 w-full rounded-xl" onClick={handleJoinSession}>
                     Join Live Class
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleJoinSession} className="space-y-4">
+                <form onSubmit={handleJoinSession} className="mt-6 space-y-4">
                   <div className="form-control">
                     <div className="relative">
                       <KeyIcon className="absolute left-3 top-3 size-5 text-base-content/40" />
                       <input
                         type="text"
                         placeholder="Access Code"
-                        className="input input-bordered w-full pl-10 font-mono uppercase"
+                        className="input input-bordered h-12 w-full rounded-xl pl-10 font-mono uppercase"
                         value={accessCode}
                         onChange={(e) =>
                           setAccessCode(e.target.value.toUpperCase())
@@ -609,7 +615,7 @@ function SessionPage() {
                       />
                     </div>
                   </div>
-                  <button type="submit" className="btn btn-primary w-full">
+                  <button type="submit" className="btn btn-primary h-12 w-full rounded-xl">
                     Join Session
                   </button>
                 </form>
@@ -622,19 +628,19 @@ function SessionPage() {
   }
 
   return (
-    <div className="h-screen bg-base-100 flex flex-col">
+    <div className="h-screen bg-base-200 flex flex-col">
       <Navbar />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="p-4 bg-base-100 border-b border-base-300 flex items-center justify-between flex-shrink-0">
+        <div className="border-b border-base-content/10 bg-base-100/85 px-6 py-4 backdrop-blur-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-xl font-bold text-base-content">
               {getSessionLanguageLabel(selectedLanguage)}
             </h1>
-            <div className="flex items-center gap-2 text-sm text-base-content/60">
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-base-content/60">
               <span>Host: {session?.host?.name}</span>
               <span>•</span>
-              {/* UPDATED: Show count of participants */}
               <span>
                 Participants: {session?.participants?.length || 0} /{" "}
                 {session?.maxParticipants}
@@ -650,10 +656,10 @@ function SessionPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={toggleQuizPanel}
-              className={`btn btn-sm gap-2 ${isQuizOpen ? "btn-accent" : "btn-ghost"}`}
+              className={`btn btn-sm gap-2 rounded-xl ${isQuizOpen ? "btn-accent" : "btn-ghost"}`}
             >
               <ListChecksIcon className="w-4 h-4" />
               Quiz
@@ -685,10 +691,12 @@ function SessionPage() {
               </span>
             )}
           </div>
+          </div>
         </div>
 
-        <div className="flex-1 overflow-hidden relative">
-          <PanelGroup ref={panelGroupRef} direction="horizontal">
+        <div className="flex-1 overflow-hidden relative p-2 md:p-4 bg-base-200">
+          <div className="h-full w-full bg-base-100 rounded-3xl shadow-sm border border-base-content/5 overflow-hidden">
+            <PanelGroup ref={panelGroupRef} direction="horizontal">
             {isCodeOpen && (
               <>
                 {/* --- FIX: Added id and order --- */}
@@ -706,7 +714,7 @@ function SessionPage() {
                             onRunCode={handleRunCode}
                           />
                         </Panel>
-                        <PanelResizeHandle className="h-2 bg-base-300 hover:bg-primary transition-colors cursor-row-resize" />
+                        <PanelResizeHandle className="h-1.5 bg-base-200 hover:bg-primary/20 transition-colors cursor-row-resize z-10" />
                         <Panel defaultSize={30} minSize={15}>
                           <OutputPanel output={output} />
                         </Panel>
@@ -781,6 +789,7 @@ function SessionPage() {
               </div>
             </Panel>
           </PanelGroup>
+          </div>
         </div>
       </div>
     </div>

@@ -27,6 +27,7 @@ import {
   normalizeSessionLanguage,
   SESSION_LANGUAGE_OPTIONS,
 } from "../lib/sessionLanguage";
+import PageContainer from "../components/PageContainer";
 
 const INITIAL_CLASS_FORM = {
   title: "",
@@ -158,14 +159,14 @@ function CourseDetailPage() {
     <div className="min-h-screen bg-base-200">
       <Navbar />
 
-      <div className="mx-auto w-full max-w-[1180px] px-4 py-10 md:px-6">
+      <PageContainer className="py-10">
         <button className="btn btn-ghost mb-6 rounded-2xl" onClick={() => navigate("/courses")}>
           <ArrowLeft className="size-4" />
           Back to Courses
         </button>
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <section className="rounded-[2rem] border border-base-content/10 bg-base-100/85 p-7">
+          <section className="rounded-[2rem] border border-base-content/10 bg-gradient-to-br from-base-100 via-base-100 to-primary/5 p-7 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">{course.code}</p>
@@ -195,7 +196,7 @@ function CourseDetailPage() {
           </section>
 
           <aside className="space-y-6">
-            <div className="rounded-[2rem] border border-base-content/10 bg-base-100/85 p-6">
+            <div className="rounded-[2rem] border border-base-content/10 bg-base-100/90 p-6 shadow-sm">
               <h2 className="text-xl font-bold">{canManage ? "Teacher controls" : "Course access"}</h2>
               <div className="mt-5 space-y-3 text-sm text-base-content/70">
                 <p>Teacher: {course.teacher?.name || "Unknown"}</p>
@@ -276,7 +277,7 @@ function CourseDetailPage() {
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-base-content/10 bg-base-100/85 p-6">
+            <div className="rounded-[2rem] border border-base-content/10 bg-base-100/90 p-6 shadow-sm">
               <h2 className="text-xl font-bold">Live classes</h2>
               <div className="mt-5 space-y-4">
                 {approvedClasses.length > 0 ? (
@@ -326,7 +327,7 @@ function CourseDetailPage() {
 
         {canManage && (
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
-            <section className="rounded-[2rem] border border-base-content/10 bg-base-100/85 p-6">
+            <section className="rounded-[2rem] border border-base-content/10 bg-base-100/90 p-6 shadow-sm">
               <h2 className="text-xl font-bold">Course settings</h2>
               <div className="mt-5 grid gap-4">
                 {[
@@ -433,7 +434,7 @@ function CourseDetailPage() {
               </div>
             </section>
 
-            <section className="rounded-[2rem] border border-base-content/10 bg-base-100/85 p-6">
+            <section className="rounded-[2rem] border border-base-content/10 bg-base-100/90 p-6 shadow-sm">
               <h2 className="text-xl font-bold">Enrollment approvals</h2>
               <div className="mt-5 space-y-4">
                 {(course.enrollments || []).length > 0 ? (
@@ -470,7 +471,7 @@ function CourseDetailPage() {
               </div>
             </section>
 
-            <section className="rounded-[2rem] border border-base-content/10 bg-base-100/85 p-6">
+            <section className="rounded-[2rem] border border-base-content/10 bg-base-100/90 p-6 shadow-sm">
               <h2 className="text-xl font-bold">Schedule a live class</h2>
               <form onSubmit={handleCreateClass} className="mt-5 space-y-4">
                 <input
@@ -517,7 +518,7 @@ function CourseDetailPage() {
               </form>
             </section>
 
-            <section className="rounded-[2rem] border border-base-content/10 bg-base-100/85 p-6">
+            <section className="rounded-[2rem] border border-base-content/10 bg-base-100/90 p-6 shadow-sm">
               <h2 className="text-xl font-bold">Assignments</h2>
               <form onSubmit={handleCreateAssignment} className="mt-5 space-y-4">
                 <input
@@ -638,7 +639,7 @@ function CourseDetailPage() {
             </div>
           </section>
         )}
-      </div>
+      </PageContainer>
 
       <Footer />
     </div>

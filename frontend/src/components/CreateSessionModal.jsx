@@ -10,7 +10,6 @@ function CreateSessionModal({ isOpen, onClose, onCreateRoom, isCreating }) {
   if (!isOpen) return null;
 
   const handleCreate = () => {
-    // Pass the new configuration to the creation handler
     onCreateRoom({ 
       language, 
       sessionType, 
@@ -19,23 +18,35 @@ function CreateSessionModal({ isOpen, onClose, onCreateRoom, isCreating }) {
   };
 
   return (
-    <div className="modal modal-open">
-      <div className="modal-box max-w-lg">
-        <h3 className="font-bold text-2xl mb-6">Create New Session</h3>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-[2rem] border border-base-content/10 bg-base-100 p-6 shadow-2xl">
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Study Room</p>
+            <h3 className="mt-2 text-3xl font-black text-base-content">Create a live session</h3>
+            <p className="mt-2 text-sm text-base-content/65">
+              Start a focused coding room for one-on-one help or a small collaborative group.
+            </p>
+          </div>
+          <button type="button" className="btn btn-ghost btn-sm rounded-xl" onClick={onClose}>
+            Close
+          </button>
+        </div>
 
         <div className="space-y-6">
-          {/* SESSION TYPE SELECTION */}
           <div className="space-y-2">
-            <label className="label-text font-semibold">Session Type</label>
+            <label className="text-sm font-semibold text-base-content">Session type</label>
             <div className="flex gap-4">
               <button
-                className={`btn flex-1 gap-2 ${sessionType === "one-on-one" ? "btn-primary" : "btn-outline"}`}
+                type="button"
+                className={`btn flex-1 gap-2 rounded-xl ${sessionType === "one-on-one" ? "btn-primary" : "btn-outline border-base-content/15"}`}
                 onClick={() => setSessionType("one-on-one")}
               >
                 <User className="size-4" /> One-on-One
               </button>
               <button
-                className={`btn flex-1 gap-2 ${sessionType === "group" ? "btn-primary" : "btn-outline"}`}
+                type="button"
+                className={`btn flex-1 gap-2 rounded-xl ${sessionType === "group" ? "btn-primary" : "btn-outline border-base-content/15"}`}
                 onClick={() => setSessionType("group")}
               >
                 <Users className="size-4" /> Group
@@ -43,11 +54,10 @@ function CreateSessionModal({ isOpen, onClose, onCreateRoom, isCreating }) {
             </div>
           </div>
 
-          {/* LANGUAGE SELECTION */}
           <div className="space-y-2">
-            <label className="label-text font-semibold">Select Language</label>
+            <label className="text-sm font-semibold text-base-content">Coding language</label>
             <select
-              className="select select-bordered w-full"
+              className="select select-bordered h-12 w-full rounded-xl"
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
             >
@@ -57,15 +67,14 @@ function CreateSessionModal({ isOpen, onClose, onCreateRoom, isCreating }) {
             </select>
           </div>
 
-          {/* MAX PARTICIPANTS (Only shown for Group) */}
           {sessionType === "group" && (
             <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-              <label className="label-text font-semibold">Max Participants (2-20)</label>
+              <label className="text-sm font-semibold text-base-content">Max participants (2-20)</label>
               <input
                 type="number"
                 min="2"
                 max="20"
-                className="input input-bordered w-full"
+                className="input input-bordered h-12 w-full rounded-xl"
                 value={maxParticipants}
                 onChange={(e) => {
                   const value = parseInt(e.target.value);
@@ -78,15 +87,14 @@ function CreateSessionModal({ isOpen, onClose, onCreateRoom, isCreating }) {
           )}
         </div>
 
-        <div className="modal-action">
-          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary gap-2" onClick={handleCreate} disabled={isCreating}>
+        <div className="mt-8 flex justify-end gap-3">
+          <button className="btn btn-ghost rounded-xl" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary gap-2 rounded-xl" onClick={handleCreate} disabled={isCreating}>
             {isCreating ? <LoaderIcon className="size-5 animate-spin" /> : <PlusIcon className="size-5" />}
             {isCreating ? "Creating..." : "Create"}
           </button>
         </div>
       </div>
-      <div className="modal-backdrop" onClick={onClose}></div>
     </div>
   );
 }
