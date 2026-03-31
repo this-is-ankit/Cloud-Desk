@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+const generateInviteCode = () => Math.random().toString(36).slice(2, 10).toUpperCase();
+
 const enrollmentSchema = new mongoose.Schema(
   {
     student: {
@@ -241,8 +243,15 @@ const courseSchema = new mongoose.Schema(
     },
     enrollmentMode: {
       type: String,
-      enum: ["approval"],
-      default: "approval",
+      enum: ["open", "approval", "invite"],
+      default: "open",
+    },
+    inviteCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      maxlength: 16,
+      default: generateInviteCode,
     },
     enrollments: {
       type: [enrollmentSchema],

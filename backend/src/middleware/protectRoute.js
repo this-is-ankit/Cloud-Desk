@@ -2,8 +2,6 @@ import { clerkClient, requireAuth } from "@clerk/express";
 import User from "../models/User.js";
 import { upsertStreamUser } from "../lib/stream.js"; // Import Stream sync function
 
-const normalizeRole = (value) => (value === "teacher" ? "teacher" : "student");
-
 export const protectRoute = [
   requireAuth(),
   async (req, res, next) => {
@@ -20,7 +18,6 @@ export const protectRoute = [
       const name = `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim();
       const email = clerkUser.emailAddresses[0]?.emailAddress;
       const image = clerkUser.imageUrl;
-      const role = normalizeRole(clerkUser.publicMetadata?.role);
 
       // 2. If user is not found in DB, sync them from Clerk immediately
       if (!user) {
@@ -31,7 +28,6 @@ export const protectRoute = [
             name,
             email,
             profileImage: image,
-            role,
           });
 
           // Sync with Stream (Video/Chat) Backend
@@ -54,7 +50,6 @@ export const protectRoute = [
         user.name = name || user.name;
         user.email = email || user.email;
         user.profileImage = image || user.profileImage;
-        user.role = role;
         await user.save();
       }
 

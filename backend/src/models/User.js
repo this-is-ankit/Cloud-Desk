@@ -25,6 +25,40 @@ const userSchema = new mongoose.Schema(
       enum: ["teacher", "student"],
       default: "student",
     },
+    onboardingCompleted: {
+      type: Boolean,
+      default: false,
+    },
+    headline: {
+      type: String,
+      trim: true,
+      maxlength: 120,
+      default: "",
+    },
+    bio: {
+      type: String,
+      trim: true,
+      maxlength: 2400,
+      default: "",
+    },
+    subjects: {
+      type: [String],
+      default: [],
+    },
+    languagesSpoken: {
+      type: [String],
+      default: [],
+    },
+    availabilityNote: {
+      type: String,
+      trim: true,
+      maxlength: 240,
+      default: "",
+    },
+    profileVisible: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true } // createdAt, updatedAt
 );

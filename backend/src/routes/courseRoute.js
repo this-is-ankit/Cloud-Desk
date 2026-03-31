@@ -8,6 +8,7 @@ import {
   createCourse,
   getCourseById,
   getCourses,
+  joinCourseWithInvite,
   publishCourse,
   rejectEnrollment,
   requestEnrollment,
@@ -28,6 +29,7 @@ router.patch("/:id", protectRoute, updateCourse);
 router.post("/:id/publish", protectRoute, publishCourse);
 router.post("/:id/archive", protectRoute, archiveCourse);
 router.post("/:id/enrollment-request", protectRoute, requestEnrollment);
+router.post("/:id/join-invite", protectRoute, joinCourseWithInvite);
 router.post("/:id/enrollments/:enrollmentId/approve", protectRoute, approveEnrollment);
 router.post("/:id/enrollments/:enrollmentId/reject", protectRoute, rejectEnrollment);
 router.post("/:id/classes", protectRoute, createClassSession);

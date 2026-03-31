@@ -15,6 +15,7 @@ import chatRoutes from "./routes/chatRoutes.js";
 import sessionRoutes from "./routes/sessionRoute.js";
 import codeExecutionRoutes from "./routes/codeExecutionRoute.js";
 import courseRoutes from "./routes/courseRoute.js";
+import userRoutes from "./routes/userRoute.js";
 
 import Session from "./models/Session.js";
 import User from "./models/User.js";
@@ -1148,6 +1149,7 @@ app.use("/api/inngest", serve({ client: inngest, functions }));
 app.use("/api/chat", chatRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/courses", courseRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/code", codeExecutionRoutes);
 
 app.get("/health", (req, res) => {

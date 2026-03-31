@@ -1,11 +1,13 @@
 import { Link, useLocation } from "react-router";
 import { BookOpenIcon, LayoutDashboardIcon, SparklesIcon } from "./icons/ModernIcons";
-import { LibraryBig } from "lucide-react";
+import { LibraryBig, UserRound } from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
 import ThemeToggle from "./ThemeToggle";
+import { useAppUser } from "../hooks/useAppUser";
 
 function Navbar() {
   const location = useLocation();
+  const { role } = useAppUser();
 
   const isActive = (path) => location.pathname === path;
   const isSessionRoute = location.pathname.startsWith("/session/");
@@ -13,6 +15,8 @@ function Navbar() {
   const isProblemsRoute = location.pathname === "/problems";
   const isDashboardRoute = location.pathname === "/dashboard";
   const isCoursesRoute = location.pathname === "/courses";
+  const isTeachersRoute = location.pathname === "/teachers";
+  const isSettingsRoute = location.pathname === "/settings/profile";
 
   const pageTitle = isSessionRoute
     ? "Live Session"
@@ -28,11 +32,13 @@ function Navbar() {
 
   const modeBadgeLabel = isSessionRoute
     ? "Interview mode"
-    : isCoursesRoute
-      ? "Learning mode"
-    : isProblemRoute || isProblemsRoute
-      ? "Practice mode"
-      : "Studio mode";
+      : isCoursesRoute
+        ? "Learning mode"
+      : isTeachersRoute
+        ? "Discovery mode"
+      : isProblemRoute || isProblemsRoute
+        ? "Practice mode"
+        : "Studio mode";
 
   return (
     <nav className="sticky top-0 z-50 border-b border-base-300/80 glass-surface">
@@ -91,6 +97,23 @@ function Navbar() {
           </Link>
 
           <Link
+            to="/teachers"
+            className={`px-4 py-2.5 rounded-none transition-all duration-200 
+              ${
+                isActive("/teachers")
+                  ? "bg-primary text-primary-content"
+                  : "hover:bg-base-200 text-base-content/70 hover:text-base-content"
+              }
+              
+              `}
+          >
+            <div className="flex items-center gap-2.5">
+              <UserRound className="size-4" />
+              <span className="font-medium hidden sm:inline">Teachers</span>
+            </div>
+          </Link>
+
+          <Link
             to="/dashboard"
             className={`px-4 py-2.5 rounded-none transition-all duration-200 
               ${
@@ -110,6 +133,20 @@ function Navbar() {
           <div className="ml-2 hidden sm:block">
             <ThemeToggle />
           </div>
+
+          <Link
+            to="/settings/profile"
+            className={`hidden px-4 py-2.5 rounded-none transition-all duration-200 md:block 
+              ${
+                isSettingsRoute
+                  ? "bg-primary text-primary-content"
+                  : "hover:bg-base-200 text-base-content/70 hover:text-base-content"
+              }
+              
+              `}
+          >
+            <span className="font-medium">{role === "teacher" ? "Teacher Profile" : "Profile"}</span>
+          </Link>
 
           <div className="ml-2 mt-1">
             <UserButton />

@@ -5,6 +5,7 @@ import { chatClient, streamClient } from "../lib/stream.js";
 
 const COURSE_LEVELS = new Set(["Beginner", "Intermediate", "Advanced", "All Levels"]);
 const COURSE_SORTS = new Set(["relevance", "newest", "oldest", "popular", "title", "upcoming"]);
+const COURSE_ENROLLMENT_MODES = new Set(["open", "approval", "invite"]);
 const MAX_COURSE_LIMIT = 100;
 
 const normalizeText = (value) => (typeof value === "string" ? value.trim() : "");
@@ -15,6 +16,7 @@ const normalizeTags = (value) => {
 };
 
 const normalizeRole = (value) => (value === "teacher" ? "teacher" : "student");
+const normalizeEnrollmentMode = (value) => (COURSE_ENROLLMENT_MODES.has(value) ? value : "open");
 
 const assertTeacher = (user) => normalizeRole(user?.role) === "teacher";
 
@@ -24,6 +26,14 @@ const findEnrollment = (course, userId) =>
   (course.enrollments || []).find((entry) => entry.student?._id?.toString?.() === userId || entry.student?.toString?.() === userId);
 
 const isTeacherOwner = (course, userId) => course.teacher?._id?.toString?.() === userId || course.teacher?.toString?.() === userId;
+const generateInviteCode = () => Math.random().toString(36).slice(2, 10).toUpperCase();
+
+const ensureEnrolledStudent = (course, userId, statuses = ["approved"]) =>
+  (course.enrollments || []).find(
+    (entry) =>
+      statuses.includes(entry.status) &&
+      (entry.student?._id?.toString?.() === userId || entry.student?.toString?.() === userId),
+  );
 
 const getNextUpcomingClass = (classSessions = []) => {
   const now = Date.now();
@@ -182,6 +192,7 @@ const serializeCourseSummary = (course, currentUser) => {
     description: course.description,
     tags: course.tags || [],
     status: course.status,
+    enrollmentMode: course.enrollmentMode,
     createdAt: course.createdAt,
     updatedAt: course.updatedAt,
     teacher: course.teacher
@@ -190,6 +201,9 @@ const serializeCourseSummary = (course, currentUser) => {
           name: course.teacher.name,
           email: course.teacher.email,
           profileImage: course.teacher.profileImage,
+          headline: course.teacher.headline || "",
+          subjects: course.teacher.subjects || [],
+          languagesSpoken: course.teacher.languagesSpoken || [],
         }
       : null,
     isTeacherOwner: isTeacherOwner(course, currentUserId),
@@ -217,6 +231,7 @@ const serializeCourseSummary = (course, currentUser) => {
       : null,
     persistentRoomEnabled: Boolean(course.persistentRoomEnabled),
     persistentSessionId: course.persistentSessionId?._id || course.persistentSessionId || null,
+    inviteCode: isTeacherOwner(course, currentUserId) ? course.inviteCode : undefined,
   };
 };
 
@@ -228,7 +243,6 @@ const serializeCourseDetail = (course, currentUser) => {
   return {
     ...serializeCourseSummary(course, currentUser),
     canManage,
-    enrollmentMode: course.enrollmentMode,
     classSessions: (course.classSessions || []).map((entry) => serializeClassSession(entry, canManage)),
     assignments: (course.assignments || []).map((entry) => serializeAssignment(entry, currentUserId, canManage)),
     enrollments: canManage ? (course.enrollments || []).map(serializeEnrollment) : undefined,
@@ -251,7 +265,7 @@ const serializeCourseDetail = (course, currentUser) => {
 
 const coursePopulate = (query) =>
   query
-    .populate("teacher", "name email profileImage role clerkId")
+    .populate("teacher", "name email profileImage role clerkId headline subjects languagesSpoken availabilityNote")
     .populate("persistentSessionId", "_id status code")
     .populate("enrollments.student", "name email profileImage role clerkId")
     .populate("classSessions.sessionId", "_id status code")
@@ -330,6 +344,8 @@ export async function createCourse(req, res) {
     const description = normalizeText(req.body.description);
     const tags = normalizeTags(req.body.tags);
     const persistentRoomEnabled = req.body.persistentRoomEnabled !== false;
+    const enrollmentMode = normalizeEnrollmentMode(req.body.enrollmentMode);
+    const inviteCode = normalizeText(req.body.inviteCode).toUpperCase() || generateInviteCode();
 
     if (!title || !code || !category || !language || !shortDescription) {
       return res.status(400).json({ message: "Title, code, category, language, and short description are required" });
@@ -351,6 +367,8 @@ export async function createCourse(req, res) {
       tags,
       teacher: req.user._id,
       persistentRoomEnabled,
+      enrollmentMode,
+      inviteCode,
       status: "draft",
     });
 
@@ -369,6 +387,8 @@ export async function getCourses(req, res) {
     const category = normalizeText(req.query.category);
     const level = normalizeText(req.query.level);
     const language = normalizeText(req.query.language);
+    const teacher = normalizeText(req.query.teacher);
+    const enrollmentMode = normalizeText(req.query.enrollmentMode);
     const scope = normalizeText(req.query.scope);
     const sort = COURSE_SORTS.has(req.query.sort) ? req.query.sort : query ? "relevance" : "popular";
     const limit = Math.min(MAX_COURSE_LIMIT, Math.max(1, Number.parseInt(req.query.limit, 10) || 24));
@@ -391,9 +411,12 @@ export async function getCourses(req, res) {
     if (category) baseQuery.category = new RegExp(`^${escapeRegex(category)}$`, "i");
     if (level) baseQuery.level = level;
     if (language) baseQuery.language = new RegExp(escapeRegex(language), "i");
+    if (enrollmentMode && COURSE_ENROLLMENT_MODES.has(enrollmentMode)) baseQuery.enrollmentMode = enrollmentMode;
 
     const fetchedCourses = await coursePopulate(Course.find(baseQuery).sort({ createdAt: -1 }));
-    const serializedCourses = fetchedCourses.map((course) => serializeCourseSummary(course, user));
+    const serializedCourses = fetchedCourses
+      .map((course) => serializeCourseSummary(course, user))
+      .filter((course) => !teacher || course.teacher?.name?.toLowerCase().includes(teacher.toLowerCase()));
     const filteredCourses = query
       ? serializedCourses
           .map((course) => ({ ...course, _score: buildSearchScore(course, query) }))
@@ -437,7 +460,8 @@ export async function getCourseById(req, res) {
       return res.status(404).json({ message: "Course not found" });
     }
 
-    if (!assertTeacher(req.user) && course.status !== "published" && !findEnrollment(course, req.user._id.toString())) {
+    const isOwner = isTeacherOwner(course, req.user._id.toString());
+    if (!isOwner && course.status !== "published" && !findEnrollment(course, req.user._id.toString())) {
       return res.status(403).json({ message: "You do not have access to this course" });
     }
 
@@ -482,6 +506,12 @@ export async function updateCourse(req, res) {
     }
     if ("persistentRoomEnabled" in req.body) {
       course.persistentRoomEnabled = req.body.persistentRoomEnabled !== false;
+    }
+    if ("enrollmentMode" in req.body) {
+      course.enrollmentMode = normalizeEnrollmentMode(req.body.enrollmentMode);
+    }
+    if ("inviteCode" in req.body) {
+      course.inviteCode = normalizeText(req.body.inviteCode).toUpperCase() || generateInviteCode();
     }
 
     await course.save();
@@ -555,16 +585,65 @@ export async function requestEnrollment(req, res) {
       return res.status(200).json({ message: `Enrollment is already ${existing.status}`, enrollmentStatus: existing.status });
     }
 
+    if (course.enrollmentMode === "invite") {
+      return res.status(400).json({ message: "This course requires an invite code", enrollmentStatus: "invite-required" });
+    }
+
     course.enrollments.push({
       student: req.user._id,
-      status: "pending",
+      status: course.enrollmentMode === "open" ? "approved" : "pending",
       requestedAt: new Date(),
+      decidedAt: course.enrollmentMode === "open" ? new Date() : null,
     });
     await course.save();
 
-    res.status(200).json({ message: "Enrollment request submitted", enrollmentStatus: "pending" });
+    const enrollmentStatus = course.enrollmentMode === "open" ? "approved" : "pending";
+    res.status(200).json({
+      message: enrollmentStatus === "approved" ? "You joined the course successfully" : "Enrollment request submitted",
+      enrollmentStatus,
+    });
   } catch (error) {
     console.error("Error in requestEnrollment controller:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function joinCourseWithInvite(req, res) {
+  try {
+    if (assertTeacher(req.user)) {
+      return res.status(403).json({ message: "Teachers do not enroll in courses" });
+    }
+
+    const course = await Course.findById(req.params.id);
+    if (!course) return res.status(404).json({ message: "Course not found" });
+    if (course.status !== "published") {
+      return res.status(400).json({ message: "Only published courses can be joined" });
+    }
+    if (course.enrollmentMode !== "invite") {
+      return res.status(400).json({ message: "This course does not require an invite code" });
+    }
+
+    const existing = findEnrollment(course, req.user._id.toString());
+    if (existing) {
+      return res.status(200).json({ message: `Enrollment is already ${existing.status}`, enrollmentStatus: existing.status });
+    }
+
+    const inviteCode = normalizeText(req.body.inviteCode).toUpperCase();
+    if (!inviteCode || inviteCode !== course.inviteCode) {
+      return res.status(400).json({ message: "Invalid invite code" });
+    }
+
+    course.enrollments.push({
+      student: req.user._id,
+      status: "approved",
+      requestedAt: new Date(),
+      decidedAt: new Date(),
+    });
+    await course.save();
+
+    res.status(200).json({ message: "You joined the course successfully", enrollmentStatus: "approved" });
+  } catch (error) {
+    console.error("Error in joinCourseWithInvite controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
@@ -815,7 +894,7 @@ export async function submitAssignment(req, res) {
 
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
-    const enrollment = findEnrollment(course, req.user._id.toString());
+    const enrollment = ensureEnrolledStudent(course, req.user._id.toString(), ["approved"]);
     if (!enrollment || enrollment.status !== "approved") {
       return res.status(403).json({ message: "Only approved students can submit assignments" });
     }
@@ -885,4 +964,3 @@ export async function reviewAssignmentSubmission(req, res) {
     res.status(500).json({ message: "Internal Server Error" });
   }
 }
-

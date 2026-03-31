@@ -76,6 +76,13 @@ export const useRequestEnrollment = createCourseMutation(
   "Failed to request enrollment",
 );
 
+export const useJoinCourseWithInvite = createCourseMutation(
+  "joinCourseWithInvite",
+  courseApi.joinCourseWithInvite,
+  "Invite accepted",
+  "Failed to join with invite code",
+);
+
 export const useApproveEnrollment = createCourseMutation(
   "approveEnrollment",
   courseApi.approveEnrollment,

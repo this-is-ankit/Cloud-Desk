@@ -1,26 +1,26 @@
-import { useDeferredValue, useState } from "react";
-import { useUser } from "@clerk/clerk-react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { BookOpenText, Loader2, PlusCircle, Search, Sparkles, UserCheck } from "lucide-react";
 
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import CreateCourseModal from "../components/CreateCourseModal";
-import { useCourses, useCreateCourse, useRequestEnrollment } from "../hooks/useCourses";
+import { useCourses, useCreateCourse, useJoinCourseWithInvite, useRequestEnrollment } from "../hooks/useCourses";
+import { useAppUser } from "../hooks/useAppUser";
 
 const INITIAL_FILTERS = {
   q: "",
   category: "",
   level: "",
   language: "",
+  enrollmentMode: "",
   sort: "popular",
   scope: "",
 };
 
 function CoursesPage() {
   const navigate = useNavigate();
-  const { user } = useUser();
-  const isTeacher = user?.publicMetadata?.role === "teacher";
+  const { isTeacher } = useAppUser();
   const [filters, setFilters] = useState({
     ...INITIAL_FILTERS,
     scope: isTeacher ? "mine" : "discover",
@@ -35,9 +35,18 @@ function CoursesPage() {
   });
   const createCourseMutation = useCreateCourse();
   const requestEnrollmentMutation = useRequestEnrollment();
+  const joinCourseWithInviteMutation = useJoinCourseWithInvite();
+  const [inviteCodes, setInviteCodes] = useState({});
 
   const courses = courseQuery.data?.courses || [];
   const totalCourses = courseQuery.data?.meta?.total || 0;
+
+  useEffect(() => {
+    setFilters((current) => ({
+      ...current,
+      scope: isTeacher ? (current.scope === "enrolled" ? "mine" : current.scope || "mine") : (current.scope === "mine" ? "discover" : current.scope || "discover"),
+    }));
+  }, [isTeacher]);
 
   const handleFilterChange = (event) => {
     const { name, value } = event.target;
@@ -62,6 +71,13 @@ function CoursesPage() {
     requestEnrollmentMutation.mutate(courseId);
   };
 
+  const handleJoinWithInvite = (courseId) => {
+    joinCourseWithInviteMutation.mutate({
+      courseId,
+      inviteCode: inviteCodes[courseId] || "",
+    });
+  };
+
   return (
     <>
       <div className="min-h-screen bg-base-200">
@@ -79,7 +95,7 @@ function CoursesPage() {
               <p className="mt-4 max-w-2xl text-base text-base-content/65">
                 {isTeacher
                   ? "Draft courses, publish them when ready, approve enrollments, schedule classes, launch rooms, and run assignments from the course workspace."
-                  : "Browse published courses, request enrollment, and join live classes only after teacher approval."}
+                  : "Browse published courses, join open cohorts instantly, request approval-based cohorts, or use invite codes for private teacher communities."}
               </p>
 
               <div className="mt-6 flex flex-wrap gap-3">
@@ -134,7 +150,7 @@ function CoursesPage() {
           </div>
 
           <div className="mt-8 rounded-[2rem] border border-base-content/10 bg-base-100/80 p-5 md:p-6">
-            <div className="grid gap-4 xl:grid-cols-[1.5fr_repeat(4,0.7fr)]">
+            <div className="grid gap-4 xl:grid-cols-[1.5fr_repeat(5,0.7fr)]">
               <label className="form-control xl:col-span-2">
                 <span className="mb-2 text-sm font-medium text-base-content/75">Search</span>
                 <div className="relative">
@@ -185,6 +201,21 @@ function CoursesPage() {
                   className="input input-bordered h-12 rounded-2xl"
                   placeholder="Python"
                 />
+              </label>
+
+              <label className="form-control">
+                <span className="mb-2 text-sm font-medium text-base-content/75">Access</span>
+                <select
+                  name="enrollmentMode"
+                  value={filters.enrollmentMode}
+                  onChange={handleFilterChange}
+                  className="select select-bordered h-12 rounded-2xl"
+                >
+                  <option value="">All</option>
+                  <option value="open">Open join</option>
+                  <option value="approval">Teacher approval</option>
+                  <option value="invite">Invite only</option>
+                </select>
               </label>
 
               <label className="form-control">
@@ -258,6 +289,7 @@ function CoursesPage() {
 
                     <div className="mt-6 space-y-2 text-sm text-base-content/65">
                       <p>Teacher: {course.teacher?.name || "Unknown"}</p>
+                      <p>Access mode: {course.enrollmentMode}</p>
                       <p>Approved students: {course.approvedStudentCount}</p>
                       <p>
                         Next class:{" "}
@@ -273,13 +305,35 @@ function CoursesPage() {
                         Open Course
                       </button>
                       {!isTeacher && !course.isTeacherOwner && (
-                        <button
-                          className="btn btn-primary rounded-2xl"
-                          onClick={() => handleRequestEnrollment(course._id)}
-                          disabled={Boolean(course.viewerEnrollmentStatus) || requestEnrollmentMutation.isPending}
-                        >
-                          {course.viewerEnrollmentStatus ? `Request ${course.viewerEnrollmentStatus}` : "Request Enrollment"}
-                        </button>
+                        course.enrollmentMode === "invite" && !course.viewerEnrollmentStatus ? (
+                          <div className="flex w-full flex-wrap gap-3">
+                            <input
+                              value={inviteCodes[course._id] || ""}
+                              onChange={(event) => setInviteCodes((current) => ({ ...current, [course._id]: event.target.value }))}
+                              className="input input-bordered rounded-2xl w-full uppercase"
+                              placeholder="Enter invite code"
+                            />
+                            <button
+                              className="btn btn-primary rounded-2xl"
+                              onClick={() => handleJoinWithInvite(course._id)}
+                              disabled={joinCourseWithInviteMutation.isPending}
+                            >
+                              Join with Invite
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            className="btn btn-primary rounded-2xl"
+                            onClick={() => handleRequestEnrollment(course._id)}
+                            disabled={Boolean(course.viewerEnrollmentStatus) || requestEnrollmentMutation.isPending}
+                          >
+                            {course.viewerEnrollmentStatus
+                              ? `Enrollment ${course.viewerEnrollmentStatus}`
+                              : course.enrollmentMode === "open"
+                                ? "Join Course"
+                                : "Request Enrollment"}
+                          </button>
+                        )
                       )}
                     </div>
                   </article>

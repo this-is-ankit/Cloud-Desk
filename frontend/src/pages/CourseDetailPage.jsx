@@ -1,4 +1,3 @@
-import { useUser } from "@clerk/clerk-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { format } from "date-fns";
@@ -13,6 +12,7 @@ import {
   useCreateAssignment,
   useCreateClassSession,
   usePublishCourse,
+  useJoinCourseWithInvite,
   useRejectEnrollment,
   useRequestEnrollment,
   useReviewAssignmentSubmission,
@@ -21,6 +21,7 @@ import {
   useSubmitAssignment,
   useUpdateCourse,
 } from "../hooks/useCourses";
+import { useAppUser } from "../hooks/useAppUser";
 
 const INITIAL_CLASS_FORM = {
   title: "",
@@ -39,14 +40,14 @@ const INITIAL_ASSIGNMENT_FORM = {
 function CourseDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { user } = useUser();
-  const isTeacher = user?.publicMetadata?.role === "teacher";
+  const { isTeacher } = useAppUser();
 
   const courseQuery = useCourseById(id);
   const updateCourseMutation = useUpdateCourse();
   const publishCourseMutation = usePublishCourse();
   const archiveCourseMutation = useArchiveCourse();
   const requestEnrollmentMutation = useRequestEnrollment();
+  const joinCourseWithInviteMutation = useJoinCourseWithInvite();
   const approveEnrollmentMutation = useApproveEnrollment();
   const rejectEnrollmentMutation = useRejectEnrollment();
   const createClassSessionMutation = useCreateClassSession();
@@ -62,6 +63,7 @@ function CourseDetailPage() {
   const [submissionDrafts, setSubmissionDrafts] = useState({});
   const [feedbackDrafts, setFeedbackDrafts] = useState({});
   const [editForm, setEditForm] = useState(null);
+  const [inviteCode, setInviteCode] = useState("");
 
   const canManage = Boolean(course?.canManage && isTeacher);
   const approvedClasses = useMemo(
@@ -82,6 +84,8 @@ function CourseDetailPage() {
         description: course.description,
         tags: course.tags.join(", "),
         persistentRoomEnabled: course.persistentRoomEnabled,
+        enrollmentMode: course.enrollmentMode,
+        inviteCode: course.inviteCode || "",
       }),
       [name]: type === "checkbox" ? checked : value,
     }));
@@ -191,9 +195,10 @@ function CourseDetailPage() {
               <div className="mt-5 space-y-3 text-sm text-base-content/70">
                 <p>Teacher: {course.teacher?.name || "Unknown"}</p>
                 <p>Approved students: {course.approvedStudentCount}</p>
-                <p>Enrollment mode: teacher approval</p>
+                <p>Enrollment mode: {course.enrollmentMode}</p>
                 <p>Persistent room: {course.persistentRoomEnabled ? "enabled" : "disabled"}</p>
                 {!canManage && <p>Your enrollment: {course.myEnrollment?.status || "not requested"}</p>}
+                {canManage && course.inviteCode && <p>Invite code: {course.inviteCode}</p>}
               </div>
 
               <div className="mt-6 flex flex-wrap gap-3">
@@ -232,13 +237,35 @@ function CourseDetailPage() {
                   </>
                 ) : (
                   <>
-                    <button
-                      className="btn btn-primary rounded-2xl"
-                      onClick={() => requestEnrollmentMutation.mutate(course._id)}
-                      disabled={Boolean(course.myEnrollment) || requestEnrollmentMutation.isPending}
-                    >
-                      {course.myEnrollment ? `Request ${course.myEnrollment.status}` : "Request Enrollment"}
-                    </button>
+                    {course.enrollmentMode === "invite" && !course.myEnrollment ? (
+                      <>
+                        <input
+                          className="input input-bordered rounded-2xl w-full uppercase"
+                          value={inviteCode}
+                          onChange={(event) => setInviteCode(event.target.value)}
+                          placeholder="Enter invite code"
+                        />
+                        <button
+                          className="btn btn-primary rounded-2xl"
+                          onClick={() => joinCourseWithInviteMutation.mutate({ courseId: course._id, inviteCode })}
+                          disabled={joinCourseWithInviteMutation.isPending}
+                        >
+                          Join with Invite
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="btn btn-primary rounded-2xl"
+                        onClick={() => requestEnrollmentMutation.mutate(course._id)}
+                        disabled={Boolean(course.myEnrollment) || requestEnrollmentMutation.isPending}
+                      >
+                        {course.myEnrollment
+                          ? `Enrollment ${course.myEnrollment.status}`
+                          : course.enrollmentMode === "open"
+                            ? "Join Course"
+                            : "Request Enrollment"}
+                      </button>
+                    )}
                   </>
                 )}
               </div>
@@ -358,6 +385,28 @@ function CourseDetailPage() {
                     className="checkbox checkbox-primary"
                   />
                   <span className="text-sm">Enable persistent course room</span>
+                </label>
+                <label className="form-control">
+                  <span className="mb-2 text-sm font-medium">Enrollment mode</span>
+                  <select
+                    name="enrollmentMode"
+                    defaultValue={course.enrollmentMode}
+                    onChange={handleCourseFieldChange}
+                    className="select select-bordered rounded-2xl"
+                  >
+                    <option value="open">Open join</option>
+                    <option value="approval">Teacher approval</option>
+                    <option value="invite">Invite only</option>
+                  </select>
+                </label>
+                <label className="form-control">
+                  <span className="mb-2 text-sm font-medium">Invite code</span>
+                  <input
+                    name="inviteCode"
+                    defaultValue={course.inviteCode || ""}
+                    onChange={handleCourseFieldChange}
+                    className="input input-bordered rounded-2xl uppercase"
+                  />
                 </label>
                 <button className="btn btn-primary rounded-2xl" onClick={handleSaveCourse} disabled={updateCourseMutation.isPending}>
                   Save Course Settings

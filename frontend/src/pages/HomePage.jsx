@@ -58,21 +58,21 @@ function HomePage() {
             </div>
 
             <h1 className="text-5xl lg:text-7xl font-black leading-tight">
-              <span className="text-primary">Code Together,</span>
+              <span className="text-primary">Teach Live,</span>
               <br />
               <span className="text-base-content">Learn Together</span>
             </h1>
 
             <p className="text-xl text-base-content/70 leading-relaxed max-w-xl">
-              The ultimate platform for collaborative coding interviews and pair programming.
-              Connect face-to-face, code in real-time, and ace your technical interviews.
+              A live-first platform for public teaching, collaborative classes, and real-time coding sessions.
+              Teachers can launch courses instantly, and students can discover and join live cohorts from anywhere.
             </p>
 
             {/* FEATURE PILLS */}
             <div className="flex flex-wrap gap-3">
               <div className="badge badge-lg badge-outline">
                 <CheckIcon className="size-4 text-success" />
-                Live Video Chat
+                Live Video Classes
               </div>
               <div className="badge badge-lg badge-outline">
                 <CheckIcon className="size-4 text-success" />
@@ -80,7 +80,7 @@ function HomePage() {
               </div>
               <div className="badge badge-lg badge-outline">
                 <CheckIcon className="size-4 text-success" />
-                Multi-Language
+                Teacher Discovery
               </div>
             </div>
 

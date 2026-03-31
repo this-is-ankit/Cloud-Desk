@@ -1,4 +1,3 @@
-import { useUser } from "@clerk/clerk-react";
 import { BookOpen, CalendarClock, ClipboardList, Loader2, RadioTower, UserCheck, Users } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
@@ -13,11 +12,11 @@ import Footer from "../components/Footer";
 import JoinSessionByCodeModal from "../components/JoinSessionByCodeModal";
 import { useCourses, useStartPersistentRoom } from "../hooks/useCourses";
 import { useCreateSession, useJoinSessionByCode, useMyRecentSessions } from "../hooks/useSessions";
+import { useAppUser } from "../hooks/useAppUser";
 
 function DashboardPage() {
   const navigate = useNavigate();
-  const { user } = useUser();
-  const role = user?.publicMetadata?.role === "teacher" ? "teacher" : "student";
+  const { role } = useAppUser();
   const isTeacher = role === "teacher";
 
   const [showCreateModal, setShowCreateModal] = useState(false);

@@ -11,6 +11,8 @@ const INITIAL_FORM = {
   description: "",
   tags: "",
   persistentRoomEnabled: true,
+  enrollmentMode: "open",
+  inviteCode: "",
 };
 
 function CreateCourseModal({ isOpen, onClose, onSubmit, isSubmitting }) {
@@ -115,6 +117,29 @@ function CreateCourseModal({ isOpen, onClose, onSubmit, isSubmitting }) {
                 onChange={handleChange}
                 className="input input-bordered rounded-2xl"
                 placeholder="dsa, graphs, interview prep"
+              />
+            </label>
+            <label className="form-control">
+              <span className="mb-2 text-sm font-medium">Enrollment mode</span>
+              <select
+                name="enrollmentMode"
+                value={form.enrollmentMode}
+                onChange={handleChange}
+                className="select select-bordered rounded-2xl"
+              >
+                <option value="open">Open join</option>
+                <option value="approval">Teacher approval</option>
+                <option value="invite">Invite only</option>
+              </select>
+            </label>
+            <label className="form-control">
+              <span className="mb-2 text-sm font-medium">Invite code</span>
+              <input
+                name="inviteCode"
+                value={form.inviteCode}
+                onChange={handleChange}
+                className="input input-bordered rounded-2xl uppercase"
+                placeholder="Optional for invite-only courses"
               />
             </label>
           </div>

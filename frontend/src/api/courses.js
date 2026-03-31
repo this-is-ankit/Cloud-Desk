@@ -36,6 +36,11 @@ export const courseApi = {
     return response.data;
   },
 
+  joinCourseWithInvite: async ({ courseId, inviteCode }) => {
+    const response = await axiosInstance.post(`/courses/${courseId}/join-invite`, { inviteCode });
+    return response.data;
+  },
+
   approveEnrollment: async ({ courseId, enrollmentId }) => {
     const response = await axiosInstance.post(`/courses/${courseId}/enrollments/${enrollmentId}/approve`);
     return response.data;
