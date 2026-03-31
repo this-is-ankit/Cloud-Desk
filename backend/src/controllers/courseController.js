@@ -3,6 +3,11 @@ import Course from "../models/Course.js";
 import Session from "../models/Session.js";
 import { chatClient, streamClient } from "../lib/stream.js";
 import { createCourseWithRepair, saveCourseWithRepair } from "../lib/coursePersistence.js";
+import {
+  getNormalizedSessionLanguage,
+  getSessionLanguageLabel,
+  normalizeSessionLanguage,
+} from "../lib/sessionLanguage.js";
 
 const COURSE_LEVELS = new Set(["Beginner", "Intermediate", "Advanced", "All Levels"]);
 const COURSE_SORTS = new Set(["relevance", "newest", "oldest", "popular", "title", "upcoming"]);
@@ -302,11 +307,12 @@ const createRealtimeSession = async ({
   classSessionId = null,
   sessionKind = "ad_hoc",
 }) => {
+  const sessionLanguage = normalizeSessionLanguage(language);
   const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
   const session = await Session.create({
-    language,
+    language: sessionLanguage,
     host: hostUser._id,
     callId,
     code,
@@ -323,7 +329,7 @@ const createRealtimeSession = async ({
     data: {
       created_by_id: hostUser.clerkId,
       custom: {
-        language,
+        language: sessionLanguage,
         sessionId: session._id.toString(),
         courseId: courseId ? courseId.toString() : null,
         classSessionId: classSessionId ? classSessionId.toString() : null,
@@ -333,7 +339,7 @@ const createRealtimeSession = async ({
   });
 
   const channel = chatClient.channel("messaging", callId, {
-    name: title || `${language.charAt(0).toUpperCase() + language.slice(1)} Session`,
+    name: title || `${getSessionLanguageLabel(sessionLanguage)} Session`,
     created_by_id: hostUser.clerkId,
     members: [hostUser.clerkId],
   });
@@ -358,7 +364,8 @@ export async function createCourse(req, res) {
     const title = normalizeText(req.body.title);
     const code = normalizeText(req.body.code).toUpperCase();
     const category = normalizeText(req.body.category);
-    const language = normalizeText(req.body.language);
+    const rawLanguage = normalizeText(req.body.language);
+    const language = getNormalizedSessionLanguage(rawLanguage);
     const level = COURSE_LEVELS.has(req.body.level) ? req.body.level : "All Levels";
     const shortDescription = normalizeText(req.body.shortDescription);
     const description = normalizeText(req.body.description);
@@ -367,8 +374,11 @@ export async function createCourse(req, res) {
     const enrollmentMode = normalizeEnrollmentMode(req.body.enrollmentMode);
     const inviteCode = normalizeText(req.body.inviteCode).toUpperCase() || generateInviteCode();
 
-    if (!title || !code || !category || !language || !shortDescription) {
+    if (!title || !code || !category || !rawLanguage || !shortDescription) {
       return res.status(400).json({ message: "Title, code, category, language, and short description are required" });
+    }
+    if (!language) {
+      return res.status(400).json({ message: "Choose a supported classroom language" });
     }
 
     const fieldLengthError = getCourseFieldLengthError({
@@ -523,12 +533,19 @@ export async function updateCourse(req, res) {
       course.code = nextCode;
     }
 
-    const updatableFields = ["title", "category", "language", "shortDescription", "description"];
+    const updatableFields = ["title", "category", "shortDescription", "description"];
     for (const field of updatableFields) {
       if (field in req.body) {
         const value = normalizeText(req.body[field]);
         if (value) course[field] = value;
       }
+    }
+    if ("language" in req.body) {
+      const nextLanguage = getNormalizedSessionLanguage(req.body.language);
+      if (!nextLanguage) {
+        return res.status(400).json({ message: "Choose a supported classroom language" });
+      }
+      course.language = nextLanguage;
     }
     if ("level" in req.body && COURSE_LEVELS.has(req.body.level)) {
       course.level = req.body.level;

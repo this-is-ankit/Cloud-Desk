@@ -1,4 +1,5 @@
 import { ENV } from "../lib/env.js";
+import { getNormalizedSessionLanguage } from "../lib/sessionLanguage.js";
 
 const LOCAL_PISTON_API = "http://localhost:2000/api/v2/piston/execute";
 const PUBLIC_PISTON_API = "https://emkc.org/api/v2/piston/execute";
@@ -125,7 +126,8 @@ export async function executeCode(req, res) {
       return res.status(400).json({ message: "Code is too large" });
     }
 
-    const config = LANGUAGE_CONFIG[language];
+    const normalizedLanguage = getNormalizedSessionLanguage(language);
+    const config = normalizedLanguage ? LANGUAGE_CONFIG[normalizedLanguage] : null;
     if (!config) {
       return res.status(400).json({ message: `Unsupported language: ${language}` });
     }
@@ -141,7 +143,7 @@ export async function executeCode(req, res) {
       version: config.version,
       files: [
         {
-          name: `main.${getFileExtension(language)}`,
+          name: `main.${getFileExtension(normalizedLanguage)}`,
           content: code,
         },
       ],
@@ -180,7 +182,7 @@ export async function executeCode(req, res) {
     }
 
     try {
-      const judge0Result = await executeWithJudge0({ language, code });
+      const judge0Result = await executeWithJudge0({ language: normalizedLanguage, code });
       return res.status(200).json(judge0Result);
     } catch (judge0Error) {
       lastError = `${lastError || ""} | Judge0 -> ${judge0Error.message}`.trim();

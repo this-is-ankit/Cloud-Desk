@@ -1,7 +1,8 @@
 import Editor from "@monaco-editor/react";
 import { Loader2Icon, PlayIcon } from "./icons/ModernIcons";
-import { LANGUAGE_CONFIG } from "../data/problems";
 import { useTheme } from "../context/ThemeProvider";
+import { LANGUAGE_CONFIG } from "../data/problems";
+import { getSessionLanguageConfig, normalizeSessionLanguage } from "../lib/sessionLanguage";
 
 function CodeEditorPanel({
   selectedLanguage,
@@ -12,17 +13,19 @@ function CodeEditorPanel({
   onRunCode,
 }) {
   const { isDark } = useTheme();
+  const activeLanguage = normalizeSessionLanguage(selectedLanguage);
+  const activeLanguageConfig = getSessionLanguageConfig(selectedLanguage);
 
   return (
     <div className="h-full bg-base-300 flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 bg-base-100 border-t border-base-300">
         <div className="flex items-center gap-3">
           <img
-            src={LANGUAGE_CONFIG[selectedLanguage].icon}
-            alt={LANGUAGE_CONFIG[selectedLanguage].name}
+            src={activeLanguageConfig.icon}
+            alt={activeLanguageConfig.name}
             className="size-6"
           />
-          <select className="select select-sm" value={selectedLanguage} onChange={onLanguageChange}>
+          <select className="select select-sm" value={activeLanguage} onChange={onLanguageChange}>
             {Object.entries(LANGUAGE_CONFIG).map(([key, lang]) => (
               <option key={key} value={key}>
                 {lang.name}
@@ -49,7 +52,7 @@ function CodeEditorPanel({
       <div className="flex-1">
         <Editor
           height={"100%"}
-          language={LANGUAGE_CONFIG[selectedLanguage].monacoLang}
+          language={activeLanguageConfig.monacoLang}
           value={code}
           onChange={onCodeChange}
           theme={isDark ? "vs-dark" : "vs"}

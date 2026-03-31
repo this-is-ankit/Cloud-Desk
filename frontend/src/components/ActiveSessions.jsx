@@ -8,6 +8,7 @@ import {
   LoaderIcon,
 } from "./icons/ModernIcons";
 import { Link } from "react-router";
+import { getSessionLanguageLabel } from "../lib/sessionLanguage";
 
 function ActiveSessions({ sessions, isLoading, isUserInSession }) {
   return (
@@ -52,7 +53,7 @@ function ActiveSessions({ sessions, isLoading, isUserInSession }) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="font-bold text-lg truncate">
-                          {session.language?.toUpperCase() || "UNKNOWN"}
+                          {getSessionLanguageLabel(session.language)}
                         </h3>
                       </div>
 

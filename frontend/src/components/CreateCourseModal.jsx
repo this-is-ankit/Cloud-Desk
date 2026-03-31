@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Loader2, PlusCircle, RadioTower } from "lucide-react";
+import { SESSION_LANGUAGE_OPTIONS } from "../lib/sessionLanguage";
 
 const INITIAL_FORM = {
   title: "",
   code: "",
   category: "",
   level: "All Levels",
-  language: "",
+  language: "javascript",
   shortDescription: "",
   description: "",
   tags: "",
@@ -86,14 +87,19 @@ function CreateCourseModal({ isOpen, onClose, onSubmit, isSubmitting }) {
             </label>
             <label className="form-control">
               <span className="mb-2 text-sm font-medium">Primary language</span>
-              <input
+              <select
                 name="language"
                 value={form.language}
                 onChange={handleChange}
-                className="input input-bordered rounded-2xl"
-                placeholder="JavaScript"
+                className="select select-bordered rounded-2xl"
                 required
-              />
+              >
+                {SESSION_LANGUAGE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="form-control">
               <span className="mb-2 text-sm font-medium">Level</span>

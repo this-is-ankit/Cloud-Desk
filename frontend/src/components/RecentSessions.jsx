@@ -1,5 +1,6 @@
 import { Code2, Clock, Users, Trophy, Loader } from "./icons/ModernIcons";
 import { formatDistanceToNow } from "date-fns";
+import { getSessionLanguageLabel } from "../lib/sessionLanguage";
 
 function RecentSessions({ sessions, isLoading }) {
   return (
@@ -43,7 +44,7 @@ function RecentSessions({ sessions, isLoading }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold text-base mb-1 truncate">
-                        {session.language?.toUpperCase() || "UNKNOWN"}
+                        {getSessionLanguageLabel(session.language)}
                       </h3>
                     </div>
                   </div>

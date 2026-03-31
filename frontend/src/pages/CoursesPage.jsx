@@ -7,6 +7,7 @@ import Footer from "../components/Footer";
 import CreateCourseModal from "../components/CreateCourseModal";
 import { useCourses, useCreateCourse, useJoinCourseWithInvite, useRequestEnrollment } from "../hooks/useCourses";
 import { useAppUser } from "../hooks/useAppUser";
+import { getSessionLanguageLabel } from "../lib/sessionLanguage";
 
 const INITIAL_FILTERS = {
   q: "",
@@ -279,7 +280,7 @@ function CoursesPage() {
 
                     <div className="mt-5 flex flex-wrap gap-2">
                       <span className="badge badge-ghost">{course.category}</span>
-                      <span className="badge badge-ghost">{course.language}</span>
+                      <span className="badge badge-ghost">{getSessionLanguageLabel(course.language)}</span>
                       {course.tags.slice(0, 4).map((tag) => (
                         <span key={tag} className="badge badge-outline">
                           {tag}

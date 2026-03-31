@@ -3,6 +3,7 @@ import Course from "../models/Course.js";
 import Session from "../models/Session.js";
 import { quizStateByRoom, whiteboardPersistTimersByRoom, whiteboardStateByRoom } from "../server.js";
 import { saveCourseWithRepair } from "../lib/coursePersistence.js";
+import { getNormalizedSessionLanguage, getSessionLanguageLabel } from "../lib/sessionLanguage.js";
 
 const isTeacher = (user) => user?.role === "teacher";
 
@@ -80,9 +81,10 @@ export async function createSession(req, res) {
     } = req.body;
     const userId = req.user._id;
     const clerkId = req.user.clerkId;
+    const normalizedLanguage = getNormalizedSessionLanguage(language);
 
-    if (!language) {
-      return res.status(400).json({ message: "Language is required" });
+    if (!normalizedLanguage) {
+      return res.status(400).json({ message: "Choose a supported coding language" });
     }
 
     let participantLimit;
@@ -105,7 +107,7 @@ export async function createSession(req, res) {
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
     const session = await Session.create({
-      language,
+      language: normalizedLanguage,
       host: userId,
       callId,
       code,
@@ -121,12 +123,18 @@ export async function createSession(req, res) {
     await streamClient.video.call("default", callId).getOrCreate({
       data: {
         created_by_id: clerkId,
-        custom: { language, sessionId: session._id.toString(), courseId, classSessionId, sessionKind },
+        custom: {
+          language: normalizedLanguage,
+          sessionId: session._id.toString(),
+          courseId,
+          classSessionId,
+          sessionKind,
+        },
       },
     });
 
     const channel = chatClient.channel("messaging", callId, {
-      name: title || `${language.charAt(0).toUpperCase() + language.slice(1)} Session`,
+      name: title || `${getSessionLanguageLabel(normalizedLanguage)} Session`,
       created_by_id: clerkId,
       members: [clerkId],
     });

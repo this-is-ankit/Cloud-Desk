@@ -22,6 +22,11 @@ import {
   useUpdateCourse,
 } from "../hooks/useCourses";
 import { useAppUser } from "../hooks/useAppUser";
+import {
+  getSessionLanguageLabel,
+  normalizeSessionLanguage,
+  SESSION_LANGUAGE_OPTIONS,
+} from "../lib/sessionLanguage";
 
 const INITIAL_CLASS_FORM = {
   title: "",
@@ -78,7 +83,7 @@ function CourseDetailPage() {
         title: course.title,
         code: course.code,
         category: course.category,
-        language: course.language,
+        language: normalizeSessionLanguage(course.language),
         level: course.level,
         shortDescription: course.shortDescription,
         description: course.description,
@@ -173,7 +178,7 @@ function CourseDetailPage() {
 
             <div className="mt-8 flex flex-wrap gap-2">
               <span className="badge badge-ghost">{course.category}</span>
-              <span className="badge badge-ghost">{course.language}</span>
+              <span className="badge badge-ghost">{getSessionLanguageLabel(course.language)}</span>
               {course.tags.map((tag) => (
                 <span key={tag} className="badge badge-outline">
                   {tag}
@@ -328,7 +333,6 @@ function CourseDetailPage() {
                   ["title", "Course title", course.title],
                   ["code", "Course code", course.code],
                   ["category", "Category", course.category],
-                  ["language", "Language", course.language],
                 ].map(([name, label, value]) => (
                   <label key={name} className="form-control">
                     <span className="mb-2 text-sm font-medium">{label}</span>
@@ -340,6 +344,21 @@ function CourseDetailPage() {
                     />
                   </label>
                 ))}
+                <label className="form-control">
+                  <span className="mb-2 text-sm font-medium">Language</span>
+                  <select
+                    name="language"
+                    defaultValue={normalizeSessionLanguage(course.language)}
+                    onChange={handleCourseFieldChange}
+                    className="select select-bordered rounded-2xl"
+                  >
+                    {SESSION_LANGUAGE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className="form-control">
                   <span className="mb-2 text-sm font-medium">Level</span>
                   <select name="level" defaultValue={course.level} onChange={handleCourseFieldChange} className="select select-bordered rounded-2xl">

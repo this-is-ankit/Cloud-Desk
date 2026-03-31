@@ -23,6 +23,7 @@ import useStreamClient from "../hooks/useStreamClient";
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
 import VideoCallUI from "../components/VideoCallUI";
 import { useRuntimeAuth } from "../hooks/useRuntimeAuth";
+import { getSessionLanguageLabel, normalizeSessionLanguage } from "../lib/sessionLanguage";
 
 function SessionPage() {
   const navigate = useNavigate();
@@ -214,7 +215,7 @@ function SessionPage() {
       });
 
       socket.on("language-update", (newLang) => {
-        setSelectedLanguage(newLang);
+        setSelectedLanguage(normalizeSessionLanguage(newLang));
       });
 
       socket.on("code-space-state", (isOpen) => {
@@ -382,7 +383,7 @@ function SessionPage() {
   };
 
   const handleLanguageChangeWrapper = (e) => {
-    const newLang = e.target.value;
+    const newLang = normalizeSessionLanguage(e.target.value);
     setSelectedLanguage(newLang);
     setOutput(null);
     if (!socketRef.current) return;
@@ -511,8 +512,9 @@ function SessionPage() {
     if (initializedSessionRef.current === id) return;
 
     initializedSessionRef.current = id;
-    setSelectedLanguage(session.language);
-    setCode(`// Start coding in ${session.language}...`);
+    const normalizedLanguage = normalizeSessionLanguage(session.language);
+    setSelectedLanguage(normalizedLanguage);
+    setCode(`// Start coding in ${getSessionLanguageLabel(normalizedLanguage)}...`);
   }, [id, session?.language]);
 
   const handleRunCode = async () => {
@@ -627,7 +629,7 @@ function SessionPage() {
         <div className="p-4 bg-base-100 border-b border-base-300 flex items-center justify-between flex-shrink-0">
           <div>
             <h1 className="text-xl font-bold text-base-content">
-              {session?.language?.toUpperCase() || "SESSION"}
+              {getSessionLanguageLabel(selectedLanguage)}
             </h1>
             <div className="flex items-center gap-2 text-sm text-base-content/60">
               <span>Host: {session?.host?.name}</span>

@@ -23,6 +23,7 @@ import Course from "./models/Course.js";
 import { chatClient, streamClient } from "./lib/stream.js";
 import { extractDevSocketAuth, findOrCreateDevUser } from "./lib/devAuth.js";
 import { repairLegacyCourseTextIndex } from "./lib/coursePersistence.js";
+import { normalizeSessionLanguage } from "./lib/sessionLanguage.js";
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -726,7 +727,7 @@ io.on("connection", (socket) => {
     const access = await getAuthorizedSessionForSocket(roomId);
     if (!access) return;
 
-    socket.to(roomId).emit("language-update", language);
+    socket.to(roomId).emit("language-update", normalizeSessionLanguage(language));
   });
 
   socket.on("quiz-upload", async ({ roomId, quizJson }) => {
