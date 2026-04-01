@@ -132,3 +132,12 @@ export function User(props) {
 export function CrownIcon(props) {
   return <BaseIcon icon="ph:crown" {...props} />;
 }
+export function SearchIcon(props) {
+  return <BaseIcon icon="ph:magnifying-glass" {...props} />;
+}
+export function UserCheckIcon(props) {
+  return <BaseIcon icon="ph:user-check" {...props} />;
+}
+export function PlusCircleIcon(props) {
+  return <BaseIcon icon="ph:plus-circle" {...props} />;
+}

@@ -1,6 +1,5 @@
 import { useDeferredValue, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { BookOpenText, Loader2, PlusCircle, Search, Sparkles, UserCheck } from "lucide-react";
 
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -9,6 +8,14 @@ import { useCourses, useCreateCourse, useJoinCourseWithInvite, useRequestEnrollm
 import { useAppUser } from "../hooks/useAppUser";
 import { getSessionLanguageLabel } from "../lib/sessionLanguage";
 import PageContainer from "../components/PageContainer";
+import {
+  BookOpenIcon,
+  Loader2Icon,
+  PlusCircleIcon,
+  SearchIcon,
+  SparklesIcon,
+  UserCheckIcon,
+} from "../components/icons/ModernIcons";
 
 const INITIAL_FILTERS = {
   q: "",
@@ -86,105 +93,150 @@ function CoursesPage() {
         <Navbar />
 
         <PageContainer className="py-10">
-          <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="rounded-[2rem] border border-base-content/10 bg-gradient-to-br from-base-100 via-base-100 to-primary/5 p-7 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+          <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+            <header className="flex flex-col justify-center rounded-xl border border-base-content/10 bg-base-100 p-8 shadow-sm">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
                 {isTeacher ? "Teacher Course Hub" : "Live Course Catalog"}
-              </p>
-              <h1 className="mt-3 text-4xl font-black tracking-tight text-base-content md:text-5xl">
+              </span>
+              <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">
                 {isTeacher ? "Create, publish, and manage live teaching courses." : "Discover teacher-led live courses."}
               </h1>
-              <p className="mt-4 max-w-2xl text-base text-base-content/65">
+              <p className="mt-4 max-w-xl text-sm leading-relaxed opacity-60">
                 {isTeacher
                   ? "Draft courses, publish them when ready, approve enrollments, schedule classes, launch rooms, and run assignments from the course workspace."
                   : "Browse published courses, join open cohorts instantly, request approval-based cohorts, or use invite codes for private teacher communities."}
               </p>
 
-              <div className="mt-6 flex flex-wrap gap-3">
+              <div className="mt-8 flex flex-wrap gap-2">
                 {isTeacher && (
-                  <button className="btn btn-primary rounded-2xl" onClick={() => setIsCreateModalOpen(true)}>
-                    <PlusCircle className="size-4" />
+                  <button className="btn btn-primary btn-sm rounded-none px-6" onClick={() => setIsCreateModalOpen(true)}>
+                    <PlusCircleIcon className="size-4" />
                     Create Draft Course
                   </button>
                 )}
-                <button className="btn btn-outline rounded-2xl" onClick={() => navigate("/dashboard")}>
+                <button className="btn btn-outline btn-sm rounded-none px-6" onClick={() => navigate("/dashboard")}>
                   Back to Dashboard
                 </button>
               </div>
-            </div>
+            </header>
 
-            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-              <div className="rounded-[1.75rem] border border-base-content/10 bg-base-100/80 p-5 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-base-content/60">Matching Courses</p>
-                    <p className="mt-1 text-3xl font-black">{totalCourses}</p>
-                  </div>
-                  <Sparkles className="size-6 text-primary" />
+            <div className="flex flex-col gap-3">
+              <div className="group flex flex-1 items-center justify-between rounded-xl border border-base-content/10 bg-base-100 p-5 transition-all hover:border-primary/30">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest opacity-40">Matching Courses</p>
+                  <p className="mt-1 text-3xl font-black leading-none">{totalCourses}</p>
+                </div>
+                <div className="rounded-lg bg-base-200 p-3 transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+                  <SparklesIcon className="size-6" />
                 </div>
               </div>
-              <div className="rounded-[1.75rem] border border-base-content/10 bg-base-100/80 p-5 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-base-content/60">{isTeacher ? "Published" : "Approved"}</p>
-                    <p className="mt-1 text-3xl font-black">
-                      {courses.filter((course) => (isTeacher ? course.status === "published" : course.viewerEnrollmentStatus === "approved")).length}
-                    </p>
-                  </div>
-                  <BookOpenText className="size-6 text-success" />
+
+              <div className="group flex flex-1 items-center justify-between rounded-xl border border-base-content/10 bg-base-100 p-5 transition-all hover:border-success/30">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest opacity-40">
+                    {isTeacher ? "Published" : "Approved"}
+                  </p>
+                  <p className="mt-1 text-3xl font-black leading-none">
+                    {
+                      courses.filter((course) =>
+                        isTeacher ? course.status === "published" : course.viewerEnrollmentStatus === "approved",
+                      ).length
+                    }
+                  </p>
+                </div>
+                <div className="rounded-lg bg-base-200 p-3 transition-colors group-hover:bg-success/10 group-hover:text-success">
+                  <BookOpenIcon className="size-6" />
                 </div>
               </div>
-              <div className="rounded-[1.75rem] border border-base-content/10 bg-base-100/80 p-5 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-base-content/60">{isTeacher ? "Pending approvals" : "Pending requests"}</p>
-                    <p className="mt-1 text-3xl font-black">
-                      {courses.reduce(
-                        (sum, course) => sum + (isTeacher ? course.pendingEnrollmentCount || 0 : course.viewerEnrollmentStatus === "pending" ? 1 : 0),
-                        0,
-                      )}
-                    </p>
-                  </div>
-                  <UserCheck className="size-6 text-warning" />
+
+              <div className="group flex flex-1 items-center justify-between rounded-xl border border-base-content/10 bg-base-100 p-5 transition-all hover:border-warning/30">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest opacity-40">
+                    {isTeacher ? "Pending approvals" : "Pending requests"}
+                  </p>
+                  <p className="mt-1 text-3xl font-black leading-none">
+                    {courses.reduce(
+                      (sum, course) =>
+                        sum + (isTeacher ? course.pendingEnrollmentCount || 0 : course.viewerEnrollmentStatus === "pending" ? 1 : 0),
+                      0,
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-base-200 p-3 transition-colors group-hover:bg-warning/10 group-hover:text-warning">
+                  <UserCheckIcon className="size-6" />
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-8 rounded-[2rem] border border-base-content/10 bg-base-100/85 p-5 shadow-sm md:p-6">
+          <div className="mt-8 rounded-xl border border-base-content/10 bg-base-100 p-5 shadow-sm md:p-6">
+            <div className="mb-6 flex flex-wrap gap-3 border-b border-base-content/10 pb-5">
+              {isTeacher ? (
+                <>
+                  <button
+                    className={`btn btn-sm rounded-none px-5 ${filters.scope === "mine" ? "btn-primary" : "btn-outline"}`}
+                    onClick={() => handleScopeChange("mine")}
+                  >
+                    My Courses
+                  </button>
+                  <button
+                    className={`btn btn-sm rounded-none px-5 ${filters.scope === "discover" ? "btn-primary" : "btn-outline"}`}
+                    onClick={() => handleScopeChange("discover")}
+                  >
+                    Discover Published
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className={`btn btn-sm rounded-none px-5 ${filters.scope === "discover" ? "btn-primary" : "btn-outline"}`}
+                    onClick={() => handleScopeChange("discover")}
+                  >
+                    Discover
+                  </button>
+                  <button
+                    className={`btn btn-sm rounded-none px-5 ${filters.scope === "enrolled" ? "btn-primary" : "btn-outline"}`}
+                    onClick={() => handleScopeChange("enrolled")}
+                  >
+                    My Requested / Enrolled
+                  </button>
+                </>
+              )}
+            </div>
+
             <div className="grid gap-4 xl:grid-cols-[1.5fr_repeat(5,0.7fr)]">
               <label className="form-control xl:col-span-2">
-                <span className="mb-2 text-sm font-medium text-base-content/75">Search</span>
+                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">Search</span>
                 <div className="relative">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-base-content/40" />
+                  <SearchIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 opacity-30" />
                   <input
                     name="q"
                     value={filters.q}
                     onChange={handleFilterChange}
-                    className="input input-bordered h-12 w-full rounded-2xl pl-11"
+                    className="input input-bordered h-11 w-full rounded-none pl-11 text-sm focus:border-primary"
                     placeholder="Search by title, code, subject, teacher, or tag"
                   />
                 </div>
               </label>
 
               <label className="form-control">
-                <span className="mb-2 text-sm font-medium text-base-content/75">Category</span>
+                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">Category</span>
                 <input
                   name="category"
                   value={filters.category}
                   onChange={handleFilterChange}
-                  className="input input-bordered h-12 rounded-2xl"
+                  className="input input-bordered h-11 rounded-none text-sm focus:border-primary"
                   placeholder="Computer Science"
                 />
               </label>
 
               <label className="form-control">
-                <span className="mb-2 text-sm font-medium text-base-content/75">Level</span>
+                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">Level</span>
                 <select
                   name="level"
                   value={filters.level}
                   onChange={handleFilterChange}
-                  className="select select-bordered h-12 rounded-2xl"
+                  className="select select-bordered h-11 rounded-none text-sm focus:border-primary"
                 >
                   <option value="">All</option>
                   <option value="All Levels">All Levels</option>
@@ -195,23 +247,23 @@ function CoursesPage() {
               </label>
 
               <label className="form-control">
-                <span className="mb-2 text-sm font-medium text-base-content/75">Language</span>
+                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">Language</span>
                 <input
                   name="language"
                   value={filters.language}
                   onChange={handleFilterChange}
-                  className="input input-bordered h-12 rounded-2xl"
+                  className="input input-bordered h-11 rounded-none text-sm focus:border-primary"
                   placeholder="Python"
                 />
               </label>
 
               <label className="form-control">
-                <span className="mb-2 text-sm font-medium text-base-content/75">Access</span>
+                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">Access</span>
                 <select
                   name="enrollmentMode"
                   value={filters.enrollmentMode}
                   onChange={handleFilterChange}
-                  className="select select-bordered h-12 rounded-2xl"
+                  className="select select-bordered h-11 rounded-none text-sm focus:border-primary"
                 >
                   <option value="">All</option>
                   <option value="open">Open join</option>
@@ -221,12 +273,12 @@ function CoursesPage() {
               </label>
 
               <label className="form-control">
-                <span className="mb-2 text-sm font-medium text-base-content/75">Sort</span>
+                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">Sort</span>
                 <select
                   name="sort"
                   value={filters.sort}
                   onChange={handleFilterChange}
-                  className="select select-bordered h-12 rounded-2xl"
+                  className="select select-bordered h-11 rounded-none text-sm focus:border-primary"
                 >
                   <option value="popular">Most popular</option>
                   <option value="relevance">Best match</option>
@@ -236,104 +288,105 @@ function CoursesPage() {
                 </select>
               </label>
             </div>
-
-            <div className="mt-5 flex flex-wrap gap-3">
-              {isTeacher ? (
-                <>
-                  <button className={`btn btn-sm rounded-xl ${filters.scope === "mine" ? "btn-primary" : "btn-outline"}`} onClick={() => handleScopeChange("mine")}>
-                    My Courses
-                  </button>
-                  <button className={`btn btn-sm rounded-xl ${filters.scope === "discover" ? "btn-primary" : "btn-outline"}`} onClick={() => handleScopeChange("discover")}>
-                    Discover Published
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button className={`btn btn-sm rounded-xl ${filters.scope === "discover" ? "btn-primary" : "btn-outline"}`} onClick={() => handleScopeChange("discover")}>
-                    Discover
-                  </button>
-                  <button className={`btn btn-sm rounded-xl ${filters.scope === "enrolled" ? "btn-primary" : "btn-outline"}`} onClick={() => handleScopeChange("enrolled")}>
-                    My Requested / Enrolled
-                  </button>
-                </>
-              )}
-            </div>
           </div>
 
           <div className="mt-8">
             {courseQuery.isLoading ? (
               <div className="flex items-center justify-center py-24">
-                <Loader2 className="size-10 animate-spin text-primary" />
+                <Loader2Icon className="size-10 animate-spin text-primary" />
               </div>
             ) : courses.length > 0 ? (
-              <div className="grid gap-5 lg:grid-cols-2 2xl:grid-cols-3">
+              <div className="grid gap-6 lg:grid-cols-2 2xl:grid-cols-3">
                 {courses.map((course) => (
-                  <article key={course._id} className="rounded-[2rem] border border-base-content/10 bg-base-100/92 p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                  <article
+                    key={course._id}
+                    className="flex flex-col rounded-xl border border-base-content/10 bg-base-100 p-6 transition-all hover:border-primary/20 hover:shadow-md"
+                  >
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">{course.code}</p>
-                        <h2 className="mt-2 text-2xl font-black text-base-content">{course.title}</h2>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">{course.code}</p>
+                        <h2 className="mt-2 text-xl font-black tracking-tight text-base-content">{course.title}</h2>
                       </div>
-                      <span className="badge badge-outline">{course.status}</span>
+                      <span className="badge badge-sm rounded-none border-base-content/20 bg-transparent font-bold uppercase text-base-content/60">
+                        {course.status}
+                      </span>
                     </div>
 
-                    <p className="mt-4 text-sm leading-6 text-base-content/70">{course.shortDescription}</p>
+                    <p className="mt-4 flex-1 text-sm leading-relaxed opacity-60">{course.shortDescription}</p>
 
-                    <div className="mt-5 flex flex-wrap gap-2">
-                      <span className="badge badge-ghost">{course.category}</span>
-                      <span className="badge badge-ghost">{getSessionLanguageLabel(course.language)}</span>
-                      {course.tags.slice(0, 4).map((tag) => (
-                        <span key={tag} className="badge badge-outline">
+                    <div className="mt-6 flex flex-wrap gap-1.5">
+                      <span className="rounded-none border border-base-content/10 bg-base-200/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider opacity-70">
+                        {course.category}
+                      </span>
+                      <span className="rounded-none border border-base-content/10 bg-base-200/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider opacity-70">
+                        {getSessionLanguageLabel(course.language)}
+                      </span>
+                      {course.tags.slice(0, 3).map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-none border border-base-content/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider opacity-50"
+                        >
                           {tag}
                         </span>
                       ))}
                     </div>
 
-                    <div className="mt-6 space-y-2 text-sm text-base-content/65">
-                      <p>Teacher: {course.teacher?.name || "Unknown"}</p>
-                      <p>Access mode: {course.enrollmentMode}</p>
-                      <p>Approved students: {course.approvedStudentCount}</p>
-                      <p>
-                        Next class:{" "}
-                        {course.nextClass ? new Date(course.nextClass.scheduledStart).toLocaleString() : "No class scheduled"}
-                      </p>
-                      <p>
-                        Enrollment status: {course.viewerEnrollmentStatus || (isTeacher && course.isTeacherOwner ? "teacher" : "not requested")}
-                      </p>
+                    <div className="mt-6 space-y-2 border-y border-base-content/5 py-4 text-[11px] font-medium uppercase tracking-wider opacity-60">
+                      <div className="flex justify-between">
+                        <span>Teacher</span>
+                        <span className="text-base-content">{course.teacher?.name || "Unknown"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Access</span>
+                        <span className="text-base-content">{course.enrollmentMode}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Students</span>
+                        <span className="text-base-content">{course.approvedStudentCount}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Enrollment Status</span>
+                        <span className="text-primary">
+                          {course.viewerEnrollmentStatus || (isTeacher && course.isTeacherOwner ? "teacher" : "not requested")}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="mt-6 flex flex-wrap gap-3">
-                      <button className="btn btn-outline rounded-2xl" onClick={() => navigate(`/courses/${course._id}`)}>
+                    <div className="mt-6 flex gap-2">
+                      <button
+                        className="btn btn-outline btn-sm flex-1 rounded-none border-base-content/20 uppercase tracking-widest"
+                        onClick={() => navigate(`/courses/${course._id}`)}
+                      >
                         Open Course
                       </button>
                       {!isTeacher && !course.isTeacherOwner && (
                         course.enrollmentMode === "invite" && !course.viewerEnrollmentStatus ? (
-                          <div className="flex w-full flex-wrap gap-3">
+                          <div className="flex flex-1 flex-col gap-2">
                             <input
                               value={inviteCodes[course._id] || ""}
                               onChange={(event) => setInviteCodes((current) => ({ ...current, [course._id]: event.target.value }))}
-                              className="input input-bordered rounded-2xl w-full uppercase"
-                              placeholder="Enter invite code"
+                              className="input input-bordered h-8 w-full rounded-none text-xs uppercase"
+                              placeholder="Invite Code"
                             />
                             <button
-                              className="btn btn-primary rounded-2xl"
+                              className="btn btn-primary btn-sm rounded-none uppercase tracking-widest"
                               onClick={() => handleJoinWithInvite(course._id)}
                               disabled={joinCourseWithInviteMutation.isPending}
                             >
-                              Join with Invite
+                              Join
                             </button>
                           </div>
                         ) : (
                           <button
-                            className="btn btn-primary rounded-2xl"
+                            className="btn btn-primary btn-sm flex-1 rounded-none uppercase tracking-widest"
                             onClick={() => handleRequestEnrollment(course._id)}
                             disabled={Boolean(course.viewerEnrollmentStatus) || requestEnrollmentMutation.isPending}
                           >
                             {course.viewerEnrollmentStatus
-                              ? `Enrollment ${course.viewerEnrollmentStatus}`
+                              ? course.viewerEnrollmentStatus
                               : course.enrollmentMode === "open"
-                                ? "Join Course"
-                                : "Request Enrollment"}
+                                ? "Join"
+                                : "Request"}
                           </button>
                         )
                       )}
@@ -342,10 +395,10 @@ function CoursesPage() {
                 ))}
               </div>
             ) : (
-              <div className="rounded-[2rem] border border-dashed border-base-content/15 bg-base-100/60 px-6 py-20 text-center">
-                <h2 className="text-2xl font-black text-base-content">No courses in this view yet</h2>
-                <p className="mt-3 text-base-content/60">
-                  {isTeacher ? "Create a draft course or switch the filter." : "Try a broader search or request enrollment in a published course."}
+              <div className="rounded-xl border border-dashed border-base-content/15 bg-base-100/60 px-6 py-20 text-center">
+                <h2 className="text-2xl font-black text-base-content">No courses found</h2>
+                <p className="mt-3 text-sm opacity-60">
+                  {isTeacher ? "Create a draft course or switch filters." : "Try a broader search or request enrollment."}
                 </p>
               </div>
             )}
