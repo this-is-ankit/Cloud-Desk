@@ -631,7 +631,7 @@ function SessionPage() {
     <div className="h-screen bg-base-200 flex flex-col">
       <Navbar />
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col">
         <div className="border-b border-base-content/10 bg-base-100/85 px-6 py-4 backdrop-blur-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
