@@ -13,7 +13,17 @@ import {
 } from "../hooks/useSessions";
 import { executeCode } from "../lib/piston";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { Loader2Icon, KeyIcon, ListChecksIcon, PencilOffIcon } from "../components/icons/ModernIcons";
+import {
+  CodeIcon,
+  Loader2Icon,
+  KeyIcon,
+  ListChecksIcon,
+  MessageSquareIcon,
+  PencilOffIcon,
+  PresentationIcon,
+  UsersIcon,
+  XIcon,
+} from "../components/icons/ModernIcons";
 import toast from "react-hot-toast";
 import CodeEditorPanel from "../components/CodeEditorPanel";
 import OutputPanel from "../components/OutputPanel";
@@ -25,6 +35,105 @@ import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
 import VideoCallUI from "../components/VideoCallUI";
 import { useRuntimeAuth } from "../hooks/useRuntimeAuth";
 import { getSessionLanguageLabel, normalizeSessionLanguage } from "../lib/sessionLanguage";
+import { Channel, Chat, MessageInput, MessageList, Thread, Window } from "stream-chat-react";
+
+function EmptySidebarState({ children }) {
+  return (
+    <div className="flex h-full items-center justify-center p-6 text-center text-sm text-base-content/60">
+      {children}
+    </div>
+  );
+}
+
+function StreamChatPanel({ chatClient, channel }) {
+  if (!chatClient || !channel) {
+    return <EmptySidebarState>Chat is still loading.</EmptySidebarState>;
+  }
+
+  return (
+    <div className="h-full min-h-0 overflow-hidden">
+      <Chat client={chatClient} theme="str-chat__theme-v2 str-chat__theme-light">
+        <Channel channel={channel}>
+          <Window>
+            <MessageList />
+            <MessageInput />
+          </Window>
+          <Thread />
+        </Channel>
+      </Chat>
+    </div>
+  );
+}
+
+function LivestreamChatPanel({ messages, draft, onDraftChange, onSubmit }) {
+  return (
+    <form onSubmit={onSubmit} className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 text-sm">
+        {messages.length ? (
+          messages.slice(-100).map((message) => (
+            <p key={message.id || `${message.createdAt}-${message.message}`} className="break-words">
+              <span className="font-semibold">{message.userName || "Viewer"}:</span> {message.message}
+            </p>
+          ))
+        ) : (
+          <EmptySidebarState>No chat messages yet.</EmptySidebarState>
+        )}
+      </div>
+      <div className="flex shrink-0 gap-2 border-t border-base-content/10 p-2">
+        <input
+          className="input input-bordered input-sm min-w-0 flex-1 rounded-lg"
+          value={draft}
+          onChange={(event) => onDraftChange(event.target.value)}
+          placeholder="Message"
+        />
+        <button type="submit" className="btn btn-primary btn-sm rounded-lg">
+          Send
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function ParticipantsPanel({ session, isHost, onKickParticipant }) {
+  const participants = session?.participants || [];
+
+  return (
+    <div className="h-full min-h-0 overflow-y-auto p-3">
+      <div className="mb-3 rounded-lg border border-primary/20 bg-primary/10 p-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Host</p>
+        <p className="mt-1 font-semibold">{session?.host?.name || "Teacher"}</p>
+      </div>
+
+      <div className="mb-2 flex items-center justify-between text-sm">
+        <span className="font-semibold">Participants</span>
+        <span className="badge badge-ghost">{participants.length}</span>
+      </div>
+
+      {participants.length ? (
+        <div className="space-y-2">
+          {participants.map((participant) => (
+            <div
+              key={participant._id || participant.clerkId}
+              className="flex items-center justify-between gap-3 rounded-lg border border-base-content/10 bg-base-200/60 px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{participant.name || "Participant"}</p>
+                {participant.email && <p className="truncate text-xs text-base-content/55">{participant.email}</p>}
+              </div>
+              {isHost && participant._id && (
+                <button type="button" className="btn btn-error btn-xs rounded-lg" onClick={() => onKickParticipant(participant._id)}>
+                  Kick
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <EmptySidebarState>No participants have joined yet.</EmptySidebarState>
+      )}
+    </div>
+  );
+}
 
 function SessionPage() {
   const navigate = useNavigate();
@@ -53,7 +162,8 @@ function SessionPage() {
   const [hostCodeSnapshot, setHostCodeSnapshot] = useState(null);
   const [isCodeDirtyFromHost, setIsCodeDirtyFromHost] = useState(false);
   const [activeTool, setActiveTool] = useState(null);
-  const [toolLayoutMode, setToolLayoutMode] = useState("tabs");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeSidebarTab, setActiveSidebarTab] = useState("chat");
 
   const socketRef = useRef(null);
   const wasParticipantRef = useRef(false);
@@ -78,7 +188,7 @@ function SessionPage() {
   const session = sessionData?.session;
   const isLivestream = session?.sessionType === "livestream";
   const livestreamLive = Boolean(livestreamState?.isLive ?? session?.livestream?.isLive);
-  const showToolWorkspace = Boolean(isLivestream && activeTool);
+  const layoutMode = activeTool ? "tool-pip" : "video";
 
   // Calculate roles
   const isHost = session?.host?.clerkId === user?.id;
@@ -158,12 +268,6 @@ function SessionPage() {
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
   const [code, setCode] = useState("");
 
-  const codePanelDefaultSize = isWhiteboardOpen ? 30 : 60;
-  const whiteboardPanelDefaultSize = isCodeOpen ? 30 : 60;
-  const videoPanelDefaultSize = isCodeOpen || isWhiteboardOpen ? 40 : 100;
-
-  const panelGroupRef = useRef(null);
-
   useEffect(() => {
     isCodeDirtyFromHostRef.current = isCodeDirtyFromHost;
   }, [isCodeDirtyFromHost]);
@@ -191,20 +295,6 @@ function SessionPage() {
     }
   }, []);
 
-  // New useEffect to reset layout when panel visibility changes
-  /*
-  useEffect(() => {
-    if (panelGroupRef.current) {
-      // Small delay to allow DOM updates to settle
-      const timeoutId = setTimeout(() => {
-        panelGroupRef.current.resetLayout();
-        console.log("PanelGroup layout reset triggered.");
-      }, 50); 
-      return () => clearTimeout(timeoutId);
-    }
-  }, [isCodeOpen, isWhiteboardOpen]); // Trigger when these change
-  */
-
   useEffect(() => {
     setWhiteboardScene(null);
     setWhiteboardWriteMode("host-only");
@@ -222,7 +312,8 @@ function SessionPage() {
     setHostCodeSnapshot(null);
     setIsCodeDirtyFromHost(false);
     setActiveTool(null);
-    setToolLayoutMode("tabs");
+    setSidebarOpen(true);
+    setActiveSidebarTab("chat");
     wasParticipantRef.current = false;
     initializedSessionRef.current = null;
     pendingHostWhiteboardSnapshotRef.current = null;
@@ -322,6 +413,11 @@ function SessionPage() {
         setQuizTop3(Array.isArray(top3) ? top3 : []);
         setActiveQuizRound(activeRound || null);
         setMyQuizSubmission(activeRound?.mySubmission || null);
+        if (activeRound) {
+          setIsQuizOpen(true);
+          setSidebarOpen(true);
+          setActiveSidebarTab("quiz");
+        }
       });
 
       socket.on("quiz-round-started", (roundData) => {
@@ -329,6 +425,8 @@ function SessionPage() {
         setMyQuizSubmission(null);
         setLastRoundResult(null);
         setIsQuizOpen(true);
+        setSidebarOpen(true);
+        setActiveSidebarTab("quiz");
       });
 
       socket.on("quiz-answer-accepted", ({ selectedOptionIndex, submittedAt, responseMs }) => {
@@ -344,6 +442,8 @@ function SessionPage() {
         setQuizLeaderboard(Array.isArray(leaderboard) ? leaderboard : []);
         setQuizTop3(Array.isArray(top3) ? top3 : []);
         setIsQuizOpen(true);
+        setSidebarOpen(true);
+        setActiveSidebarTab("quiz");
       });
 
       socket.on("quiz-error", ({ message }) => {
@@ -621,7 +721,10 @@ function SessionPage() {
   };
 
   const toggleQuizPanel = () => {
-    setIsQuizOpen((prev) => !prev);
+    const shouldOpen = !(activeSidebarTab === "quiz" && sidebarOpen && isQuizOpen && !activeQuizRound);
+    setActiveSidebarTab("quiz");
+    setSidebarOpen(shouldOpen || Boolean(activeQuizRound));
+    setIsQuizOpen(shouldOpen || Boolean(activeQuizRound));
   };
 
   const handleUploadQuiz = (quizJson) => {
@@ -695,6 +798,14 @@ function SessionPage() {
     setCode(`// Start coding in ${getSessionLanguageLabel(normalizedLanguage)}...`);
   }, [id, session?.language]);
 
+  useEffect(() => {
+    if (activeTool === "code" && !isCodeOpen) {
+      setActiveTool(isWhiteboardOpen ? "whiteboard" : null);
+    } else if (activeTool === "whiteboard" && !isWhiteboardOpen) {
+      setActiveTool(isCodeOpen ? "code" : null);
+    }
+  }, [activeTool, isCodeOpen, isWhiteboardOpen]);
+
   const handleRunCode = async () => {
     setIsRunning(true);
     setOutput(null);
@@ -726,6 +837,172 @@ function SessionPage() {
       kickParticipantMutation.mutate({ sessionId: id, participantId });
     }
   };
+
+  const availableStageTools = [
+    isCodeOpen ? { id: "code", label: "Code", icon: CodeIcon } : null,
+    isWhiteboardOpen ? { id: "whiteboard", label: "Whiteboard", icon: PresentationIcon } : null,
+  ].filter(Boolean);
+
+  const openSidebarTab = (tab) => {
+    setActiveSidebarTab(tab);
+    setSidebarOpen(true);
+    if (tab === "quiz") setIsQuizOpen(true);
+  };
+
+  const closeQuizSidebar = () => {
+    if (activeQuizRound) return;
+    setIsQuizOpen(false);
+    setActiveSidebarTab("chat");
+  };
+
+  const renderCall = ({ compact = false } = {}) => {
+    if (!streamClient || !call) {
+      return (
+        <div className="h-full flex items-center justify-center">
+          <Loader2Icon className={`animate-spin text-primary ${compact ? "size-8" : "size-10"}`} />
+        </div>
+      );
+    }
+
+    return (
+      <StreamVideo client={streamClient}>
+        <StreamCall call={call}>
+          <VideoCallUI
+            sessionType={session?.sessionType}
+            isHost={isHost}
+            isLive={livestreamLive}
+            onStartLivestream={handleStartLivestream}
+            onStopLivestream={handleStopLivestream}
+            compact={compact}
+            showHeader={!compact && isLivestream}
+            showControls={!compact && !isLivestream}
+            showLivestreamActions={false}
+            onLeave={() => navigate("/dashboard")}
+          />
+        </StreamCall>
+      </StreamVideo>
+    );
+  };
+
+  const renderCodeStage = () => (
+    <div className="relative h-full min-h-0 overflow-hidden rounded-xl border border-base-content/10 bg-base-100">
+      {isLivestream && !isHost && isCodeDirtyFromHost && (
+        <button type="button" className="btn btn-primary btn-xs absolute right-3 top-3 z-20 rounded-lg" onClick={syncCodeFromHost}>
+          Sync code
+        </button>
+      )}
+      <PanelGroup direction="vertical">
+        <Panel defaultSize={70} minSize={30}>
+          <CodeEditorPanel
+            selectedLanguage={selectedLanguage}
+            code={code}
+            isRunning={isRunning}
+            onLanguageChange={handleLanguageChangeWrapper}
+            onCodeChange={handleCodeChange}
+            onRunCode={handleRunCode}
+          />
+        </Panel>
+        <PanelResizeHandle className="h-1.5 bg-base-200 hover:bg-primary/20 transition-colors cursor-row-resize z-10" />
+        <Panel defaultSize={30} minSize={15}>
+          <OutputPanel output={output} />
+        </Panel>
+      </PanelGroup>
+    </div>
+  );
+
+  const renderWhiteboardStage = () => (
+    <div className="relative h-full min-h-0 overflow-hidden rounded-xl border border-base-content/10 bg-base-100">
+      <WhiteboardErrorBoundary>
+        <WhiteboardPanel
+          roomId={id}
+          socket={socketRef.current}
+          userName={user?.fullName || user?.firstName || "User"}
+          scene={whiteboardScene}
+          canWrite={canWriteWhiteboard}
+        />
+      </WhiteboardErrorBoundary>
+    </div>
+  );
+
+  const renderMainStage = () => {
+    if (layoutMode === "video") {
+      return <div className="h-full min-h-0 overflow-hidden rounded-xl bg-base-300">{renderCall()}</div>;
+    }
+
+    return (
+      <div className="relative h-full min-h-0 overflow-hidden bg-base-200 p-3 pt-16">
+        <div className="absolute left-3 top-3 z-20 flex flex-wrap gap-2 rounded-xl border border-base-content/10 bg-base-100/90 p-2 shadow backdrop-blur">
+          {availableStageTools.map((tool) => {
+            const Icon = tool.icon;
+            return (
+              <button
+                key={tool.id}
+                type="button"
+                className={`btn btn-xs gap-2 rounded-lg ${activeTool === tool.id ? "btn-primary" : "btn-ghost"}`}
+                onClick={() => setActiveTool(tool.id)}
+              >
+                <Icon className="size-4" />
+                {tool.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="h-full min-h-0">
+          {activeTool === "code" ? renderCodeStage() : renderWhiteboardStage()}
+        </div>
+
+        <div className="absolute bottom-3 right-3 z-30 h-28 w-44 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-lg border border-base-content/20 bg-base-300 shadow-2xl transition-all duration-300 ease-out md:bottom-4 md:right-4 md:h-48 md:w-72">
+          {renderCall({ compact: true })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSidebarContent = () => {
+    if (activeSidebarTab === "participants") {
+      return <ParticipantsPanel session={session} isHost={isHost} onKickParticipant={handleKickParticipant} />;
+    }
+
+    if (activeSidebarTab === "quiz") {
+      return (
+        <QuizPanel
+          isHost={isHost}
+          isOpen={isQuizOpen || Boolean(activeQuizRound)}
+          variant="sidebar"
+          activeRound={activeQuizRound}
+          quizBank={quizBank}
+          leaderboard={quizLeaderboard}
+          top3={quizTop3}
+          mySubmission={myQuizSubmission}
+          roundResult={lastRoundResult}
+          onClose={closeQuizSidebar}
+          onUploadQuiz={handleUploadQuiz}
+          onAddManualQuestion={handleAddManualQuestion}
+          onStartRound={handleStartQuizRound}
+          onEndRound={handleEndQuizRound}
+          onSubmitAnswer={handleSubmitQuizAnswer}
+        />
+      );
+    }
+
+    return isLivestream ? (
+      <LivestreamChatPanel
+        messages={livestreamChatMessages}
+        draft={livestreamChatDraft}
+        onDraftChange={setLivestreamChatDraft}
+        onSubmit={handleSendLivestreamChat}
+      />
+    ) : (
+      <StreamChatPanel chatClient={chatClient} channel={channel} />
+    );
+  };
+
+  const sidebarTabs = [
+    { id: "chat", label: "Chat", icon: MessageSquareIcon },
+    { id: "participants", label: "People", icon: UsersIcon },
+    { id: "quiz", label: "Quiz", icon: ListChecksIcon },
+  ];
 
   if (loadingSession) {
     return (
@@ -805,21 +1082,27 @@ function SessionPage() {
   }
 
   return (
-    <div className="h-dvh overflow-hidden bg-base-200 flex flex-col">
-      <div className="min-h-0 flex-1 flex flex-col">
-        <div className="shrink-0 border-b border-base-content/10 bg-base-100/85 px-3 py-2 backdrop-blur-sm md:px-5">
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-base-content">
+    <div className="h-dvh overflow-hidden bg-base-200 text-base-content flex flex-col">
+      <div className="shrink-0 border-b border-base-content/10 bg-base-100/90 px-3 py-2 backdrop-blur-sm md:px-5">
+        <div className="flex min-h-14 flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-bold text-base-content md:text-xl">
               {getSessionLanguageLabel(selectedLanguage)}
             </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-base-content/60">
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-base-content/60 md:text-sm">
               <span>Host: {session?.host?.name}</span>
               <span>•</span>
               <span>
-                Participants: {session?.participants?.length || 0} /{" "}
-                {session?.maxParticipants}
+                Participants: {session?.participants?.length || 0} / {session?.maxParticipants}
               </span>
+              {isLivestream && (
+                <>
+                  <span>•</span>
+                  <span className={livestreamLive ? "text-success" : "text-base-content/60"}>
+                    {livestreamLive ? "Live now" : isHost ? "Backstage" : "Waiting for host"}
+                  </span>
+                </>
+              )}
               {isHost && (
                 <>
                   <span>•</span>
@@ -831,49 +1114,57 @@ function SessionPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <button
-              onClick={toggleQuizPanel}
-              className={`btn btn-sm gap-2 rounded-xl ${isQuizOpen ? "btn-accent" : "btn-ghost"}`}
+              type="button"
+              onClick={() => openSidebarTab("chat")}
+              className={`btn btn-sm gap-2 rounded-xl ${sidebarOpen && activeSidebarTab === "chat" ? "btn-primary" : "btn-ghost"}`}
             >
-              <ListChecksIcon className="w-4 h-4" />
+              <MessageSquareIcon className="size-4" />
+              Chat
+            </button>
+            <button
+              type="button"
+              onClick={() => openSidebarTab("participants")}
+              className={`btn btn-sm gap-2 rounded-xl ${sidebarOpen && activeSidebarTab === "participants" ? "btn-primary" : "btn-ghost"}`}
+            >
+              <UsersIcon className="size-4" />
+              People
+            </button>
+            <button
+              type="button"
+              onClick={toggleQuizPanel}
+              className={`btn btn-sm gap-2 rounded-xl ${isQuizOpen || activeSidebarTab === "quiz" ? "btn-accent" : "btn-ghost"}`}
+            >
+              <ListChecksIcon className="size-4" />
               Quiz
             </button>
 
-            {isLivestream && (
+            {isLivestream && isHost && (
               <>
-                {isHost && (
-                  <>
-                    <button type="button" className="btn btn-primary btn-sm rounded-xl" onClick={handleStartLivestream} disabled={livestreamLive}>
-                      Go Live
-                    </button>
-                    <button type="button" className="btn btn-outline btn-sm rounded-xl" onClick={handleStopLivestream} disabled={!livestreamLive}>
-                      Stop Live
-                    </button>
-                  </>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCodeOpen(true);
-                    setActiveTool("code");
-                  }}
-                  className={`btn btn-sm rounded-xl ${activeTool === "code" ? "btn-primary" : "btn-ghost"}`}
-                >
-                  Code
+                <button type="button" className="btn btn-primary btn-sm rounded-xl" onClick={handleStartLivestream} disabled={livestreamLive}>
+                  Go Live
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsWhiteboardOpen(true);
-                    setActiveTool("whiteboard");
-                  }}
-                  className={`btn btn-sm rounded-xl ${activeTool === "whiteboard" ? "btn-primary" : "btn-ghost"}`}
-                >
-                  Whiteboard
+                <button type="button" className="btn btn-outline btn-sm rounded-xl" onClick={handleStopLivestream} disabled={!livestreamLive}>
+                  Stop Live
                 </button>
               </>
             )}
+
+            {availableStageTools.map((tool) => {
+              const Icon = tool.icon;
+              return (
+                <button
+                  key={tool.id}
+                  type="button"
+                  onClick={() => setActiveTool(activeTool === tool.id ? null : tool.id)}
+                  className={`btn btn-sm gap-2 rounded-xl ${activeTool === tool.id ? "btn-primary" : "btn-ghost"}`}
+                >
+                  <Icon className="size-4" />
+                  {tool.label}
+                </button>
+              );
+            })}
 
             {isHost && session?.status === "active" && (
               <HostToolsPopover
@@ -900,265 +1191,85 @@ function SessionPage() {
                 View only
               </span>
             )}
-          </div>
+
+            {isLivestream && (
+              <button type="button" className="btn btn-ghost btn-sm rounded-xl" onClick={() => navigate("/dashboard")}>
+                Leave
+              </button>
+            )}
           </div>
         </div>
+      </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden relative p-2 md:p-3 bg-base-200">
-          <div className="h-full w-full bg-base-100 rounded-3xl shadow-sm border border-base-content/5 overflow-hidden">
-            {showToolWorkspace ? (
-              <div className="relative h-full w-full overflow-hidden bg-base-200">
-                <div className="absolute left-4 top-4 z-20 flex flex-wrap gap-2">
-                  <button type="button" className={`btn btn-xs rounded-lg ${toolLayoutMode === "tabs" ? "btn-primary" : "btn-ghost"}`} onClick={() => setToolLayoutMode("tabs")}>
-                    Tabs
-                  </button>
-                  <button type="button" className={`btn btn-xs rounded-lg ${toolLayoutMode === "split" ? "btn-primary" : "btn-ghost"}`} onClick={() => setToolLayoutMode("split")}>
-                    Split
-                  </button>
-                  <button type="button" className={`btn btn-xs rounded-lg ${activeTool === "code" ? "btn-accent" : "btn-ghost"}`} onClick={() => setActiveTool("code")}>
-                    Code
-                  </button>
-                  <button type="button" className={`btn btn-xs rounded-lg ${activeTool === "whiteboard" ? "btn-accent" : "btn-ghost"}`} onClick={() => setActiveTool("whiteboard")}>
-                    Whiteboard
-                  </button>
-                </div>
+      <div
+        className={`grid min-h-0 flex-1 gap-3 p-2 transition-[grid-template-columns] duration-300 ease-out md:p-3 ${
+          sidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_24rem]" : "lg:grid-cols-[minmax(0,1fr)_0rem]"
+        }`}
+      >
+        <main className="relative min-h-0 overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
+          {renderMainStage()}
+        </main>
 
-                <div className={`h-full w-full gap-3 p-3 pt-16 ${toolLayoutMode === "split" ? "grid lg:grid-cols-2" : "block"}`}>
-                  {(toolLayoutMode === "split" || activeTool === "code") && (
-                    <div className="relative h-full overflow-hidden rounded-xl border border-base-content/10 bg-base-100">
-                      {isLivestream && !isHost && isCodeDirtyFromHost && (
-                        <button type="button" className="btn btn-primary btn-xs absolute right-3 top-3 z-20 rounded-lg" onClick={syncCodeFromHost}>
-                          Sync code
-                        </button>
-                      )}
-                      <PanelGroup direction="vertical">
-                        <Panel defaultSize={70} minSize={30}>
-                          <CodeEditorPanel
-                            selectedLanguage={selectedLanguage}
-                            code={code}
-                            isRunning={isRunning}
-                            onLanguageChange={handleLanguageChangeWrapper}
-                            onCodeChange={handleCodeChange}
-                            onRunCode={handleRunCode}
-                          />
-                        </Panel>
-                        <PanelResizeHandle className="h-1.5 bg-base-200 hover:bg-primary/20 transition-colors cursor-row-resize z-10" />
-                        <Panel defaultSize={30} minSize={15}>
-                          <OutputPanel output={output} />
-                        </Panel>
-                      </PanelGroup>
-                    </div>
-                  )}
-
-                  {(toolLayoutMode === "split" || activeTool === "whiteboard") && (
-                    <div className="relative h-full overflow-hidden rounded-xl border border-base-content/10 bg-base-100">
-                      <WhiteboardErrorBoundary>
-                        <WhiteboardPanel
-                          roomId={id}
-                          socket={socketRef.current}
-                          userName={user?.fullName || "User"}
-                          scene={whiteboardScene}
-                          canWrite={canWriteWhiteboard}
-                        />
-                      </WhiteboardErrorBoundary>
-                    </div>
-                  )}
-                </div>
-
-                <div className="absolute bottom-4 right-4 z-30 h-40 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-base-content/20 bg-base-300 shadow-2xl md:h-52 md:w-80">
-                  {!streamClient || !call ? (
-                    <div className="h-full flex items-center justify-center">
-                      <Loader2Icon className="animate-spin size-8 text-primary" />
-                    </div>
-                  ) : (
-                    <StreamVideo client={streamClient}>
-                      <StreamCall call={call}>
-                        <VideoCallUI
-                          sessionType={session?.sessionType}
-                          isHost={isHost}
-                          isLive={livestreamLive}
-                          compact
-                        />
-                      </StreamCall>
-                    </StreamVideo>
-                  )}
-                </div>
-
-                {isLivestream && (
-                  <form onSubmit={handleSendLivestreamChat} className="absolute bottom-4 left-4 z-30 flex max-h-64 w-72 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-base-content/10 bg-base-100 shadow-xl">
-                    <div className="border-b border-base-content/10 px-3 py-2 text-sm font-semibold">Chat</div>
-                    <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 text-sm">
-                      {livestreamChatMessages.slice(-20).map((message) => (
-                        <p key={message.id || `${message.createdAt}-${message.message}`} className="break-words">
-                          <span className="font-semibold">{message.userName || "Viewer"}:</span> {message.message}
-                        </p>
-                      ))}
-                    </div>
-                    <div className="flex gap-2 border-t border-base-content/10 p-2">
-                      <input className="input input-bordered input-sm min-w-0 flex-1 rounded-lg" value={livestreamChatDraft} onChange={(event) => setLivestreamChatDraft(event.target.value)} placeholder="Message" />
-                      <button type="submit" className="btn btn-primary btn-sm rounded-lg">Send</button>
-                    </div>
-                  </form>
-                )}
-
-                <QuizPanel
-                  isHost={isHost}
-                  isOpen={isQuizOpen || Boolean(activeQuizRound)}
-                  activeRound={activeQuizRound}
-                  quizBank={quizBank}
-                  leaderboard={quizLeaderboard}
-                  top3={quizTop3}
-                  mySubmission={myQuizSubmission}
-                  roundResult={lastRoundResult}
-                  onClose={() => setIsQuizOpen(false)}
-                  onUploadQuiz={handleUploadQuiz}
-                  onAddManualQuestion={handleAddManualQuestion}
-                  onStartRound={handleStartQuizRound}
-                  onEndRound={handleEndQuizRound}
-                  onSubmitAnswer={handleSubmitQuizAnswer}
-                />
+        <aside
+          className={`hidden min-h-0 overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 shadow-sm transition-[opacity,width] duration-300 ease-out lg:block ${
+            sidebarOpen ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+        >
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="flex shrink-0 items-center gap-2 border-b border-base-content/10 p-2">
+              <div className="grid min-w-0 flex-1 grid-cols-3 gap-1">
+                {sidebarTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      className={`btn btn-sm gap-2 rounded-lg ${activeSidebarTab === tab.id ? "btn-primary" : "btn-ghost"}`}
+                      onClick={() => openSidebarTab(tab.id)}
+                    >
+                      <Icon className="size-4" />
+                      {tab.label}
+                    </button>
+                  );
+                })}
               </div>
-            ) : (
-            <PanelGroup ref={panelGroupRef} direction="horizontal">
-            {isCodeOpen && (
-              <>
-                {/* --- FIX: Added id and order --- */}
-                <Panel id="code-panel" order={1} defaultSize={codePanelDefaultSize} minSize={20}>
-                  <div className="h-full flex flex-col">
-                    <div className="flex-1 overflow-hidden">
-                      <PanelGroup direction="vertical">
-                        <Panel defaultSize={70} minSize={30}>
-                          <CodeEditorPanel
-                            selectedLanguage={selectedLanguage}
-                            code={code}
-                            isRunning={isRunning}
-                            onLanguageChange={handleLanguageChangeWrapper}
-                            onCodeChange={handleCodeChange}
-                            onRunCode={handleRunCode}
-                          />
-                        </Panel>
-                        <PanelResizeHandle className="h-1.5 bg-base-200 hover:bg-primary/20 transition-colors cursor-row-resize z-10" />
-                        <Panel defaultSize={30} minSize={15}>
-                          <OutputPanel output={output} />
-                        </Panel>
-                      </PanelGroup>
-                    </div>
-                  </div>
-                </Panel>
-                <PanelResizeHandle className="w-2 bg-base-300 hover:bg-primary transition-colors cursor-col-resize" />
-              </>
-            )}
-
-            {/* NEW: Whiteboard Panel */}
-            {isWhiteboardOpen && (
-              <>
-                <Panel id="whiteboard-panel" order={2} defaultSize={whiteboardPanelDefaultSize} minSize={20}>
-                  <WhiteboardErrorBoundary>
-                    <div className="h-full w-full relative">
-                      <WhiteboardPanel
-                        roomId={id}
-                        socket={socketRef.current}
-                        userName={user?.fullName || "User"}
-                        scene={whiteboardScene}
-                        canWrite={canWriteWhiteboard}
-                      />
-                    </div>
-                  </WhiteboardErrorBoundary>
-                </Panel>
-                <PanelResizeHandle className="w-2 bg-base-300 hover:bg-primary transition-colors cursor-col-resize" />
-              </>
-            )}
-
-            {/* --- FIX: Added id and order --- */}
-            <Panel
-              id="video-panel"
-              order={3}
-              defaultSize={videoPanelDefaultSize}
-              minSize={20}
-            >
-              <div className="h-full min-h-0 overflow-hidden bg-base-200 p-2 md:p-3 relative">
-                {isLivestream ? (
-                  <div className="flex h-full min-h-0 flex-col gap-3 xl:flex-row">
-                    <div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-base-300">
-                      {!streamClient || !call ? (
-                        <div className="h-full flex items-center justify-center">
-                          <Loader2Icon className="animate-spin size-10 text-primary" />
-                        </div>
-                      ) : (
-                        <StreamVideo client={streamClient}>
-                          <StreamCall call={call}>
-                            <VideoCallUI
-                              chatClient={chatClient}
-                              channel={channel}
-                              participants={session?.participants}
-                              sessionType={session?.sessionType}
-                              isHost={isHost}
-                              isLive={livestreamLive}
-                              onStartLivestream={handleStartLivestream}
-                              onStopLivestream={handleStopLivestream}
-                            />
-                          </StreamCall>
-                        </StreamVideo>
-                      )}
-                    </div>
-
-                    <form onSubmit={handleSendLivestreamChat} className="flex h-52 shrink-0 flex-col overflow-hidden rounded-lg border border-base-content/10 bg-base-100 xl:h-full xl:w-80">
-                      <div className="shrink-0 border-b border-base-content/10 px-3 py-2 text-sm font-semibold">Live chat</div>
-                      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 text-sm">
-                        {livestreamChatMessages.slice(-50).map((message) => (
-                          <p key={message.id || `${message.createdAt}-${message.message}`} className="break-words">
-                            <span className="font-semibold">{message.userName || "Viewer"}:</span> {message.message}
-                          </p>
-                        ))}
-                      </div>
-                      <div className="flex shrink-0 gap-2 border-t border-base-content/10 p-2">
-                        <input className="input input-bordered input-sm min-w-0 flex-1 rounded-lg" value={livestreamChatDraft} onChange={(event) => setLivestreamChatDraft(event.target.value)} placeholder="Message" />
-                        <button type="submit" className="btn btn-primary btn-sm rounded-lg">Send</button>
-                      </div>
-                    </form>
-                  </div>
-                ) : !streamClient || !call ? (
-                  <div className="h-full flex items-center justify-center">
-                    <Loader2Icon className="animate-spin size-10 text-primary" />
-                  </div>
-                ) : (
-                  <StreamVideo client={streamClient}>
-                    <StreamCall call={call}>
-                      <VideoCallUI
-                        chatClient={chatClient}
-                        channel={channel}
-                        participants={session?.participants}
-                        sessionType={session?.sessionType}
-                        isHost={isHost}
-                        isLive={livestreamLive}
-                        onStartLivestream={handleStartLivestream}
-                        onStopLivestream={handleStopLivestream}
-                      />
-                    </StreamCall>
-                  </StreamVideo>
-                )}
-
-                <QuizPanel
-                  isHost={isHost}
-                  isOpen={isQuizOpen || Boolean(activeQuizRound)}
-                  activeRound={activeQuizRound}
-                  quizBank={quizBank}
-                  leaderboard={quizLeaderboard}
-                  top3={quizTop3}
-                  mySubmission={myQuizSubmission}
-                  roundResult={lastRoundResult}
-                  onClose={() => setIsQuizOpen(false)}
-                  onUploadQuiz={handleUploadQuiz}
-                  onAddManualQuestion={handleAddManualQuestion}
-                  onStartRound={handleStartQuizRound}
-                  onEndRound={handleEndQuizRound}
-                  onSubmitAnswer={handleSubmitQuizAnswer}
-                />
-              </div>
-            </Panel>
-          </PanelGroup>
-            )}
+              <button type="button" className="btn btn-ghost btn-sm btn-square rounded-lg" onClick={() => setSidebarOpen(false)}>
+                <XIcon className="size-4" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden">{renderSidebarContent()}</div>
           </div>
+        </aside>
+      </div>
+
+      <div
+        className={`fixed inset-y-0 right-0 z-50 w-[min(24rem,100vw)] border-l border-base-content/10 bg-base-100 shadow-2xl transition-transform duration-300 ease-out lg:hidden ${
+          sidebarOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="flex shrink-0 items-center justify-between border-b border-base-content/10 p-3">
+            <div className="grid flex-1 grid-cols-3 gap-1">
+              {sidebarTabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    className={`btn btn-xs gap-1 rounded-lg ${activeSidebarTab === tab.id ? "btn-primary" : "btn-ghost"}`}
+                    onClick={() => openSidebarTab(tab.id)}
+                  >
+                    <Icon className="size-4" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+            <button type="button" className="btn btn-ghost btn-sm btn-square ml-2 rounded-lg" onClick={() => setSidebarOpen(false)}>
+              <XIcon className="size-4" />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden">{renderSidebarContent()}</div>
         </div>
       </div>
     </div>

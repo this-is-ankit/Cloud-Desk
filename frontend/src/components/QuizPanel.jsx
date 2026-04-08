@@ -9,6 +9,7 @@ const formatRemaining = (endsAt) => {
 function QuizPanel({
   isHost,
   isOpen,
+  variant = "overlay",
   activeRound,
   quizBank,
   leaderboard,
@@ -78,17 +79,24 @@ function QuizPanel({
   };
 
   const hasSubmitted = Boolean(mySubmission);
+  const isSidebar = variant === "sidebar";
 
   return (
-    <div className="absolute right-4 bottom-4 z-40 w-[380px] max-h-[85%] overflow-y-auto rounded-xl border border-base-300 bg-base-100 shadow-2xl">
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-base-300 bg-base-100 px-3 py-2">
+    <div
+      className={
+        isSidebar
+          ? "flex h-full min-h-0 flex-col overflow-hidden bg-base-100"
+          : "absolute right-4 bottom-4 z-40 w-[380px] max-h-[85%] overflow-y-auto rounded-xl border border-base-300 bg-base-100 shadow-2xl"
+      }
+    >
+      <div className={`${isSidebar ? "shrink-0" : "sticky top-0 z-10"} flex items-center justify-between border-b border-base-300 bg-base-100 px-3 py-2`}>
         <h3 className="font-semibold">Quiz</h3>
         <button className="btn btn-ghost btn-xs" onClick={onClose}>
           <XIcon className="size-4" />
         </button>
       </div>
 
-      <div className="space-y-4 p-3">
+      <div className={`${isSidebar ? "min-h-0 flex-1 overflow-y-auto" : ""} space-y-4 p-3`}>
         {activeRound && (
           <div className="rounded-lg border border-primary/30 bg-primary/10 p-3">
             <div className="mb-2 flex items-center justify-between">
