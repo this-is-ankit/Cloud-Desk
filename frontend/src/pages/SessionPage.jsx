@@ -51,9 +51,7 @@ function SessionPage() {
   const [livestreamChatMessages, setLivestreamChatMessages] = useState([]);
   const [livestreamChatDraft, setLivestreamChatDraft] = useState("");
   const [hostCodeSnapshot, setHostCodeSnapshot] = useState(null);
-  const [hostWhiteboardSnapshot, setHostWhiteboardSnapshot] = useState(null);
   const [isCodeDirtyFromHost, setIsCodeDirtyFromHost] = useState(false);
-  const [isWhiteboardDirtyFromHost, setIsWhiteboardDirtyFromHost] = useState(false);
   const [activeTool, setActiveTool] = useState(null);
   const [toolLayoutMode, setToolLayoutMode] = useState("tabs");
 
@@ -61,7 +59,9 @@ function SessionPage() {
   const wasParticipantRef = useRef(false);
   const initializedSessionRef = useRef(null);
   const isCodeDirtyFromHostRef = useRef(false);
-  const isWhiteboardDirtyFromHostRef = useRef(false);
+  const livestreamJoinedCallIdRef = useRef(null);
+  const activeToolRef = useRef(activeTool);
+  const pendingHostWhiteboardSnapshotRef = useRef(null);
 
   const {
     data: sessionData,
@@ -137,9 +137,23 @@ function SessionPage() {
   );
 
   useEffect(() => {
-    if (!isLivestream || !livestreamLive || !call) return;
-    call.join().catch(() => {});
-  }, [isLivestream, livestreamLive, call]);
+    if (!isLivestream || !livestreamLive) {
+      livestreamJoinedCallIdRef.current = null;
+      return;
+    }
+    if (!call || livestreamJoinedCallIdRef.current === call.id) return;
+
+    livestreamJoinedCallIdRef.current = call.id;
+    call
+      .join()
+      .then(() => {
+        refetch();
+      })
+      .catch((error) => {
+        livestreamJoinedCallIdRef.current = null;
+        console.error("Error joining live stream:", error);
+      });
+  }, [isLivestream, livestreamLive, call, refetch]);
 
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
   const [code, setCode] = useState("");
@@ -155,8 +169,12 @@ function SessionPage() {
   }, [isCodeDirtyFromHost]);
 
   useEffect(() => {
-    isWhiteboardDirtyFromHostRef.current = isWhiteboardDirtyFromHost;
-  }, [isWhiteboardDirtyFromHost]);
+    activeToolRef.current = activeTool;
+    if (activeTool !== "whiteboard" && pendingHostWhiteboardSnapshotRef.current) {
+      setWhiteboardScene(pendingHostWhiteboardSnapshotRef.current);
+      pendingHostWhiteboardSnapshotRef.current = null;
+    }
+  }, [activeTool]);
 
   const applyWhiteboardPermissions = useCallback(({ writeMode, writerIds }) => {
     if (typeof writeMode === "string") {
@@ -202,13 +220,12 @@ function SessionPage() {
     setLivestreamChatMessages([]);
     setLivestreamChatDraft("");
     setHostCodeSnapshot(null);
-    setHostWhiteboardSnapshot(null);
     setIsCodeDirtyFromHost(false);
-    setIsWhiteboardDirtyFromHost(false);
     setActiveTool(null);
     setToolLayoutMode("tabs");
     wasParticipantRef.current = false;
     initializedSessionRef.current = null;
+    pendingHostWhiteboardSnapshotRef.current = null;
   }, [id]);
 
   useEffect(() => {
@@ -359,22 +376,21 @@ function SessionPage() {
           setSelectedLanguage(normalizeSessionLanguage(snapshot?.language));
           setCode(snapshot?.code || "");
           setIsCodeDirtyFromHost(false);
-        } else {
-          toast("Host code updated. Use Sync to reset your local copy.");
         }
       });
 
       socket.on("host-whiteboard-sync", (snapshot) => {
-        setHostWhiteboardSnapshot(snapshot || null);
-        if (isHostRef.current || !isWhiteboardDirtyFromHostRef.current) {
-          setWhiteboardScene({
-            elements: Array.isArray(snapshot?.elements) ? snapshot.elements : [],
-            appState: snapshot?.appState || {},
-          });
-          setIsWhiteboardDirtyFromHost(false);
-        } else {
-          toast("Host whiteboard updated. Use Sync to reset your local copy.");
+        const nextScene = {
+          elements: Array.isArray(snapshot?.elements) ? snapshot.elements : [],
+          appState: snapshot?.appState || {},
+        };
+
+        if (isHostRef.current && activeToolRef.current === "whiteboard") {
+          pendingHostWhiteboardSnapshotRef.current = nextScene;
+          return;
         }
+
+        setWhiteboardScene(nextScene);
       });
 
       socket.on("anti-cheat-update", (isEnabled) => {
@@ -505,22 +521,6 @@ function SessionPage() {
     socketRef.current?.emit("viewer-code-sync-request", { roomId: id });
   };
 
-  const syncWhiteboardFromHost = () => {
-    if (hostWhiteboardSnapshot) {
-      setWhiteboardScene({
-        elements: Array.isArray(hostWhiteboardSnapshot.elements) ? hostWhiteboardSnapshot.elements : [],
-        appState: hostWhiteboardSnapshot.appState || {},
-      });
-      setIsWhiteboardDirtyFromHost(false);
-      return;
-    }
-    socketRef.current?.emit("viewer-whiteboard-sync-request", { roomId: id });
-  };
-
-  const handleLocalWhiteboardChange = useCallback(() => {
-    if (isLivestream && !isHost) setIsWhiteboardDirtyFromHost(true);
-  }, [isLivestream, isHost]);
-
   const handleSendLivestreamChat = (event) => {
     event.preventDefault();
     if (!livestreamChatDraft.trim() || !socketRef.current) return;
@@ -531,7 +531,29 @@ function SessionPage() {
     setLivestreamChatDraft("");
   };
 
-  const handleStartLivestream = () => {
+  const handleStartLivestream = async () => {
+    if (!call) {
+      toast.error("Video is still loading. Try again in a moment.");
+      return;
+    }
+
+    try {
+      await call.join();
+    } catch (error) {
+      const message = error?.message || "";
+      if (!message.toLowerCase().includes("already")) {
+        console.error("Error joining livestream before start:", error);
+      }
+    }
+
+    try {
+      await Promise.all([call.camera.enable(), call.microphone.enable()]);
+    } catch (error) {
+      console.error("Error enabling livestream media:", error);
+      toast.error("Allow camera and microphone access before going live.");
+      return;
+    }
+
     if (socketRef.current) {
       socketRef.current.emit("livestream-start", { roomId: id });
       return;
@@ -783,10 +805,10 @@ function SessionPage() {
   }
 
   return (
-    <div className="h-screen bg-base-200 flex flex-col">
-      <div className="flex-1 flex flex-col">
-        <div className="border-b border-base-content/10 bg-base-100/85 px-6 py-4 backdrop-blur-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="h-dvh overflow-hidden bg-base-200 flex flex-col">
+      <div className="min-h-0 flex-1 flex flex-col">
+        <div className="shrink-0 border-b border-base-content/10 bg-base-100/85 px-3 py-2 backdrop-blur-sm md:px-5">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-xl font-bold text-base-content">
               {getSessionLanguageLabel(selectedLanguage)}
@@ -882,7 +904,7 @@ function SessionPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden relative p-2 md:p-4 bg-base-200">
+        <div className="min-h-0 flex-1 overflow-hidden relative p-2 md:p-3 bg-base-200">
           <div className="h-full w-full bg-base-100 rounded-3xl shadow-sm border border-base-content/5 overflow-hidden">
             {showToolWorkspace ? (
               <div className="relative h-full w-full overflow-hidden bg-base-200">
@@ -930,11 +952,6 @@ function SessionPage() {
 
                   {(toolLayoutMode === "split" || activeTool === "whiteboard") && (
                     <div className="relative h-full overflow-hidden rounded-xl border border-base-content/10 bg-base-100">
-                      {isLivestream && !isHost && isWhiteboardDirtyFromHost && (
-                        <button type="button" className="btn btn-primary btn-xs absolute right-3 top-3 z-20 rounded-lg" onClick={syncWhiteboardFromHost}>
-                          Sync whiteboard
-                        </button>
-                      )}
                       <WhiteboardErrorBoundary>
                         <WhiteboardPanel
                           roomId={id}
@@ -942,8 +959,6 @@ function SessionPage() {
                           userName={user?.fullName || "User"}
                           scene={whiteboardScene}
                           canWrite={canWriteWhiteboard}
-                          allowLocalEdits={isLivestream && !isHost}
-                          onLocalChange={handleLocalWhiteboardChange}
                         />
                       </WhiteboardErrorBoundary>
                     </div>
@@ -1046,8 +1061,6 @@ function SessionPage() {
                         userName={user?.fullName || "User"}
                         scene={whiteboardScene}
                         canWrite={canWriteWhiteboard}
-                        allowLocalEdits={isLivestream && !isHost}
-                        onLocalChange={handleLocalWhiteboardChange}
                       />
                     </div>
                   </WhiteboardErrorBoundary>
@@ -1063,8 +1076,48 @@ function SessionPage() {
               defaultSize={videoPanelDefaultSize}
               minSize={20}
             >
-              <div className="h-full bg-base-200 p-4 overflow-auto relative">
-                {!streamClient || !call ? (
+              <div className="h-full min-h-0 overflow-hidden bg-base-200 p-2 md:p-3 relative">
+                {isLivestream ? (
+                  <div className="flex h-full min-h-0 flex-col gap-3 xl:flex-row">
+                    <div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-base-300">
+                      {!streamClient || !call ? (
+                        <div className="h-full flex items-center justify-center">
+                          <Loader2Icon className="animate-spin size-10 text-primary" />
+                        </div>
+                      ) : (
+                        <StreamVideo client={streamClient}>
+                          <StreamCall call={call}>
+                            <VideoCallUI
+                              chatClient={chatClient}
+                              channel={channel}
+                              participants={session?.participants}
+                              sessionType={session?.sessionType}
+                              isHost={isHost}
+                              isLive={livestreamLive}
+                              onStartLivestream={handleStartLivestream}
+                              onStopLivestream={handleStopLivestream}
+                            />
+                          </StreamCall>
+                        </StreamVideo>
+                      )}
+                    </div>
+
+                    <form onSubmit={handleSendLivestreamChat} className="flex h-52 shrink-0 flex-col overflow-hidden rounded-lg border border-base-content/10 bg-base-100 xl:h-full xl:w-80">
+                      <div className="shrink-0 border-b border-base-content/10 px-3 py-2 text-sm font-semibold">Live chat</div>
+                      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 text-sm">
+                        {livestreamChatMessages.slice(-50).map((message) => (
+                          <p key={message.id || `${message.createdAt}-${message.message}`} className="break-words">
+                            <span className="font-semibold">{message.userName || "Viewer"}:</span> {message.message}
+                          </p>
+                        ))}
+                      </div>
+                      <div className="flex shrink-0 gap-2 border-t border-base-content/10 p-2">
+                        <input className="input input-bordered input-sm min-w-0 flex-1 rounded-lg" value={livestreamChatDraft} onChange={(event) => setLivestreamChatDraft(event.target.value)} placeholder="Message" />
+                        <button type="submit" className="btn btn-primary btn-sm rounded-lg">Send</button>
+                      </div>
+                    </form>
+                  </div>
+                ) : !streamClient || !call ? (
                   <div className="h-full flex items-center justify-center">
                     <Loader2Icon className="animate-spin size-10 text-primary" />
                   </div>
@@ -1083,23 +1136,6 @@ function SessionPage() {
                       />
                     </StreamCall>
                   </StreamVideo>
-                )}
-
-                {isLivestream && (
-                  <form onSubmit={handleSendLivestreamChat} className="mt-4 flex max-h-72 flex-col overflow-hidden rounded-lg border border-base-content/10 bg-base-100">
-                    <div className="border-b border-base-content/10 px-3 py-2 text-sm font-semibold">Live chat</div>
-                    <div className="min-h-28 flex-1 space-y-2 overflow-y-auto p-3 text-sm">
-                      {livestreamChatMessages.slice(-50).map((message) => (
-                        <p key={message.id || `${message.createdAt}-${message.message}`} className="break-words">
-                          <span className="font-semibold">{message.userName || "Viewer"}:</span> {message.message}
-                        </p>
-                      ))}
-                    </div>
-                    <div className="flex gap-2 border-t border-base-content/10 p-2">
-                      <input className="input input-bordered input-sm min-w-0 flex-1 rounded-lg" value={livestreamChatDraft} onChange={(event) => setLivestreamChatDraft(event.target.value)} placeholder="Message" />
-                      <button type="submit" className="btn btn-primary btn-sm rounded-lg">Send</button>
-                    </div>
-                  </form>
                 )}
 
                 <QuizPanel

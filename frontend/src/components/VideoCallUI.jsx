@@ -3,6 +3,8 @@ import {
   CallingState,
   LivestreamLayout,
   SpeakerLayout,
+  ToggleAudioPublishingButton,
+  ToggleVideoPublishingButton,
   useCallStateHooks,
 } from "@stream-io/video-react-sdk";
 import { Loader2Icon, MessageSquareIcon, UsersIcon, XIcon } from "./icons/ModernIcons";
@@ -47,9 +49,9 @@ function VideoCallUI({
 
     if (compact) {
       return (
-        <div className="h-full overflow-hidden rounded-lg bg-base-300 str-video">
+        <div className="h-full min-h-0 overflow-hidden rounded-lg bg-base-300 str-video">
           {live || isHost ? (
-            <LivestreamLayout muted={!isHost} />
+            <LivestreamLayout muted={!isHost} enableFullScreen={false} showDuration={false} showSpeakerName={false} />
           ) : (
             <div className="flex h-full items-center justify-center p-3 text-center text-xs font-semibold">
               Waiting for host
@@ -60,8 +62,8 @@ function VideoCallUI({
     }
 
     return (
-      <div className="h-full flex flex-col gap-3 relative str-video">
-        <div className="flex items-center justify-between gap-3 rounded-lg bg-base-100 p-3 shadow">
+      <div className="h-full min-h-0 flex flex-col gap-2 overflow-hidden relative str-video">
+        <div className="shrink-0 flex items-center justify-between gap-3 rounded-lg bg-base-100 p-2 shadow">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Live stream</p>
             <p className="text-sm text-base-content/60">
@@ -69,7 +71,11 @@ function VideoCallUI({
             </p>
           </div>
           {isHost && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 rounded-lg border border-base-content/10 bg-base-200/60 px-2 py-1">
+                <ToggleAudioPublishingButton />
+                <ToggleVideoPublishingButton />
+              </div>
               <button type="button" className="btn btn-primary btn-sm rounded-lg" onClick={onStartLivestream} disabled={live}>
                 Go Live
               </button>
