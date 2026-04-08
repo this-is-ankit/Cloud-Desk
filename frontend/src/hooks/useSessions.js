@@ -116,3 +116,31 @@ export const useEndSession = () => {
 
   return result;
 };
+
+const createLivestreamMutation = (mutationKey, mutationFn, successMessage, errorMessage) => () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: [mutationKey],
+    mutationFn,
+    onSuccess: () => {
+      toast.success(successMessage);
+      queryClient.invalidateQueries({ queryKey: ["session"] });
+    },
+    onError: (error) => toast.error(error.response?.data?.message || errorMessage),
+  });
+};
+
+export const useStartLivestream = createLivestreamMutation(
+  "startLivestream",
+  sessionApi.startLivestream,
+  "Livestream is live",
+  "Failed to start livestream",
+);
+
+export const useStopLivestream = createLivestreamMutation(
+  "stopLivestream",
+  sessionApi.stopLivestream,
+  "Livestream stopped",
+  "Failed to stop livestream",
+);

@@ -35,6 +35,7 @@ const INITIAL_CLASS_FORM = {
   scheduledStart: "",
   scheduledEnd: "",
   usePersistentRoom: false,
+  sessionType: "interactive",
 };
 
 const INITIAL_ASSIGNMENT_FORM = {
@@ -290,6 +291,7 @@ function CourseDetailPage() {
                       {entry.description && <p className="mt-2 text-sm text-base-content/70">{entry.description}</p>}
                       <div className="mt-3 flex flex-wrap gap-2">
                         <span className="badge badge-outline">{entry.status}</span>
+                        <span className="badge badge-primary">{entry.sessionType === "livestream" ? "Live Stream" : "Interactive Meeting"}</span>
                         <span className="badge badge-ghost">{entry.attendanceCount} attendance records</span>
                       </div>
                       <div className="mt-4 flex flex-wrap gap-3">
@@ -507,11 +509,41 @@ function CourseDetailPage() {
                   <input
                     type="checkbox"
                     checked={classForm.usePersistentRoom}
+                    disabled={classForm.sessionType === "livestream"}
                     onChange={(event) => setClassForm((current) => ({ ...current, usePersistentRoom: event.target.checked }))}
                     className="checkbox checkbox-primary"
                   />
-                  <span className="text-sm">Reuse persistent room for this class</span>
+                  <span className="text-sm">
+                    {classForm.sessionType === "livestream"
+                      ? "Persistent rooms are interactive-only"
+                      : "Reuse persistent room for this class"}
+                  </span>
                 </label>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-base-content">Class format</label>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      className={`btn h-auto min-h-20 rounded-2xl justify-start text-left ${classForm.sessionType === "interactive" ? "btn-primary" : "btn-outline border-base-content/15"}`}
+                      onClick={() => setClassForm((current) => ({ ...current, sessionType: "interactive" }))}
+                    >
+                      <span>
+                        <span className="block font-bold">Interactive Meeting</span>
+                        <span className="block text-xs font-normal opacity-80">Small group audio, video, and shared tools.</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn h-auto min-h-20 rounded-2xl justify-start text-left ${classForm.sessionType === "livestream" ? "btn-primary" : "btn-outline border-base-content/15"}`}
+                      onClick={() => setClassForm((current) => ({ ...current, sessionType: "livestream", usePersistentRoom: false }))}
+                    >
+                      <span>
+                        <span className="block font-bold">Live Stream</span>
+                        <span className="block text-xs font-normal opacity-80">Teacher broadcasts; students chat, answer quizzes, and keep local tool sandboxes.</span>
+                      </span>
+                    </button>
+                  </div>
+                </div>
                 <button type="submit" className="btn btn-primary rounded-2xl" disabled={createClassSessionMutation.isPending}>
                   Schedule Class
                 </button>

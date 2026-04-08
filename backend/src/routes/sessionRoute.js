@@ -9,6 +9,8 @@ import {
   joinSessionByCode,
   joinSession,
   kickParticipant,
+  startLivestream,
+  stopLivestream,
 } from "../controllers/sessionController.js";
 
 const router = express.Router();
@@ -22,5 +24,7 @@ router.get("/:id", protectRoute, getSessionById);
 router.post("/:id/join", protectRoute, joinSession);
 router.post("/:id/end", protectRoute, endSession);
 router.post("/:id/kick", protectRoute, kickParticipant);
+router.post("/:id/livestream/start", protectRoute, startLivestream);
+router.post("/:id/livestream/stop", protectRoute, stopLivestream);
 
 export default router;

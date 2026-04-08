@@ -4,6 +4,8 @@ import cors from "cors";
 import http from "http";
 import { randomUUID } from "crypto";
 import { Server } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { createClient } from "redis";
 import { serve } from "inngest/express";
 import { clerkMiddleware, verifyToken } from "@clerk/express";
 
@@ -20,9 +22,14 @@ import userRoutes from "./routes/userRoute.js";
 import Session from "./models/Session.js";
 import User from "./models/User.js";
 import Course from "./models/Course.js";
+import {
+  LivestreamChatMessage,
+  LivestreamQuizSubmission,
+  LivestreamViewerAttendance,
+} from "./models/Livestream.js";
 import { chatClient, streamClient } from "./lib/stream.js";
 import { extractDevSocketAuth, findOrCreateDevUser } from "./lib/devAuth.js";
-import { repairLegacyCourseTextIndex } from "./lib/coursePersistence.js";
+import { repairLegacyCourseTextIndex, saveCourseWithRepair } from "./lib/coursePersistence.js";
 import { normalizeSessionLanguage } from "./lib/sessionLanguage.js";
 
 const app = express();
@@ -43,9 +50,30 @@ const io = new Server(httpServer, {
   },
 });
 
+const setupSocketRedisAdapter = async () => {
+  if (!ENV.REDIS_URL) return;
+
+  try {
+    const pubClient = createClient({ url: ENV.REDIS_URL });
+    const subClient = pubClient.duplicate();
+
+    pubClient.on("error", (error) => console.error("Socket Redis pub error:", error.message));
+    subClient.on("error", (error) => console.error("Socket Redis sub error:", error.message));
+
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+    io.adapter(createAdapter(pubClient, subClient));
+    console.log("Socket.IO Redis adapter enabled");
+  } catch (error) {
+    console.error("Socket.IO Redis adapter disabled:", error.message);
+  }
+};
+
+setupSocketRedisAdapter();
+
 export const whiteboardStateByRoom = new Map();
 export const quizStateByRoom = new Map();
 export const whiteboardPersistTimersByRoom = new Map();
+const livestreamHostDisconnectTimersByRoom = new Map();
 const WHITEBOARD_MAX_COORDINATE = 4000;
 const WHITEBOARD_MAX_ELEMENTS = 2000;
 const WHITEBOARD_DB_PERSIST_DEBOUNCE_MS = 1200;
@@ -56,6 +84,18 @@ const QUIZ_MAX_TIME_SEC = 120;
 const QUIZ_MAX_TEXT_LENGTH = 500;
 const QUIZ_BASE_POINTS = 100;
 const QUIZ_SPEED_BONUS_MAX = 100;
+const LIVESTREAM_HOST_DISCONNECT_TIMEOUT_MS = 20 * 60 * 1000;
+const LIVESTREAM_CHAT_HISTORY_LIMIT = 100;
+const LIVESTREAM_CHAT_MIN_INTERVAL_MS = 750;
+const LIVESTREAM_SYNC_MIN_INTERVAL_MS = 500;
+
+const normalizeSessionType = (value) => (value === "livestream" ? "livestream" : "interactive");
+const getStreamCallType = (session) => (normalizeSessionType(session?.sessionType) === "livestream" ? "livestream" : "default");
+const isSessionHost = (session, userId) =>
+  session?.host?._id?.toString?.() === userId ||
+  session?.host?.toString?.() === userId ||
+  session?.hostId?._id?.toString?.() === userId ||
+  session?.hostId?.toString?.() === userId;
 
 const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
 
@@ -369,6 +409,114 @@ const sortLeaderboard = (leaderboard = []) =>
     return (a.lastCorrectAt || 0) - (b.lastCorrectAt || 0);
   });
 
+const isApprovedCourseViewer = async (session, userId) => {
+  if (!session?.courseId || !userId) return false;
+  const course = await Course.findById(session.courseId).select("teacher enrollments");
+  if (!course) return false;
+  if (course.teacher?.toString() === userId) return true;
+  return (course.enrollments || []).some(
+    (entry) => entry.status === "approved" && entry.student?.toString() === userId,
+  );
+};
+
+const buildLivestreamStatePayload = (session) => ({
+  isLive: Boolean(session?.livestream?.isLive),
+  startedAt: session?.livestream?.startedAt || null,
+  endedAt: session?.livestream?.endedAt || null,
+  hostDisconnectedAt: session?.livestream?.hostDisconnectedAt || null,
+  hostDisconnectDeadline: session?.livestream?.hostDisconnectDeadline || null,
+  status: session?.status || "active",
+});
+
+const upsertLivestreamAttendance = async (session, viewerId, leftAt = null) => {
+  if (normalizeSessionType(session?.sessionType) !== "livestream" || !session?.courseId || !viewerId) return;
+  const now = new Date();
+  const existing = await LivestreamViewerAttendance.findOne({
+    sessionId: session._id,
+    viewerId,
+  }).select("firstJoinedAt durationSeconds");
+
+  const firstJoinedAt = existing?.firstJoinedAt || now;
+  const durationSeconds = leftAt
+    ? Math.max(0, Math.floor((now.getTime() - new Date(firstJoinedAt).getTime()) / 1000))
+    : existing?.durationSeconds || 0;
+
+  await LivestreamViewerAttendance.findOneAndUpdate(
+    { sessionId: session._id, viewerId },
+    {
+      $setOnInsert: {
+        courseId: session.courseId,
+        classSessionId: session.classSessionId || null,
+        firstJoinedAt,
+      },
+      $set: {
+        lastSeenAt: now,
+        leftAt,
+        durationSeconds,
+      },
+    },
+    { upsert: true },
+  );
+};
+
+const markLinkedCourseClassCompleted = async (session) => {
+  if (!session?.courseId || !session?.classSessionId) return;
+  const course = await Course.findById(session.courseId);
+  if (!course) return;
+  const classSession = course.classSessions.id(session.classSessionId);
+  if (!classSession) return;
+  classSession.status = "completed";
+  classSession.endedAt = new Date();
+  await saveCourseWithRepair(course);
+};
+
+const clearLivestreamHostDisconnectTimer = (roomId) => {
+  const timer = livestreamHostDisconnectTimersByRoom.get(roomId);
+  if (timer) clearTimeout(timer);
+  livestreamHostDisconnectTimersByRoom.delete(roomId);
+};
+
+const completeLivestreamAfterHostTimeout = async (roomId) => {
+  const session = await Session.findById(roomId);
+  if (!session || normalizeSessionType(session.sessionType) !== "livestream") return;
+  const deadline = session.livestream?.hostDisconnectDeadline;
+  if (!deadline || new Date(deadline).getTime() > Date.now()) return;
+  if (session.status === "completed") return;
+
+  clearLivestreamHostDisconnectTimer(roomId);
+  session.status = "completed";
+  session.livestream = {
+    ...(session.livestream || {}),
+    isLive: false,
+    endedAt: new Date(),
+    hostDisconnectedAt: session.livestream?.hostDisconnectedAt || new Date(),
+    hostDisconnectDeadline: null,
+  };
+  await session.save();
+  await markLinkedCourseClassCompleted(session);
+
+  if (session.callId) {
+    const call = streamClient.video.call("livestream", session.callId);
+    await call.stopLive().catch((error) => console.log("Stream stop live timeout cleanup warning:", error.message));
+    await call.delete({ hard: true }).catch((error) => console.log("Stream livestream cleanup error:", error.message));
+  }
+
+  io.in(roomId).emit("livestream-state", {
+    ...buildLivestreamStatePayload(session),
+    reason: "host-timeout",
+  });
+};
+
+const scheduleLivestreamHostTimeout = (roomId, delay = LIVESTREAM_HOST_DISCONNECT_TIMEOUT_MS) => {
+  clearLivestreamHostDisconnectTimer(roomId);
+  const timer = setTimeout(() => {
+    completeLivestreamAfterHostTimeout(roomId).catch((error) => {
+      console.error("Error completing livestream after host timeout:", error.message);
+    });
+  }, delay);
+  livestreamHostDisconnectTimersByRoom.set(roomId, timer);
+};
+
 io.use(async (socket, next) => {
   const devAuth = extractDevSocketAuth(socket.handshake.auth);
   if (devAuth) {
@@ -418,22 +566,28 @@ io.on("connection", (socket) => {
       }
     }
 
-    const session = await Session.findById(roomId).populate("host", "clerkId");
+    const session = await Session.findById(roomId)
+      .populate("host", "clerkId")
+      .populate("hostId", "clerkId");
     if (!session) return null;
 
     const currentUser = await User.findOne({ clerkId: socket.clerkId }).select("_id name profileImage");
     if (!currentUser) return null;
 
     const mongoUserId = currentUser._id.toString();
-    const isHost = session.host?._id?.toString() === mongoUserId;
+    const isHost = isSessionHost(session, mongoUserId);
     const isParticipant = session.participants.some((p) => p.toString() === mongoUserId);
+    const isLivestream = normalizeSessionType(session.sessionType) === "livestream";
+    const isViewer = isLivestream && !isHost ? await isApprovedCourseViewer(session, mongoUserId) : false;
 
-    if (!isHost && !isParticipant) return null;
+    if (!isHost && !isParticipant && !isViewer) return null;
 
     const access = {
       session,
       isHost,
       isParticipant,
+      isViewer,
+      isLivestream,
       currentUser,
       mongoUserId,
       validatedAt: Date.now(),
@@ -447,6 +601,7 @@ io.on("connection", (socket) => {
   const canCurrentSocketWriteWhiteboard = (roomId) => {
     const access = getSocketRoomAccess(roomId);
     if (!access) return false;
+    if (access.isLivestream) return access.isHost;
     const roomState = whiteboardStateByRoom.get(roomId);
     const permissions = buildWhiteboardPermissions({
       isHost: access.isHost,
@@ -651,10 +806,26 @@ io.on("connection", (socket) => {
         socket.emit("error", { message: "Not authorized to join this session" });
         return;
       }
-      const { session, currentUser, isHost, mongoUserId } = access;
+      const { session, currentUser, isHost, isLivestream, isViewer, mongoUserId } = access;
 
       socket.join(roomId);
       console.log(`User ${socket.id} (${socket.clerkId}) joined room: ${roomId}`);
+
+      if (isLivestream) {
+        if (isHost) {
+          clearLivestreamHostDisconnectTimer(roomId);
+          if (session.livestream?.hostDisconnectDeadline || session.livestream?.hostDisconnectedAt) {
+            session.livestream = {
+              ...(session.livestream || {}),
+              hostDisconnectedAt: null,
+              hostDisconnectDeadline: null,
+            };
+            await session.save();
+          }
+        } else if (isViewer) {
+          await upsertLivestreamAttendance(session, currentUser._id);
+        }
+      }
 
       // Check in-memory cache first
       let roomWhiteboardState = whiteboardStateByRoom.get(roomId); 
@@ -702,6 +873,38 @@ io.on("connection", (socket) => {
         writeMode: permissions.writeMode,
         writerIds: permissions.writerIds,
       });
+
+      if (isLivestream) {
+        const chatMessages = await LivestreamChatMessage.find({ sessionId: roomId })
+          .sort({ createdAt: -1 })
+          .limit(LIVESTREAM_CHAT_HISTORY_LIMIT)
+          .lean();
+
+        socket.emit("livestream-state", buildLivestreamStatePayload(session));
+        socket.emit("livestream-chat-history", chatMessages.reverse().map((message) => ({
+          id: message._id.toString(),
+          userId: message.userId?.toString(),
+          userName: message.userName,
+          userImage: message.userImage,
+          message: message.message,
+          createdAt: message.createdAt,
+        })));
+        socket.emit("host-code-sync", {
+          ...(session.livestreamCodeSnapshot || {}),
+          language: session.livestreamCodeSnapshot?.language || session.language,
+          code: session.livestreamCodeSnapshot?.code || "",
+          version: session.livestreamCodeSnapshot?.version || 0,
+        });
+        socket.emit("host-whiteboard-sync", {
+          ...(session.livestreamWhiteboardSnapshot || {}),
+          elements: session.livestreamWhiteboardSnapshot?.elements || [],
+          appState: session.livestreamWhiteboardSnapshot?.appState || {},
+          version: session.livestreamWhiteboardSnapshot?.version || 0,
+        });
+        io.in(roomId).emit("viewer-count", {
+          count: Math.max(0, (io.sockets.adapter.rooms.get(roomId)?.size || 1) - 1),
+        });
+      }
     } catch (error) {
       socket.emit("error", { message: "Failed to join session" });
     }
@@ -716,6 +919,19 @@ io.on("connection", (socket) => {
     if (!roomId || !socket.rooms.has(roomId) || typeof code !== "string") return;
     const access = await getAuthorizedSessionForSocket(roomId);
     if (!access) return;
+    if (access.isLivestream && !access.isHost) return;
+
+    if (access.isLivestream) {
+      const nextSnapshot = {
+        language: access.session?.livestreamCodeSnapshot?.language || access.session?.language || "javascript",
+        code: code.slice(0, 200000),
+        version: (access.session?.livestreamCodeSnapshot?.version || 0) + 1,
+        updatedAt: new Date(),
+      };
+      await Session.findByIdAndUpdate(roomId, { livestreamCodeSnapshot: nextSnapshot });
+      io.in(roomId).emit("host-code-sync", nextSnapshot);
+      return;
+    }
 
     // Broadcast to everyone in the room EXCEPT the sender
     socket.to(roomId).emit("code-update", code);
@@ -726,6 +942,20 @@ io.on("connection", (socket) => {
     if (!roomId || !socket.rooms.has(roomId) || typeof language !== "string") return;
     const access = await getAuthorizedSessionForSocket(roomId);
     if (!access) return;
+    if (access.isLivestream && !access.isHost) return;
+
+    if (access.isLivestream) {
+      const nextLanguage = normalizeSessionLanguage(language);
+      const nextSnapshot = {
+        language: nextLanguage,
+        code: access.session?.livestreamCodeSnapshot?.code || "",
+        version: (access.session?.livestreamCodeSnapshot?.version || 0) + 1,
+        updatedAt: new Date(),
+      };
+      await Session.findByIdAndUpdate(roomId, { livestreamCodeSnapshot: nextSnapshot, language: nextLanguage });
+      io.in(roomId).emit("host-code-sync", nextSnapshot);
+      return;
+    }
 
     socket.to(roomId).emit("language-update", normalizeSessionLanguage(language));
   });
@@ -872,6 +1102,24 @@ io.on("connection", (socket) => {
       isHost: false,
     });
 
+    if (access.isLivestream) {
+      await LivestreamQuizSubmission.findOneAndUpdate(
+        {
+          sessionId: roomId,
+          roundId: round.roundId,
+          viewerId: participantId,
+        },
+        {
+          questionId: round.question.id,
+          selectedOptionIndex: answerIndex,
+          isCorrect: answerIndex === round.question.correctOptionIndex,
+          responseMs,
+          submittedAt: new Date(now),
+        },
+        { upsert: true },
+      );
+    }
+
     socket.emit("quiz-answer-accepted", {
       roundId: round.roundId,
       selectedOptionIndex: answerIndex,
@@ -926,6 +1174,18 @@ io.on("connection", (socket) => {
       appState: appState || {}, // Ensure default empty object
       signature: mergedSignature,
     });
+
+    if (access.isLivestream) {
+      const nextSnapshot = {
+        elements: mergedElements,
+        appState: appState || {},
+        version: Date.now(),
+        updatedAt: new Date(),
+      };
+      await Session.findByIdAndUpdate(roomId, { livestreamWhiteboardSnapshot: nextSnapshot });
+      io.in(roomId).emit("host-whiteboard-sync", nextSnapshot);
+      return;
+    }
 
     // Persist with debounce to avoid DB write on every draw tick.
     scheduleWhiteboardPersistence(roomId);
@@ -1063,14 +1323,171 @@ io.on("connection", (socket) => {
       writerIds: nextWriterIds,
     });
   });
+
+  socket.on("livestream-chat-send", async ({ roomId, message }) => {
+    if (!roomId || !socket.rooms.has(roomId) || typeof message !== "string") return;
+    const text = message.trim().slice(0, 1000);
+    if (!text) return;
+
+    const lastSentAt = socket.data.lastLivestreamChatAt || 0;
+    if (Date.now() - lastSentAt < LIVESTREAM_CHAT_MIN_INTERVAL_MS) {
+      socket.emit("livestream-chat-error", { message: "Slow down before sending another message." });
+      return;
+    }
+
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access?.isLivestream) return;
+
+    socket.data.lastLivestreamChatAt = Date.now();
+    const saved = await LivestreamChatMessage.create({
+      sessionId: roomId,
+      userId: access.currentUser._id,
+      userName: access.currentUser.name || (access.isHost ? "Host" : "Viewer"),
+      userImage: access.currentUser.profileImage || "",
+      message: text,
+    });
+
+    io.in(roomId).emit("livestream-chat-message", {
+      id: saved._id.toString(),
+      userId: access.currentUser._id.toString(),
+      userName: saved.userName,
+      userImage: saved.userImage,
+      message: saved.message,
+      createdAt: saved.createdAt,
+      isHost: Boolean(access.isHost),
+    });
+  });
+
+  socket.on("viewer-code-sync-request", async ({ roomId }) => {
+    if (!roomId || !socket.rooms.has(roomId)) return;
+    if (Date.now() - (socket.data.lastLivestreamCodeSyncAt || 0) < LIVESTREAM_SYNC_MIN_INTERVAL_MS) return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access?.isLivestream) return;
+    socket.data.lastLivestreamCodeSyncAt = Date.now();
+    const session = await Session.findById(roomId).select("language livestreamCodeSnapshot");
+    socket.emit("host-code-sync", {
+      ...(session?.livestreamCodeSnapshot || {}),
+      language: session?.livestreamCodeSnapshot?.language || session?.language || "javascript",
+      code: session?.livestreamCodeSnapshot?.code || "",
+      version: session?.livestreamCodeSnapshot?.version || 0,
+    });
+  });
+
+  socket.on("viewer-whiteboard-sync-request", async ({ roomId }) => {
+    if (!roomId || !socket.rooms.has(roomId)) return;
+    if (Date.now() - (socket.data.lastLivestreamWhiteboardSyncAt || 0) < LIVESTREAM_SYNC_MIN_INTERVAL_MS) return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access?.isLivestream) return;
+    socket.data.lastLivestreamWhiteboardSyncAt = Date.now();
+    const session = await Session.findById(roomId).select("livestreamWhiteboardSnapshot");
+    socket.emit("host-whiteboard-sync", {
+      ...(session?.livestreamWhiteboardSnapshot || {}),
+      elements: session?.livestreamWhiteboardSnapshot?.elements || [],
+      appState: session?.livestreamWhiteboardSnapshot?.appState || {},
+      version: session?.livestreamWhiteboardSnapshot?.version || 0,
+    });
+  });
+
+  socket.on("livestream-start", async ({ roomId }) => {
+    if (!roomId || !socket.rooms.has(roomId)) return;
+    const access = await getAuthorizedSessionForSocket(roomId, { useCache: false });
+    if (!access?.isLivestream || !access.isHost) return;
+    if (access.session.status === "completed" || access.session.status === "cancelled") return;
+
+    const call = streamClient.video.call("livestream", access.session.callId);
+    const startResult = await call.goLive().catch((error) => {
+      socket.emit("livestream-error", { message: error.message || "Failed to start livestream" });
+      return null;
+    });
+    if (!startResult) return;
+
+    const now = new Date();
+    const session = await Session.findByIdAndUpdate(
+      roomId,
+      {
+        status: "active",
+        "livestream.isLive": true,
+        "livestream.startedAt": access.session.livestream?.startedAt || now,
+        "livestream.endedAt": null,
+        "livestream.hostDisconnectedAt": null,
+        "livestream.hostDisconnectDeadline": null,
+      },
+      { new: true },
+    );
+
+    clearLivestreamHostDisconnectTimer(roomId);
+    io.in(roomId).emit("livestream-state", buildLivestreamStatePayload(session));
+  });
+
+  socket.on("livestream-stop", async ({ roomId }) => {
+    if (!roomId || !socket.rooms.has(roomId)) return;
+    const access = await getAuthorizedSessionForSocket(roomId, { useCache: false });
+    if (!access?.isLivestream || !access.isHost) return;
+
+    const call = streamClient.video.call("livestream", access.session.callId);
+    await call.stopLive().catch((error) => {
+      console.log("Stream stop live warning:", error.message);
+    });
+
+    const session = await Session.findByIdAndUpdate(
+      roomId,
+      {
+        "livestream.isLive": false,
+        "livestream.endedAt": new Date(),
+        "livestream.hostDisconnectedAt": null,
+        "livestream.hostDisconnectDeadline": null,
+      },
+      { new: true },
+    );
+
+    clearLivestreamHostDisconnectTimer(roomId);
+    io.in(roomId).emit("livestream-state", buildLivestreamStatePayload(session));
+  });
+
   socket.on("disconnecting", async () => {
     const rooms = [...socket.rooms];
 
     for (const roomId of rooms) {
       if (roomId === socket.id) continue; //
+      const access = getSocketRoomAccess(roomId);
       socket.data.sessionAccessByRoom.delete(roomId);
 
       const roomSize = io.sockets.adapter.rooms.get(roomId)?.size || 0;
+
+      if (access?.isLivestream) {
+        if (access.isViewer) {
+          await upsertLivestreamAttendance(access.session, access.currentUser._id, new Date()).catch((error) => {
+            console.error("Error updating livestream attendance:", error.message);
+          });
+        }
+
+        if (access.isHost && access.session?.livestream?.isLive) {
+          const hostDisconnectedAt = new Date();
+          const hostDisconnectDeadline = new Date(hostDisconnectedAt.getTime() + LIVESTREAM_HOST_DISCONNECT_TIMEOUT_MS);
+          await Session.findByIdAndUpdate(roomId, {
+            "livestream.hostDisconnectedAt": hostDisconnectedAt,
+            "livestream.hostDisconnectDeadline": hostDisconnectDeadline,
+          });
+          scheduleLivestreamHostTimeout(roomId);
+          const payloadSession = access.session.toObject?.() || access.session;
+          io.in(roomId).emit("livestream-state", {
+            ...buildLivestreamStatePayload({
+              ...payloadSession,
+              livestream: {
+                ...(access.session.livestream || {}),
+                hostDisconnectedAt,
+                hostDisconnectDeadline,
+              },
+            }),
+            reason: "host-disconnected",
+          });
+        }
+
+        io.in(roomId).emit("viewer-count", {
+          count: Math.max(0, access.isHost ? roomSize - 1 : roomSize - 2),
+        });
+        continue;
+      }
 
       // ADJUSTMENT: Only auto-end if the room is becoming completely empty (0 users left)
       // This prevents a group session from ending just because one participant leaves.
@@ -1092,15 +1509,17 @@ io.on("connection", (socket) => {
             await session.save(); //
 
             if (session.callId) {
-              const call = streamClient.video.call("default", session.callId); //
+              const call = streamClient.video.call(getStreamCallType(session), session.callId); //
               await call.delete({ hard: true }).catch((err) => 
                 console.log("Stream call cleanup error:", err.message)
               ); //
 
-              const channel = chatClient.channel("messaging", session.callId); //
-              await channel.delete().catch((err) => 
-                console.log("Stream chat cleanup error:", err.message)
-              ); //
+              if (normalizeSessionType(session.sessionType) !== "livestream") {
+                const channel = chatClient.channel("messaging", session.callId); //
+                await channel.delete().catch((err) =>
+                  console.log("Stream chat cleanup error:", err.message)
+                ); //
+              }
             }
           }
         } catch (error) {

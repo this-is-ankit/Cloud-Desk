@@ -16,6 +16,11 @@ const sessionSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    hostId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
     participants: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -24,8 +29,8 @@ const sessionSchema = new mongoose.Schema(
     ],
     sessionType: {
       type: String,
-      enum: ["one-on-one", "group"],
-      default: "one-on-one",
+      enum: ["interactive", "livestream"],
+      default: "interactive",
     },
     maxParticipants: {
       type: Number,
@@ -33,7 +38,7 @@ const sessionSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["active", "completed"],
+      enum: ["scheduled", "active", "completed", "cancelled"],
       default: "active",
     },
     callId: {
@@ -113,9 +118,87 @@ const sessionSchema = new mongoose.Schema(
       type: Object,
       default: null,
     },
+    livestream: {
+      isLive: {
+        type: Boolean,
+        default: false,
+      },
+      startedAt: {
+        type: Date,
+        default: null,
+      },
+      endedAt: {
+        type: Date,
+        default: null,
+      },
+      hostDisconnectedAt: {
+        type: Date,
+        default: null,
+      },
+      hostDisconnectDeadline: {
+        type: Date,
+        default: null,
+      },
+      peakViewerCount: {
+        type: Number,
+        default: 0,
+      },
+    },
+    livestreamCodeSnapshot: {
+      language: {
+        type: String,
+        default: "javascript",
+      },
+      code: {
+        type: String,
+        default: "",
+      },
+      version: {
+        type: Number,
+        default: 0,
+      },
+      updatedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+    livestreamWhiteboardSnapshot: {
+      elements: {
+        type: Array,
+        default: [],
+      },
+      appState: {
+        type: Object,
+        default: {},
+      },
+      version: {
+        type: Number,
+        default: 0,
+      },
+      updatedAt: {
+        type: Date,
+        default: null,
+      },
+    },
   },
   { timestamps: true }
 );
+
+sessionSchema.pre("validate", function normalizeLegacySessionFields(next) {
+  if (this.sessionType === "one-on-one" || this.sessionType === "group") {
+    this.sessionType = "interactive";
+  }
+
+  if (!this.hostId && this.host) {
+    this.hostId = this.host;
+  }
+
+  if (this.status === "live") {
+    this.status = "active";
+  }
+
+  next();
+});
 
 const Session = mongoose.model("Session", sessionSchema);
 

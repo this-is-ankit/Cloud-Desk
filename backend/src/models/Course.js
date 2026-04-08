@@ -90,6 +90,11 @@ const classSessionSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    sessionType: {
+      type: String,
+      enum: ["interactive", "livestream"],
+      default: "interactive",
+    },
     startedAt: {
       type: Date,
       default: null,

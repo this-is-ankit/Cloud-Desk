@@ -40,6 +40,14 @@ export const sessionApi = {
     const response = await axiosInstance.post(`/sessions/${id}/end`);
     return response.data;
   },
+  startLivestream: async (id) => {
+    const response = await axiosInstance.post(`/sessions/${id}/livestream/start`);
+    return response.data;
+  },
+  stopLivestream: async (id) => {
+    const response = await axiosInstance.post(`/sessions/${id}/livestream/stop`);
+    return response.data;
+  },
   getStreamToken: async () => {
     const response = await axiosInstance.get(`/chat/token`);
     return response.data;

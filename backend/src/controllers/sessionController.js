@@ -6,6 +6,10 @@ import { saveCourseWithRepair } from "../lib/coursePersistence.js";
 import { getNormalizedSessionLanguage, getSessionLanguageLabel } from "../lib/sessionLanguage.js";
 
 const isTeacher = (user) => user?.role === "teacher";
+const normalizeSessionType = (value) => (value === "livestream" ? "livestream" : "interactive");
+const getStreamCallType = (session) => (normalizeSessionType(session?.sessionType) === "livestream" ? "livestream" : "default");
+const isSessionHost = (session, userId) =>
+  session?.host?.toString?.() === userId.toString() || session?.hostId?.toString?.() === userId.toString();
 
 const findApprovedEnrollment = (course, userId) =>
   (course.enrollments || []).find(
@@ -109,9 +113,10 @@ export async function createSession(req, res) {
     const session = await Session.create({
       language: normalizedLanguage,
       host: userId,
+      hostId: userId,
       callId,
       code,
-      sessionType,
+      sessionType: "interactive",
       maxParticipants: participantLimit,
       participants: [],
       title,
@@ -126,6 +131,7 @@ export async function createSession(req, res) {
         custom: {
           language: normalizedLanguage,
           sessionId: session._id.toString(),
+          sessionType: "interactive",
           courseId,
           classSessionId,
           sessionKind,
@@ -152,6 +158,7 @@ export async function getActiveSessions(_, res) {
   try {
     const sessions = await Session.find({ status: "active", sessionKind: "ad_hoc" })
       .populate("host", "name profileImage email clerkId role")
+      .populate("hostId", "name profileImage email clerkId role")
       .populate("participants", "name profileImage email clerkId role")
       .sort({ createdAt: -1 })
       .limit(20);
@@ -187,6 +194,7 @@ export async function getSessionById(req, res) {
 
     const session = await Session.findById(id)
       .populate("host", "name email profileImage clerkId role")
+      .populate("hostId", "name email profileImage clerkId role")
       .populate("participants", "name email profileImage clerkId role")
       .populate("courseId", "title code teacher enrollments")
       .lean();
@@ -246,8 +254,16 @@ export async function joinSession(req, res) {
       return res.status(400).json({ message: "Invalid access code" });
     }
 
-    if (session.host.toString() === userId.toString()) {
+    if (isSessionHost(session, userId)) {
       return res.status(400).json({ message: "Host cannot join as a participant" });
+    }
+
+    if (normalizeSessionType(session.sessionType) === "livestream") {
+      if (!session.courseId) {
+        return res.status(403).json({ message: "Livestreams are only available inside courses" });
+      }
+      await markCourseAttendanceJoin(session, userId);
+      return res.status(200).json({ session });
     }
 
     const isAlreadyJoined = session.participants.some((p) => p.toString() === userId.toString());
@@ -296,7 +312,15 @@ export async function joinSessionByCode(req, res) {
       }
     }
 
-    if (session.host.toString() === userId.toString()) {
+    if (isSessionHost(session, userId)) {
+      return res.status(200).json({ sessionId: session._id, session });
+    }
+
+    if (normalizeSessionType(session.sessionType) === "livestream") {
+      if (!session.courseId) {
+        return res.status(403).json({ message: "Livestreams are only available inside courses" });
+      }
+      await markCourseAttendanceJoin(session, userId);
       return res.status(200).json({ sessionId: session._id, session });
     }
 
@@ -331,7 +355,7 @@ export async function kickParticipant(req, res) {
     const session = await Session.findById(id).populate("participants");
 
     if (!session) return res.status(404).json({ message: "Session not found" });
-    if (session.host.toString() !== userId.toString()) {
+    if (!isSessionHost(session, userId)) {
       return res.status(403).json({ message: "Only the host can kick a participant" });
     }
 
@@ -367,20 +391,31 @@ export async function endSession(req, res) {
     const session = await Session.findById(id);
 
     if (!session) return res.status(404).json({ message: "Session not found" });
-    if (session.host.toString() !== userId.toString()) {
+    if (!isSessionHost(session, userId)) {
       return res.status(403).json({ message: "Only the host can end the session" });
     }
     if (session.status === "completed") {
       return res.status(400).json({ message: "Session is already completed" });
     }
 
-    const call = streamClient.video.call("default", session.callId);
+    const call = streamClient.video.call(getStreamCallType(session), session.callId);
     await call.delete({ hard: true });
 
-    const channel = chatClient.channel("messaging", session.callId);
-    await channel.delete();
+    if (normalizeSessionType(session.sessionType) !== "livestream") {
+      const channel = chatClient.channel("messaging", session.callId);
+      await channel.delete();
+    }
 
     session.status = "completed";
+    if (normalizeSessionType(session.sessionType) === "livestream") {
+      session.livestream = {
+        ...(session.livestream || {}),
+        isLive: false,
+        endedAt: session.livestream?.endedAt || new Date(),
+        hostDisconnectedAt: null,
+        hostDisconnectDeadline: null,
+      };
+    }
     await session.save();
     await completeLinkedCourseClass(session);
 
@@ -395,6 +430,81 @@ export async function endSession(req, res) {
     res.status(200).json({ session, message: "Session ended successfully" });
   } catch (error) {
     console.log("Error in endSession controller:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function startLivestream(req, res) {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+    const session = await Session.findById(id);
+
+    if (!session) return res.status(404).json({ message: "Session not found" });
+    if (normalizeSessionType(session.sessionType) !== "livestream") {
+      return res.status(400).json({ message: "This session is not a livestream" });
+    }
+    if (!isSessionHost(session, userId)) {
+      return res.status(403).json({ message: "Only the host can start the livestream" });
+    }
+    if (session.status === "completed" || session.status === "cancelled") {
+      return res.status(400).json({ message: "Cannot start a completed livestream" });
+    }
+
+    const call = streamClient.video.call("livestream", session.callId);
+    await call.goLive();
+
+    const now = new Date();
+    session.status = "active";
+    session.livestream = {
+      ...(session.livestream || {}),
+      isLive: true,
+      startedAt: session.livestream?.startedAt || now,
+      endedAt: null,
+      hostDisconnectedAt: null,
+      hostDisconnectDeadline: null,
+      peakViewerCount: session.livestream?.peakViewerCount || 0,
+    };
+    await session.save();
+
+    res.status(200).json({ session, message: "Livestream is live" });
+  } catch (error) {
+    console.log("Error in startLivestream controller:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function stopLivestream(req, res) {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+    const session = await Session.findById(id);
+
+    if (!session) return res.status(404).json({ message: "Session not found" });
+    if (normalizeSessionType(session.sessionType) !== "livestream") {
+      return res.status(400).json({ message: "This session is not a livestream" });
+    }
+    if (!isSessionHost(session, userId)) {
+      return res.status(403).json({ message: "Only the host can stop the livestream" });
+    }
+
+    const call = streamClient.video.call("livestream", session.callId);
+    await call.stopLive().catch((error) => {
+      console.log("Stream stop live warning:", error.message);
+    });
+
+    session.livestream = {
+      ...(session.livestream || {}),
+      isLive: false,
+      endedAt: new Date(),
+      hostDisconnectedAt: null,
+      hostDisconnectDeadline: null,
+    };
+    await session.save();
+
+    res.status(200).json({ session, message: "Livestream stopped" });
+  } catch (error) {
+    console.log("Error in stopLivestream controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }

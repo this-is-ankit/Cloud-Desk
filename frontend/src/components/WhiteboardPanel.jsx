@@ -91,7 +91,7 @@ const sanitizeElements = (elements) => {
 const sceneSignature = (elements = []) =>
   elements.map((el) => `${el.id}:${el.version}:${el.versionNonce}:${el.isDeleted ? 1 : 0}`).join("|");
 
-const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
+const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite, allowLocalEdits = false, onLocalChange }) => {
   const { isDark } = useTheme();
   const safeAppState = isDark ? DARK_APP_STATE : LIGHT_APP_STATE;
   const [excalidrawAPI, setExcalidrawAPI] = useState(null);
@@ -214,7 +214,7 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
   }, [canWrite]);
 
   const handleChange = useCallback((elements, appState) => {
-    if (isApplyingRemoteScene.current || !socket || !roomId || !canWrite) return;
+    if (isApplyingRemoteScene.current || !roomId || (!canWrite && !allowLocalEdits)) return;
 
     const safeElements = sanitizeElements(elements);
 
@@ -224,10 +224,16 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
     };
 
     const nextScene = { elements: safeElements, appState: normalizedAppState };
+    if (allowLocalEdits && !canWrite) {
+      onLocalChange?.(nextScene);
+      return;
+    }
+
+    if (!socket) return;
     lastLocalSceneSignatureRef.current = sceneSignature(safeElements);
     pendingSceneRef.current = nextScene;
     scheduleSceneEmit();
-  }, [socket, roomId, canWrite, scheduleSceneEmit, safeAppState]);
+  }, [socket, roomId, canWrite, allowLocalEdits, onLocalChange, scheduleSceneEmit, safeAppState]);
 
   if (!isReady || dimensions.width === 0 || dimensions.height === 0) {
     return (
@@ -248,7 +254,7 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
     >
       <Excalidraw
         theme={isDark ? "dark" : "light"}
-        viewModeEnabled={!canWrite}
+        viewModeEnabled={!canWrite && !allowLocalEdits}
         initialData={{
           appState: safeAppState
         }}
