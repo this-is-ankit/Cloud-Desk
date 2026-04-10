@@ -5,6 +5,9 @@ import PageContainer from "./PageContainer";
 function WelcomeSection({ role = "student", primaryAction, secondaryAction, tertiaryAction }) {
   const { user } = useRuntimeAuth();
   const isTeacher = role === "teacher";
+  const PrimaryIcon = primaryAction?.icon || ZapIcon;
+  const SecondaryIcon = secondaryAction?.icon;
+  const TertiaryIcon = tertiaryAction?.icon;
 
   return (
     <div className="relative overflow-hidden border-b border-base-content/10 bg-[radial-gradient(circle_at_top_left,rgba(79,70,229,0.1),transparent_40%),linear-gradient(180deg,rgba(255,255,255,0.7),rgba(255,255,255,0))] dark:bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.18),transparent_35%),linear-gradient(180deg,rgba(15,23,42,0.35),rgba(15,23,42,0))]">
@@ -29,11 +32,13 @@ function WelcomeSection({ role = "student", primaryAction, secondaryAction, tert
           <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[420px]">
             {secondaryAction && (
               <button className="btn btn-outline h-12 rounded-xl border-base-content/15 bg-base-100/80 px-5" onClick={secondaryAction.onClick}>
+                {SecondaryIcon && <SecondaryIcon className="size-4" />}
                 {secondaryAction.label}
               </button>
             )}
             {tertiaryAction && (
               <button className="btn btn-outline h-12 rounded-xl border-base-content/15 bg-base-100/80 px-5" onClick={tertiaryAction.onClick}>
+                {TertiaryIcon && <TertiaryIcon className="size-4" />}
                 {tertiaryAction.label}
               </button>
             )}
@@ -42,7 +47,7 @@ function WelcomeSection({ role = "student", primaryAction, secondaryAction, tert
                 onClick={primaryAction.onClick}
                 className="btn btn-primary h-12 rounded-xl px-6 shadow-lg shadow-primary/20 transition-all sm:col-span-2"
               >
-                <ZapIcon className="size-4" />
+                <PrimaryIcon className="size-4" />
                 <span>{primaryAction.label}</span>
                 <ArrowRightIcon className="size-4 ml-1" />
               </button>

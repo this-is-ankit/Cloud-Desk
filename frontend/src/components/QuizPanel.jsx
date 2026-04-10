@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Clock3Icon, SendIcon, TrophyIcon, UploadIcon, XIcon } from "./icons/ModernIcons";
+import { Clock3Icon, PlusCircleIcon, SendIcon, TrophyIcon, UploadIcon, XCircleIcon, XIcon } from "./icons/ModernIcons";
 
 const formatRemaining = (endsAt) => {
   const remainingMs = Math.max(0, (endsAt || 0) - Date.now());
@@ -91,7 +91,7 @@ function QuizPanel({
     >
       <div className={`${isSidebar ? "shrink-0" : "sticky top-0 z-10"} flex items-center justify-between border-b border-base-300 bg-base-100 px-3 py-2`}>
         <h3 className="font-semibold">Quiz</h3>
-        <button className="btn btn-ghost btn-xs" onClick={onClose}>
+        <button className="btn btn-ghost btn-xs btn-square rounded-lg" onClick={onClose} aria-label="Close quiz panel">
           <XIcon className="size-4" />
         </button>
       </div>
@@ -129,7 +129,8 @@ function QuizPanel({
             )}
 
             {isHost && (
-              <button className="btn btn-warning btn-sm mt-3 w-full" onClick={onEndRound}>
+              <button className="btn btn-warning btn-sm mt-3 w-full gap-2" onClick={onEndRound}>
+                <XCircleIcon className="size-4" />
                 End Round
               </button>
             )}
@@ -222,7 +223,8 @@ function QuizPanel({
                   setManualQuestion((prev) => ({ ...prev, explanation: e.target.value }))
                 }
               />
-              <button className="btn btn-primary btn-sm mt-2 w-full" onClick={handleAddQuestion}>
+              <button className="btn btn-primary btn-sm mt-2 w-full gap-2" onClick={handleAddQuestion}>
+                <PlusCircleIcon className="size-4" />
                 Add Question
               </button>
             </div>

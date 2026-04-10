@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyRound, Loader2 } from "lucide-react";
+import { KeyIcon, Loader2Icon, XIcon } from "./icons/ModernIcons";
 
 function JoinSessionByCodeModal({ isOpen, onClose, onJoin, isJoining }) {
   const [code, setCode] = useState("");
@@ -24,8 +24,8 @@ function JoinSessionByCodeModal({ isOpen, onClose, onJoin, isJoining }) {
               Enter the room code shared by the host to join the active live session.
             </p>
           </div>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
-            Close
+          <button type="button" className="btn btn-ghost btn-sm btn-square rounded-xl" onClick={onClose} aria-label="Close join session modal">
+            <XIcon className="size-4" />
           </button>
         </div>
 
@@ -33,7 +33,7 @@ function JoinSessionByCodeModal({ isOpen, onClose, onJoin, isJoining }) {
           <label className="form-control">
             <span className="mb-2 text-sm font-medium text-base-content/80">Access code</span>
             <div className="relative">
-              <KeyRound className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-base-content/40" />
+              <KeyIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-base-content/40" />
               <input
                 type="text"
                 className="input input-bordered h-12 w-full rounded-2xl pl-11 font-mono uppercase tracking-[0.22em]"
@@ -46,7 +46,7 @@ function JoinSessionByCodeModal({ isOpen, onClose, onJoin, isJoining }) {
           </label>
 
           <button type="submit" className="btn btn-primary w-full rounded-2xl" disabled={isJoining}>
-            {isJoining ? <Loader2 className="size-4 animate-spin" /> : <KeyRound className="size-4" />}
+            {isJoining ? <Loader2Icon className="size-4 animate-spin" /> : <KeyIcon className="size-4" />}
             <span>{isJoining ? "Joining..." : "Join session"}</span>
           </button>
         </form>

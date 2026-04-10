@@ -1,5 +1,5 @@
-import { AlertCircle, Calendar, RadioTower } from "lucide-react";
 import { format, formatDistanceToNowStrict } from "date-fns";
+import { AlertCircleIcon, CalendarIcon, RadioTowerIcon } from "./icons/ModernIcons";
 
 function UpcomingDeadlines({ title, subtitle, items = [], emptyLabel, emptyHint }) {
   return (
@@ -25,11 +25,11 @@ function UpcomingDeadlines({ title, subtitle, items = [], emptyLabel, emptyHint 
                 <div className="flex items-start gap-3">
                   <div className={`mt-0.5 ${urgent ? "text-error" : "text-base-content/50"}`}>
                     {item.kind === "live" ? (
-                      <RadioTower className="w-5 h-5" />
+                      <RadioTowerIcon className="w-5 h-5" />
                     ) : urgent ? (
-                      <AlertCircle className="w-5 h-5" />
+                      <AlertCircleIcon className="w-5 h-5" />
                     ) : (
-                      <Calendar className="w-5 h-5" />
+                      <CalendarIcon className="w-5 h-5" />
                     )}
                   </div>
                   <div>

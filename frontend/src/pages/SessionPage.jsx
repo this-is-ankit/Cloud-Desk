@@ -15,13 +15,20 @@ import { executeCode } from "../lib/piston";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
   CodeIcon,
+  DoorOpenIcon,
   Loader2Icon,
   KeyIcon,
   ListChecksIcon,
+  LogOutIcon,
+  MenuIcon,
   MessageSquareIcon,
   PencilOffIcon,
   PresentationIcon,
+  RadioTowerIcon,
+  SendIcon,
+  UserMinusIcon,
   UsersIcon,
+  XCircleIcon,
   XIcon,
 } from "../components/icons/ModernIcons";
 import toast from "react-hot-toast";
@@ -86,8 +93,8 @@ function LivestreamChatPanel({ messages, draft, onDraftChange, onSubmit }) {
           onChange={(event) => onDraftChange(event.target.value)}
           placeholder="Message"
         />
-        <button type="submit" className="btn btn-primary btn-sm rounded-lg">
-          Send
+        <button type="submit" className="btn btn-primary btn-sm btn-square rounded-lg" aria-label="Send message" title="Send">
+          <SendIcon className="size-4" />
         </button>
       </div>
     </form>
@@ -121,7 +128,8 @@ function ParticipantsPanel({ session, isHost, onKickParticipant }) {
                 {participant.email && <p className="truncate text-xs text-base-content/55">{participant.email}</p>}
               </div>
               {isHost && participant._id && (
-                <button type="button" className="btn btn-error btn-xs rounded-lg" onClick={() => onKickParticipant(participant._id)}>
+                <button type="button" className="btn btn-error btn-xs gap-1 rounded-lg" onClick={() => onKickParticipant(participant._id)}>
+                  <UserMinusIcon className="size-3.5" />
                   Kick
                 </button>
               )}
@@ -164,8 +172,10 @@ function SessionPage() {
   const [activeTool, setActiveTool] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSidebarTab, setActiveSidebarTab] = useState("chat");
+  const [isSessionMenuOpen, setIsSessionMenuOpen] = useState(false);
 
   const socketRef = useRef(null);
+  const sessionMenuRef = useRef(null);
   const wasParticipantRef = useRef(false);
   const initializedSessionRef = useRef(null);
   const isCodeDirtyFromHostRef = useRef(false);
@@ -314,10 +324,21 @@ function SessionPage() {
     setActiveTool(null);
     setSidebarOpen(true);
     setActiveSidebarTab("chat");
+    setIsSessionMenuOpen(false);
     wasParticipantRef.current = false;
     initializedSessionRef.current = null;
     pendingHostWhiteboardSnapshotRef.current = null;
   }, [id]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (sessionMenuRef.current && !sessionMenuRef.current.contains(event.target)) {
+        setIsSessionMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -725,6 +746,8 @@ function SessionPage() {
     setActiveSidebarTab("quiz");
     setSidebarOpen(shouldOpen || Boolean(activeQuizRound));
     setIsQuizOpen(shouldOpen || Boolean(activeQuizRound));
+    if (!shouldOpen && !activeQuizRound) setActiveSidebarTab("chat");
+    setIsSessionMenuOpen(false);
   };
 
   const handleUploadQuiz = (quizJson) => {
@@ -843,11 +866,83 @@ function SessionPage() {
     isWhiteboardOpen ? { id: "whiteboard", label: "Whiteboard", icon: PresentationIcon } : null,
   ].filter(Boolean);
 
+  const openToolStage = (toolId) => {
+    setActiveTool((current) => (current === toolId ? null : toolId));
+    setIsSessionMenuOpen(false);
+  };
+
+  const toggleChatSidebar = () => {
+    const isChatActive = sidebarOpen && activeSidebarTab === "chat";
+    setActiveSidebarTab("chat");
+    setSidebarOpen(!isChatActive);
+    setIsSessionMenuOpen(false);
+  };
+
   const openSidebarTab = (tab) => {
     setActiveSidebarTab(tab);
     setSidebarOpen(true);
     if (tab === "quiz") setIsQuizOpen(true);
+    setIsSessionMenuOpen(false);
   };
+
+  const sessionMenuItems = [
+    {
+      id: "participants",
+      label: "People",
+      icon: UsersIcon,
+      onClick: () => openSidebarTab("participants"),
+      active: sidebarOpen && activeSidebarTab === "participants",
+    },
+    {
+      id: "quiz",
+      label: "Quiz",
+      icon: ListChecksIcon,
+      onClick: toggleQuizPanel,
+      active: Boolean(activeQuizRound || isQuizOpen || (sidebarOpen && activeSidebarTab === "quiz")),
+    },
+    ...availableStageTools.map((tool) => ({
+      id: tool.id,
+      label: tool.label,
+      icon: tool.icon,
+      onClick: () => openToolStage(tool.id),
+      active: activeTool === tool.id,
+    })),
+    ...(isLivestream && isHost
+      ? [
+          {
+            id: "go-live",
+            label: "Go Live",
+            icon: RadioTowerIcon,
+            onClick: () => {
+              handleStartLivestream();
+              setIsSessionMenuOpen(false);
+            },
+            disabled: livestreamLive,
+            primary: true,
+          },
+          {
+            id: "stop-live",
+            label: "Stop Live",
+            icon: XCircleIcon,
+            onClick: () => {
+              handleStopLivestream();
+              setIsSessionMenuOpen(false);
+            },
+            disabled: !livestreamLive,
+          },
+        ]
+      : []),
+    ...(isLivestream
+      ? [
+          {
+            id: "leave",
+            label: "Leave",
+            icon: LogOutIcon,
+            onClick: () => navigate("/dashboard"),
+          },
+        ]
+      : []),
+  ];
 
   const closeQuizSidebar = () => {
     if (activeQuizRound) return;
@@ -877,6 +972,7 @@ function SessionPage() {
             showHeader={!compact && isLivestream}
             showControls={!compact && !isLivestream}
             showLivestreamActions={false}
+            hostUserId={session?.host?.clerkId}
             onLeave={() => navigate("/dashboard")}
           />
         </StreamCall>
@@ -887,7 +983,8 @@ function SessionPage() {
   const renderCodeStage = () => (
     <div className="relative h-full min-h-0 overflow-hidden rounded-xl border border-base-content/10 bg-base-100">
       {isLivestream && !isHost && isCodeDirtyFromHost && (
-        <button type="button" className="btn btn-primary btn-xs absolute right-3 top-3 z-20 rounded-lg" onClick={syncCodeFromHost}>
+        <button type="button" className="btn btn-primary btn-xs absolute right-3 top-3 z-20 gap-2 rounded-lg" onClick={syncCodeFromHost}>
+          <CodeIcon className="size-4" />
           Sync code
         </button>
       )}
@@ -938,11 +1035,12 @@ function SessionPage() {
               <button
                 key={tool.id}
                 type="button"
-                className={`btn btn-xs gap-2 rounded-lg ${activeTool === tool.id ? "btn-primary" : "btn-ghost"}`}
+                className={`btn btn-xs btn-square rounded-lg ${activeTool === tool.id ? "btn-primary" : "btn-ghost"}`}
                 onClick={() => setActiveTool(tool.id)}
+                aria-label={tool.label}
+                title={tool.label}
               >
                 <Icon className="size-4" />
-                {tool.label}
               </button>
             );
           })}
@@ -1048,7 +1146,8 @@ function SessionPage() {
                   <p className="text-sm text-base-content/70">
                     You are approved for <span className="font-semibold">{session.courseAccess.courseTitle}</span>. Entering the live class now.
                   </p>
-                  <button type="button" className="btn btn-primary h-12 w-full rounded-xl" onClick={handleJoinSession}>
+                  <button type="button" className="btn btn-primary h-12 w-full gap-2 rounded-xl" onClick={handleJoinSession}>
+                    <DoorOpenIcon className="size-5" />
                     Join Live Class
                   </button>
                 </div>
@@ -1069,7 +1168,8 @@ function SessionPage() {
                       />
                     </div>
                   </div>
-                  <button type="submit" className="btn btn-primary h-12 w-full rounded-xl">
+                  <button type="submit" className="btn btn-primary h-12 w-full gap-2 rounded-xl">
+                    <KeyIcon className="size-5" />
                     Join Session
                   </button>
                 </form>
@@ -1083,8 +1183,8 @@ function SessionPage() {
 
   return (
     <div className="h-dvh overflow-hidden bg-base-200 text-base-content flex flex-col">
-      <div className="shrink-0 border-b border-base-content/10 bg-base-100/90 px-3 py-2 backdrop-blur-sm md:px-5">
-        <div className="flex min-h-14 flex-wrap items-center justify-between gap-2">
+      <div className="relative z-[80] shrink-0 border-b border-base-content/10 bg-base-100/95 px-3 py-2 backdrop-blur-sm md:px-5">
+        <div className="flex min-h-12 flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
             <h1 className="truncate text-lg font-bold text-base-content md:text-xl">
               {getSessionLanguageLabel(selectedLanguage)}
@@ -1114,57 +1214,58 @@ function SessionPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-1.5 rounded-2xl border border-base-content/10 bg-base-200/55 p-1">
             <button
               type="button"
-              onClick={() => openSidebarTab("chat")}
-              className={`btn btn-sm gap-2 rounded-xl ${sidebarOpen && activeSidebarTab === "chat" ? "btn-primary" : "btn-ghost"}`}
+              onClick={toggleChatSidebar}
+              className={`btn btn-sm btn-square rounded-lg ${sidebarOpen && activeSidebarTab === "chat" ? "btn-primary" : "btn-ghost"}`}
+              aria-label={sidebarOpen && activeSidebarTab === "chat" ? "Close chat" : "Open chat"}
+              title={sidebarOpen && activeSidebarTab === "chat" ? "Close chat" : "Chat"}
             >
               <MessageSquareIcon className="size-4" />
-              Chat
             </button>
-            <button
-              type="button"
-              onClick={() => openSidebarTab("participants")}
-              className={`btn btn-sm gap-2 rounded-xl ${sidebarOpen && activeSidebarTab === "participants" ? "btn-primary" : "btn-ghost"}`}
-            >
-              <UsersIcon className="size-4" />
-              People
-            </button>
-            <button
-              type="button"
-              onClick={toggleQuizPanel}
-              className={`btn btn-sm gap-2 rounded-xl ${isQuizOpen || activeSidebarTab === "quiz" ? "btn-accent" : "btn-ghost"}`}
-            >
-              <ListChecksIcon className="size-4" />
-              Quiz
-            </button>
+            <div className="relative" ref={sessionMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsSessionMenuOpen((current) => !current)}
+                className={`btn btn-sm btn-square rounded-lg ${isSessionMenuOpen ? "btn-primary" : "btn-ghost"}`}
+                aria-label="Session menu"
+                title="Session menu"
+              >
+                <MenuIcon className="size-4" />
+              </button>
 
-            {isLivestream && isHost && (
-              <>
-                <button type="button" className="btn btn-primary btn-sm rounded-xl" onClick={handleStartLivestream} disabled={livestreamLive}>
-                  Go Live
-                </button>
-                <button type="button" className="btn btn-outline btn-sm rounded-xl" onClick={handleStopLivestream} disabled={!livestreamLive}>
-                  Stop Live
-                </button>
-              </>
+              {isSessionMenuOpen && (
+                <div className="absolute right-0 top-full z-[120] mt-2 w-52 rounded-2xl border border-base-content/10 bg-base-100 p-1.5 shadow-2xl">
+                  <div className="space-y-0.5">
+                    {sessionMenuItems.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={item.onClick}
+                          disabled={item.disabled}
+                          className={`btn btn-sm h-9 min-h-9 w-full justify-start gap-2 rounded-xl px-3 ${
+                            item.active ? "btn-primary" : item.primary ? "btn-primary" : "btn-ghost"
+                          }`}
+                        >
+                          <Icon className="size-4" />
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {isWhiteboardOpen && !canWriteWhiteboard && (
+              <span className="badge badge-warning gap-1 rounded-lg px-2">
+                <PencilOffIcon className="w-3 h-3" />
+                View only
+              </span>
             )}
-
-            {availableStageTools.map((tool) => {
-              const Icon = tool.icon;
-              return (
-                <button
-                  key={tool.id}
-                  type="button"
-                  onClick={() => setActiveTool(activeTool === tool.id ? null : tool.id)}
-                  className={`btn btn-sm gap-2 rounded-xl ${activeTool === tool.id ? "btn-primary" : "btn-ghost"}`}
-                >
-                  <Icon className="size-4" />
-                  {tool.label}
-                </button>
-              );
-            })}
 
             {isHost && session?.status === "active" && (
               <HostToolsPopover
@@ -1183,19 +1284,6 @@ function SessionPage() {
                 onKickParticipant={handleKickParticipant}
                 onEndSession={handleEndSession}
               />
-            )}
-
-            {isWhiteboardOpen && !canWriteWhiteboard && (
-              <span className="badge badge-warning gap-1">
-                <PencilOffIcon className="w-3 h-3" />
-                View only
-              </span>
-            )}
-
-            {isLivestream && (
-              <button type="button" className="btn btn-ghost btn-sm rounded-xl" onClick={() => navigate("/dashboard")}>
-                Leave
-              </button>
             )}
           </div>
         </div>
@@ -1226,6 +1314,8 @@ function SessionPage() {
                       type="button"
                       className={`btn btn-sm gap-2 rounded-lg ${activeSidebarTab === tab.id ? "btn-primary" : "btn-ghost"}`}
                       onClick={() => openSidebarTab(tab.id)}
+                      aria-label={tab.label}
+                      title={tab.label}
                     >
                       <Icon className="size-4" />
                       {tab.label}
@@ -1233,7 +1323,7 @@ function SessionPage() {
                   );
                 })}
               </div>
-              <button type="button" className="btn btn-ghost btn-sm btn-square rounded-lg" onClick={() => setSidebarOpen(false)}>
+              <button type="button" className="btn btn-ghost btn-sm btn-square rounded-lg" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar" title="Close">
                 <XIcon className="size-4" />
               </button>
             </div>
@@ -1258,6 +1348,8 @@ function SessionPage() {
                     type="button"
                     className={`btn btn-xs gap-1 rounded-lg ${activeSidebarTab === tab.id ? "btn-primary" : "btn-ghost"}`}
                     onClick={() => openSidebarTab(tab.id)}
+                    aria-label={tab.label}
+                    title={tab.label}
                   >
                     <Icon className="size-4" />
                     {tab.label}
@@ -1265,7 +1357,7 @@ function SessionPage() {
                 );
               })}
             </div>
-            <button type="button" className="btn btn-ghost btn-sm btn-square ml-2 rounded-lg" onClick={() => setSidebarOpen(false)}>
+            <button type="button" className="btn btn-ghost btn-sm btn-square ml-2 rounded-lg" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar" title="Close">
               <XIcon className="size-4" />
             </button>
           </div>

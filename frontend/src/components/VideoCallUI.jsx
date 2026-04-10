@@ -7,7 +7,7 @@ import {
   ToggleVideoPublishingButton,
   useCallStateHooks,
 } from "@stream-io/video-react-sdk";
-import { Loader2Icon, UsersIcon } from "./icons/ModernIcons";
+import { Loader2Icon, RadioTowerIcon, UsersIcon, XCircleIcon } from "./icons/ModernIcons";
 import { useNavigate } from "react-router";
 
 import "@stream-io/video-react-sdk/dist/css/styles.css";
@@ -24,14 +24,17 @@ function VideoCallUI({
   showHeader = false,
   showControls = true,
   showLivestreamActions = true,
+  hostUserId = "",
   onLeave,
 }) {
   const navigate = useNavigate();
-  const { useCallCallingState, useParticipantCount, useIsCallLive } = useCallStateHooks();
+  const { useCallCallingState, useParticipantCount, useIsCallLive, useParticipants } = useCallStateHooks();
   const callingState = useCallCallingState();
   const participantCount = useParticipantCount();
   const streamIsLive = useIsCallLive?.();
+  const participants = useParticipants?.() || [];
   const handleLeave = onLeave || (() => navigate("/dashboard"));
+  const hostPresent = Boolean(isHost || (hostUserId && participants.some((participant) => participant.userId === hostUserId)));
 
   if (callingState === CallingState.JOINING) {
     return (
@@ -79,10 +82,12 @@ function VideoCallUI({
                 </div>
                 {showLivestreamActions && (
                   <>
-                    <button type="button" className="btn btn-primary btn-sm rounded-lg" onClick={onStartLivestream} disabled={live}>
+                    <button type="button" className="btn btn-primary btn-sm gap-2 rounded-lg" onClick={onStartLivestream} disabled={live}>
+                      <RadioTowerIcon className="size-4" />
                       Go Live
                     </button>
-                    <button type="button" className="btn btn-outline btn-sm rounded-lg" onClick={onStopLivestream} disabled={!live}>
+                    <button type="button" className="btn btn-outline btn-sm gap-2 rounded-lg" onClick={onStopLivestream} disabled={!live}>
+                      <XCircleIcon className="size-4" />
                       Stop Live
                     </button>
                   </>
@@ -122,7 +127,16 @@ function VideoCallUI({
       )}
 
       <div className="min-h-0 flex-1 bg-base-300 rounded-lg overflow-hidden relative">
-        <SpeakerLayout />
+        {!hostPresent ? (
+          <div className="flex h-full items-center justify-center p-6 text-center">
+            <div>
+              <p className="text-lg font-bold">Waiting for Host</p>
+              <p className="mt-2 text-sm text-base-content/60">The class will begin when the teacher joins.</p>
+            </div>
+          </div>
+        ) : (
+          <SpeakerLayout />
+        )}
       </div>
 
       {showControls && (

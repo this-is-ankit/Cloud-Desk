@@ -1,4 +1,3 @@
-import { BookOpen, CalendarClock, ClipboardList, Loader2, RadioTower, UserCheck, Users } from "lucide-react";
 import PageContainer from "../components/PageContainer";
 import { useState } from "react";
 import { useNavigate } from "react-router";
@@ -14,6 +13,18 @@ import JoinSessionByCodeModal from "../components/JoinSessionByCodeModal";
 import { useCourses, useStartPersistentRoom } from "../hooks/useCourses";
 import { useCreateSession, useJoinSessionByCode, useMyRecentSessions } from "../hooks/useSessions";
 import { useAppUser } from "../hooks/useAppUser";
+import {
+  BookOpenIcon,
+  CalendarPlusIcon,
+  ClipboardTextIcon,
+  KeyIcon,
+  Loader2Icon,
+  PlusCircleIcon,
+  RadioTowerIcon,
+  UserCheckIcon,
+  UsersIcon,
+  VideoIcon,
+} from "../components/icons/ModernIcons";
 
 function DashboardPage() {
   const navigate = useNavigate();
@@ -59,10 +70,10 @@ function DashboardPage() {
 
     dashboardData = {
       stats: [
-        { label: "Active Courses", value: courses.length, icon: BookOpen, iconWrapClass: "bg-primary/10 text-primary" },
-        { label: "Pending Enrollments", value: pendingApprovals, icon: UserCheck, iconWrapClass: "bg-warning/10 text-warning" },
-        { label: "Upcoming Classes", value: upcomingClasses.length, icon: CalendarClock, iconWrapClass: "bg-secondary/10 text-secondary" },
-        { label: "Assignments Live", value: reviewCount, icon: ClipboardList, iconWrapClass: "bg-success/10 text-success" },
+        { label: "Active Courses", value: courses.length, icon: BookOpenIcon, iconWrapClass: "bg-primary/10 text-primary" },
+        { label: "Pending Enrollments", value: pendingApprovals, icon: UserCheckIcon, iconWrapClass: "bg-warning/10 text-warning" },
+        { label: "Upcoming Classes", value: upcomingClasses.length, icon: CalendarPlusIcon, iconWrapClass: "bg-secondary/10 text-secondary" },
+        { label: "Assignments Live", value: reviewCount, icon: ClipboardTextIcon, iconWrapClass: "bg-success/10 text-success" },
       ],
       items: upcomingClasses,
       gridTitle: "My Teaching Courses",
@@ -105,10 +116,10 @@ function DashboardPage() {
 
     dashboardData = {
       stats: [
-        { label: "Approved Courses", value: approvedCourses.length, icon: BookOpen, iconWrapClass: "bg-primary/10 text-primary" },
-        { label: "Pending Requests", value: pendingCourses.length, icon: Users, iconWrapClass: "bg-warning/10 text-warning" },
-        { label: "Upcoming Items", value: upcomingItems.length, icon: CalendarClock, iconWrapClass: "bg-secondary/10 text-secondary" },
-        { label: "Completed Sessions", value: recentSessions.length, icon: RadioTower, iconWrapClass: "bg-success/10 text-success" },
+        { label: "Approved Courses", value: approvedCourses.length, icon: BookOpenIcon, iconWrapClass: "bg-primary/10 text-primary" },
+        { label: "Pending Requests", value: pendingCourses.length, icon: UsersIcon, iconWrapClass: "bg-warning/10 text-warning" },
+        { label: "Upcoming Items", value: upcomingItems.length, icon: CalendarPlusIcon, iconWrapClass: "bg-secondary/10 text-secondary" },
+        { label: "Completed Sessions", value: recentSessions.length, icon: RadioTowerIcon, iconWrapClass: "bg-success/10 text-success" },
       ],
       items: upcomingItems,
       gridTitle: "My Live Courses",
@@ -168,7 +179,7 @@ function DashboardPage() {
   if (activeQuery.isLoading) {
     return (
       <div className="min-h-screen bg-base-200 flex items-center justify-center">
-        <Loader2 className="size-10 animate-spin text-primary" />
+        <Loader2Icon className="size-10 animate-spin text-primary" />
       </div>
     );
   }
@@ -182,20 +193,24 @@ function DashboardPage() {
           primaryAction={{
             label: isTeacher ? "Launch Course Room" : "Start Study Room",
             onClick: isTeacher ? handleQuickTeacherLaunch : () => setShowCreateModal(true),
+            icon: isTeacher ? RadioTowerIcon : VideoIcon,
           }}
           secondaryAction={{
             label: isTeacher ? "Create Course" : "Explore Courses",
             onClick: () => navigate("/courses"),
+            icon: isTeacher ? PlusCircleIcon : BookOpenIcon,
           }}
           tertiaryAction={
             isTeacher
               ? {
                   label: "Schedule Classes",
                   onClick: () => navigate("/courses"),
+                  icon: CalendarPlusIcon,
                 }
               : {
                   label: "Join by Code",
                   onClick: () => setShowJoinByCodeModal(true),
+                  icon: KeyIcon,
                 }
           }
         />
