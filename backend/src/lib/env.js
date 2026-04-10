@@ -13,6 +13,7 @@ export const ENV = {
   STREAM_API_SECRET: process.env.STREAM_API_SECRET,
   CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
   DEV_AUTH_BYPASS: process.env.DEV_AUTH_BYPASS,
+  REDIS_URL: process.env.REDIS_URL,
   PISTON_API_URL: process.env.PISTON_API_URL,
   JUDGE0_API_URL: process.env.JUDGE0_API_URL,
   JUDGE0_AUTH_TOKEN: process.env.JUDGE0_AUTH_TOKEN,

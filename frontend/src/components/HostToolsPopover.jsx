@@ -71,21 +71,22 @@ function HostToolsPopover({
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className={`btn btn-sm gap-2 rounded-xl ${isOpen ? "btn-primary" : "btn-ghost"}`}
+        className={`btn btn-sm btn-square rounded-xl ${isOpen ? "btn-primary" : "btn-ghost"}`}
+        aria-label="Host tools"
+        title="Host tools"
       >
         <WrenchIcon className="w-4 h-4" />
-        Host Tools
       </button>
       {isOpen && portalRef.current &&
         createPortal(
           <div
             style={{ top: coords.top, left: coords.left, position: "absolute" }}
-            className="z-40 w-80 rounded-2xl border border-base-content/10 bg-base-100 p-4 shadow-xl"
+            className="z-[120] w-80 rounded-2xl border border-base-content/10 bg-base-100 p-4 shadow-2xl"
           >
             <div className="space-y-3">
             <button onClick={onToggleQuizPanel} className="btn btn-sm btn-ghost w-full justify-start gap-2">
               <ListChecksIcon className="w-4 h-4" />
-              Quiz Panel
+              Quiz
             </button>
 
             <button

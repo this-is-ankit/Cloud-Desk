@@ -9,8 +9,17 @@ function BaseIcon({ icon, className, ...props }) {
 export function ArrowRightIcon(props) {
   return <BaseIcon icon="ph:arrow-right" {...props} />;
 }
+export function ArrowLeftIcon(props) {
+  return <BaseIcon icon="ph:arrow-left" {...props} />;
+}
 export function CheckIcon(props) {
   return <BaseIcon icon="ph:check" {...props} />;
+}
+export function CheckCircleIcon(props) {
+  return <BaseIcon icon="ph:check-circle" {...props} />;
+}
+export function XCircleIcon(props) {
+  return <BaseIcon icon="ph:x-circle" {...props} />;
 }
 export function Code2Icon(props) {
   return <BaseIcon icon="ph:code-block" {...props} />;
@@ -39,8 +48,17 @@ export function LogOutIcon(props) {
 export function KeyIcon(props) {
   return <BaseIcon icon="ph:key" {...props} />;
 }
+export function DoorOpenIcon(props) {
+  return <BaseIcon icon="ph:door-open" {...props} />;
+}
 export function UserMinusIcon(props) {
   return <BaseIcon icon="ph:user-minus" {...props} />;
+}
+export function UserPlusIcon(props) {
+  return <BaseIcon icon="ph:user-plus" {...props} />;
+}
+export function UserCircleIcon(props) {
+  return <BaseIcon icon="ph:user-circle" {...props} />;
 }
 export function CodeIcon(props) {
   return <BaseIcon icon="ph:code" {...props} />;
@@ -66,8 +84,14 @@ export function PencilOffIcon(props) {
 export function PresentationIcon(props) {
   return <BaseIcon icon="ph:presentation-chart" {...props} />;
 }
+export function RadioTowerIcon(props) {
+  return <BaseIcon icon="ph:broadcast" {...props} />;
+}
 export function MessageSquareIcon(props) {
   return <BaseIcon icon="ph:chat-circle-text" {...props} />;
+}
+export function MenuIcon(props) {
+  return <BaseIcon icon="ph:list" {...props} />;
 }
 export function XIcon(props) {
   return <BaseIcon icon="ph:x" {...props} />;
@@ -86,6 +110,36 @@ export function TrophyIcon(props) {
 }
 export function UploadIcon(props) {
   return <BaseIcon icon="ph:upload-simple" {...props} />;
+}
+export function ArchiveIcon(props) {
+  return <BaseIcon icon="ph:archive" {...props} />;
+}
+export function AlertCircleIcon(props) {
+  return <BaseIcon icon="ph:warning-circle" {...props} />;
+}
+export function CalendarIcon(props) {
+  return <BaseIcon icon="ph:calendar" {...props} />;
+}
+export function CalendarPlusIcon(props) {
+  return <BaseIcon icon="ph:calendar-plus" {...props} />;
+}
+export function ClipboardTextIcon(props) {
+  return <BaseIcon icon="ph:clipboard-text" {...props} />;
+}
+export function ClipboardCheckIcon(props) {
+  return <BaseIcon icon="ph:clipboard-text" {...props} />;
+}
+export function FilterIcon(props) {
+  return <BaseIcon icon="ph:funnel" {...props} />;
+}
+export function SaveIcon(props) {
+  return <BaseIcon icon="ph:floppy-disk" {...props} />;
+}
+export function SettingsIcon(props) {
+  return <BaseIcon icon="ph:gear-six" {...props} />;
+}
+export function EyeIcon(props) {
+  return <BaseIcon icon="ph:eye" {...props} />;
 }
 export function WrenchIcon(props) {
   return <BaseIcon icon="ph:wrench" {...props} />;

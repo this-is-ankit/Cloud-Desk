@@ -6,6 +6,7 @@ import {
   UsersIcon,
   ZapIcon,
   LoaderIcon,
+  XCircleIcon,
 } from "./icons/ModernIcons";
 import { Link } from "react-router";
 import { getSessionLanguageLabel } from "../lib/sessionLanguage";
@@ -76,7 +77,10 @@ function ActiveSessions({ sessions, isLoading, isUserInSession }) {
                   </div>
 
                   {session.participants?.length >= session.maxParticipants && !isUserInSession(session) ? (
-                    <button className="btn btn-disabled btn-sm">Full</button>
+                    <button className="btn btn-disabled btn-sm gap-2">
+                      <XCircleIcon className="size-4" />
+                      Full
+                    </button>
                   ) : (
                     <Link to={`/session/${session._id}`} className="btn btn-primary btn-sm gap-2">
                       {isUserInSession(session) ? "Rejoin" : "Join"}

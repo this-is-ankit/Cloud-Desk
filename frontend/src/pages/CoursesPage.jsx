@@ -9,12 +9,16 @@ import { useAppUser } from "../hooks/useAppUser";
 import { getSessionLanguageLabel } from "../lib/sessionLanguage";
 import PageContainer from "../components/PageContainer";
 import {
+  ArrowRightIcon,
   BookOpenIcon,
+  FilterIcon,
+  LayoutDashboardIcon,
   Loader2Icon,
   PlusCircleIcon,
   SearchIcon,
   SparklesIcon,
   UserCheckIcon,
+  UserPlusIcon,
 } from "../components/icons/ModernIcons";
 
 const INITIAL_FILTERS = {
@@ -111,11 +115,12 @@ function CoursesPage() {
                 {isTeacher && (
                   <button className="btn btn-primary btn-sm rounded-none px-6" onClick={() => setIsCreateModalOpen(true)}>
                     <PlusCircleIcon className="size-4" />
-                    Create Draft Course
+                    Create
                   </button>
                 )}
-                <button className="btn btn-outline btn-sm rounded-none px-6" onClick={() => navigate("/dashboard")}>
-                  Back to Dashboard
+                <button className="btn btn-outline btn-sm rounded-none px-6 gap-2" onClick={() => navigate("/dashboard")}>
+                  <LayoutDashboardIcon className="size-4" />
+                  Dashboard
                 </button>
               </div>
             </header>
@@ -170,35 +175,43 @@ function CoursesPage() {
           </div>
 
           <div className="mt-8 rounded-xl border border-base-content/10 bg-base-100 p-5 shadow-sm md:p-6">
-            <div className="mb-6 flex flex-wrap gap-3 border-b border-base-content/10 pb-5">
+            <div className="mb-6 flex flex-wrap items-center gap-3 border-b border-base-content/10 pb-5">
+              <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-base-content/50">
+                <FilterIcon className="size-4" />
+                View
+              </span>
               {isTeacher ? (
                 <>
                   <button
-                    className={`btn btn-sm rounded-none px-5 ${filters.scope === "mine" ? "btn-primary" : "btn-outline"}`}
+                    className={`btn btn-sm gap-2 rounded-none px-5 ${filters.scope === "mine" ? "btn-primary" : "btn-outline"}`}
                     onClick={() => handleScopeChange("mine")}
                   >
-                    My Courses
+                    <BookOpenIcon className="size-4" />
+                    Mine
                   </button>
                   <button
-                    className={`btn btn-sm rounded-none px-5 ${filters.scope === "discover" ? "btn-primary" : "btn-outline"}`}
+                    className={`btn btn-sm gap-2 rounded-none px-5 ${filters.scope === "discover" ? "btn-primary" : "btn-outline"}`}
                     onClick={() => handleScopeChange("discover")}
                   >
-                    Discover Published
+                    <SparklesIcon className="size-4" />
+                    Discover
                   </button>
                 </>
               ) : (
                 <>
                   <button
-                    className={`btn btn-sm rounded-none px-5 ${filters.scope === "discover" ? "btn-primary" : "btn-outline"}`}
+                    className={`btn btn-sm gap-2 rounded-none px-5 ${filters.scope === "discover" ? "btn-primary" : "btn-outline"}`}
                     onClick={() => handleScopeChange("discover")}
                   >
+                    <SparklesIcon className="size-4" />
                     Discover
                   </button>
                   <button
-                    className={`btn btn-sm rounded-none px-5 ${filters.scope === "enrolled" ? "btn-primary" : "btn-outline"}`}
+                    className={`btn btn-sm gap-2 rounded-none px-5 ${filters.scope === "enrolled" ? "btn-primary" : "btn-outline"}`}
                     onClick={() => handleScopeChange("enrolled")}
                   >
-                    My Requested / Enrolled
+                    <UserCheckIcon className="size-4" />
+                    Requests
                   </button>
                 </>
               )}
@@ -354,10 +367,11 @@ function CoursesPage() {
 
                     <div className="mt-6 flex gap-2">
                       <button
-                        className="btn btn-outline btn-sm flex-1 rounded-none border-base-content/20 uppercase tracking-widest"
+                        className="btn btn-outline btn-sm flex-1 gap-2 rounded-none border-base-content/20 uppercase tracking-widest"
                         onClick={() => navigate(`/courses/${course._id}`)}
                       >
-                        Open Course
+                        Open
+                        <ArrowRightIcon className="size-4" />
                       </button>
                       {!isTeacher && !course.isTeacherOwner && (
                         course.enrollmentMode === "invite" && !course.viewerEnrollmentStatus ? (
@@ -369,19 +383,27 @@ function CoursesPage() {
                               placeholder="Invite Code"
                             />
                             <button
-                              className="btn btn-primary btn-sm rounded-none uppercase tracking-widest"
+                              className="btn btn-primary btn-sm gap-2 rounded-none uppercase tracking-widest"
                               onClick={() => handleJoinWithInvite(course._id)}
                               disabled={joinCourseWithInviteMutation.isPending}
                             >
+                              <UserPlusIcon className="size-4" />
                               Join
                             </button>
                           </div>
                         ) : (
                           <button
-                            className="btn btn-primary btn-sm flex-1 rounded-none uppercase tracking-widest"
+                            className="btn btn-primary btn-sm flex-1 gap-2 rounded-none uppercase tracking-widest"
                             onClick={() => handleRequestEnrollment(course._id)}
                             disabled={Boolean(course.viewerEnrollmentStatus) || requestEnrollmentMutation.isPending}
                           >
+                            {course.viewerEnrollmentStatus ? (
+                              <UserCheckIcon className="size-4" />
+                            ) : course.enrollmentMode === "open" ? (
+                              <UserPlusIcon className="size-4" />
+                            ) : (
+                              <UserCheckIcon className="size-4" />
+                            )}
                             {course.viewerEnrollmentStatus
                               ? course.viewerEnrollmentStatus
                               : course.enrollmentMode === "open"

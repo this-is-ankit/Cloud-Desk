@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Loader2, PlusCircle, RadioTower } from "lucide-react";
 import { SESSION_LANGUAGE_OPTIONS } from "../lib/sessionLanguage";
+import { Loader2Icon, PlusCircleIcon, RadioTowerIcon, XIcon } from "./icons/ModernIcons";
 
 const INITIAL_FORM = {
   title: "",
@@ -45,8 +45,8 @@ function CreateCourseModal({ isOpen, onClose, onSubmit, isSubmitting }) {
               This creates a draft course for live teaching only. You can publish it after setting up classes, enrollment, and the persistent room.
             </p>
           </div>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>
-            Close
+          <button type="button" className="btn btn-ghost btn-sm btn-square rounded-xl" onClick={onClose} aria-label="Close create course modal">
+            <XIcon className="size-4" />
           </button>
         </div>
 
@@ -189,11 +189,11 @@ function CreateCourseModal({ isOpen, onClose, onSubmit, isSubmitting }) {
                 Recommended for office hours and ad hoc live teaching outside scheduled classes.
               </p>
             </div>
-            <RadioTower className="ml-auto size-5 text-primary" />
+            <RadioTowerIcon className="ml-auto size-5 text-primary" />
           </label>
 
           <button type="submit" className="btn btn-primary rounded-2xl px-6" disabled={isSubmitting}>
-            {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <PlusCircle className="size-4" />}
+            {isSubmitting ? <Loader2Icon className="size-4 animate-spin" /> : <PlusCircleIcon className="size-4" />}
             <span>{isSubmitting ? "Creating..." : "Create Draft Course"}</span>
           </button>
         </form>

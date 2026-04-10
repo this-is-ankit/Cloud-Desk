@@ -1,4 +1,4 @@
-import { LoaderIcon, PlusIcon, Users, User } from "./icons/ModernIcons";
+import { LoaderIcon, PlusIcon, Users, User, XIcon } from "./icons/ModernIcons";
 import { LANGUAGE_CONFIG } from "../data/problems"; 
 import { useState } from "react";
 
@@ -28,8 +28,8 @@ function CreateSessionModal({ isOpen, onClose, onCreateRoom, isCreating }) {
               Start a focused coding room for one-on-one help or a small collaborative group.
             </p>
           </div>
-          <button type="button" className="btn btn-ghost btn-sm rounded-xl" onClick={onClose}>
-            Close
+          <button type="button" className="btn btn-ghost btn-sm btn-square rounded-xl" onClick={onClose} aria-label="Close create session modal">
+            <XIcon className="size-4" />
           </button>
         </div>
 
@@ -88,7 +88,10 @@ function CreateSessionModal({ isOpen, onClose, onCreateRoom, isCreating }) {
         </div>
 
         <div className="mt-8 flex justify-end gap-3">
-          <button className="btn btn-ghost rounded-xl" onClick={onClose}>Cancel</button>
+          <button className="btn btn-ghost gap-2 rounded-xl" onClick={onClose}>
+            <XIcon className="size-4" />
+            Cancel
+          </button>
           <button className="btn btn-primary gap-2 rounded-xl" onClick={handleCreate} disabled={isCreating}>
             {isCreating ? <LoaderIcon className="size-5 animate-spin" /> : <PlusIcon className="size-5" />}
             {isCreating ? "Creating..." : "Create"}

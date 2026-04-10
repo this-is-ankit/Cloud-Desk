@@ -13,6 +13,11 @@
   border-radius: 14px;
 }
 
+.str-video .str-video__livestream-layout__wrapper,
+.str-video .str-video__speaker-layout {
+  min-height: 0;
+}
+
 .str-chat {
   --str-chat__background-color: var(--bg-1);
   --str-chat__channel-preview-bg: var(--bg-1);

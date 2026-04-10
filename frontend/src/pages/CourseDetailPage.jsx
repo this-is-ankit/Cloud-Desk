@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { format } from "date-fns";
-import { ArrowLeft, Loader2, RadioTower } from "lucide-react";
 
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -28,6 +27,24 @@ import {
   SESSION_LANGUAGE_OPTIONS,
 } from "../lib/sessionLanguage";
 import PageContainer from "../components/PageContainer";
+import {
+  ArchiveIcon,
+  ArrowLeftIcon,
+  CalendarPlusIcon,
+  CheckCircleIcon,
+  ClipboardCheckIcon,
+  ClipboardTextIcon,
+  DoorOpenIcon,
+  KeyIcon,
+  Loader2Icon,
+  RadioTowerIcon,
+  SaveIcon,
+  SendIcon,
+  UserCheckIcon,
+  UserPlusIcon,
+  UsersIcon,
+  XCircleIcon,
+} from "../components/icons/ModernIcons";
 
 const INITIAL_CLASS_FORM = {
   title: "",
@@ -35,6 +52,7 @@ const INITIAL_CLASS_FORM = {
   scheduledStart: "",
   scheduledEnd: "",
   usePersistentRoom: false,
+  sessionType: "interactive",
 };
 
 const INITIAL_ASSIGNMENT_FORM = {
@@ -133,7 +151,7 @@ function CourseDetailPage() {
   if (courseQuery.isLoading) {
     return (
       <div className="min-h-screen bg-base-200 flex items-center justify-center">
-        <Loader2 className="size-10 animate-spin text-primary" />
+        <Loader2Icon className="size-10 animate-spin text-primary" />
       </div>
     );
   }
@@ -146,7 +164,8 @@ function CourseDetailPage() {
           <div className="rounded-[2rem] border border-dashed border-base-content/15 bg-base-100/70 px-6 py-20 text-center">
             <h1 className="text-3xl font-black">Course not found</h1>
             <button className="btn btn-primary mt-6 rounded-2xl" onClick={() => navigate("/courses")}>
-              Back to Courses
+              <ArrowLeftIcon className="size-4" />
+              Courses
             </button>
           </div>
         </div>
@@ -161,8 +180,8 @@ function CourseDetailPage() {
 
       <PageContainer className="py-10">
         <button className="btn btn-ghost mb-6 rounded-2xl" onClick={() => navigate("/courses")}>
-          <ArrowLeft className="size-4" />
-          Back to Courses
+          <ArrowLeftIcon className="size-4" />
+          Courses
         </button>
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
@@ -219,8 +238,8 @@ function CourseDetailPage() {
                       }
                       disabled={startPersistentRoomMutation.isPending}
                     >
-                      <RadioTower className="size-4" />
-                      Launch Persistent Room
+                      <RadioTowerIcon className="size-4" />
+                      Launch Room
                     </button>
                     {course.status !== "published" && (
                       <button
@@ -228,7 +247,8 @@ function CourseDetailPage() {
                         onClick={() => publishCourseMutation.mutate(course._id)}
                         disabled={publishCourseMutation.isPending}
                       >
-                        Publish Course
+                        <CheckCircleIcon className="size-4" />
+                        Publish
                       </button>
                     )}
                     {course.status !== "archived" && (
@@ -237,6 +257,7 @@ function CourseDetailPage() {
                         onClick={() => archiveCourseMutation.mutate(course._id)}
                         disabled={archiveCourseMutation.isPending}
                       >
+                        <ArchiveIcon className="size-4" />
                         Archive
                       </button>
                     )}
@@ -256,7 +277,8 @@ function CourseDetailPage() {
                           onClick={() => joinCourseWithInviteMutation.mutate({ courseId: course._id, inviteCode })}
                           disabled={joinCourseWithInviteMutation.isPending}
                         >
-                          Join with Invite
+                          <KeyIcon className="size-4" />
+                          Join
                         </button>
                       </>
                     ) : (
@@ -265,11 +287,18 @@ function CourseDetailPage() {
                         onClick={() => requestEnrollmentMutation.mutate(course._id)}
                         disabled={Boolean(course.myEnrollment) || requestEnrollmentMutation.isPending}
                       >
+                        {course.myEnrollment ? (
+                          <UserCheckIcon className="size-4" />
+                        ) : course.enrollmentMode === "open" ? (
+                          <UserPlusIcon className="size-4" />
+                        ) : (
+                          <UserCheckIcon className="size-4" />
+                        )}
                         {course.myEnrollment
                           ? `Enrollment ${course.myEnrollment.status}`
                           : course.enrollmentMode === "open"
-                            ? "Join Course"
-                            : "Request Enrollment"}
+                            ? "Join"
+                            : "Request"}
                       </button>
                     )}
                   </>
@@ -290,6 +319,7 @@ function CourseDetailPage() {
                       {entry.description && <p className="mt-2 text-sm text-base-content/70">{entry.description}</p>}
                       <div className="mt-3 flex flex-wrap gap-2">
                         <span className="badge badge-outline">{entry.status}</span>
+                        <span className="badge badge-primary">{entry.sessionType === "livestream" ? "Live Stream" : "Interactive Meeting"}</span>
                         <span className="badge badge-ghost">{entry.attendanceCount} attendance records</span>
                       </div>
                       <div className="mt-4 flex flex-wrap gap-3">
@@ -306,12 +336,14 @@ function CourseDetailPage() {
                             }
                             disabled={startClassSessionMutation.isPending}
                           >
-                            {entry.status === "live" ? "Reopen Live Room" : "Start Class"}
+                            <RadioTowerIcon className="size-4" />
+                            {entry.status === "live" ? "Reopen" : "Start"}
                           </button>
                         )}
                         {!canManage && entry.status === "live" && entry.sessionId && (
                           <button className="btn btn-primary btn-sm rounded-xl" onClick={() => navigate(`/session/${entry.sessionId}`)}>
-                            Join Live Class
+                            <DoorOpenIcon className="size-4" />
+                            Join
                           </button>
                         )}
                       </div>
@@ -429,7 +461,8 @@ function CourseDetailPage() {
                   />
                 </label>
                 <button className="btn btn-primary rounded-2xl" onClick={handleSaveCourse} disabled={updateCourseMutation.isPending}>
-                  Save Course Settings
+                  <SaveIcon className="size-4" />
+                  Save Settings
                 </button>
               </div>
             </section>
@@ -453,12 +486,14 @@ function CourseDetailPage() {
                             className="btn btn-primary btn-sm rounded-xl"
                             onClick={() => approveEnrollmentMutation.mutate({ courseId: course._id, enrollmentId: entry._id })}
                           >
+                            <CheckCircleIcon className="size-4" />
                             Approve
                           </button>
                           <button
                             className="btn btn-outline btn-sm rounded-xl"
                             onClick={() => rejectEnrollmentMutation.mutate({ courseId: course._id, enrollmentId: entry._id })}
                           >
+                            <XCircleIcon className="size-4" />
                             Reject
                           </button>
                         </div>
@@ -507,13 +542,46 @@ function CourseDetailPage() {
                   <input
                     type="checkbox"
                     checked={classForm.usePersistentRoom}
+                    disabled={classForm.sessionType === "livestream"}
                     onChange={(event) => setClassForm((current) => ({ ...current, usePersistentRoom: event.target.checked }))}
                     className="checkbox checkbox-primary"
                   />
-                  <span className="text-sm">Reuse persistent room for this class</span>
+                  <span className="text-sm">
+                    {classForm.sessionType === "livestream"
+                      ? "Persistent rooms are interactive-only"
+                      : "Reuse persistent room for this class"}
+                  </span>
                 </label>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-base-content">Class format</label>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      className={`btn h-auto min-h-20 rounded-2xl justify-start text-left ${classForm.sessionType === "interactive" ? "btn-primary" : "btn-outline border-base-content/15"}`}
+                      onClick={() => setClassForm((current) => ({ ...current, sessionType: "interactive" }))}
+                    >
+                      <UsersIcon className="size-5" />
+                      <span>
+                        <span className="block font-bold">Interactive Meeting</span>
+                        <span className="block text-xs font-normal opacity-80">Small group audio, video, and shared tools.</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn h-auto min-h-20 rounded-2xl justify-start text-left ${classForm.sessionType === "livestream" ? "btn-primary" : "btn-outline border-base-content/15"}`}
+                      onClick={() => setClassForm((current) => ({ ...current, sessionType: "livestream", usePersistentRoom: false }))}
+                    >
+                      <RadioTowerIcon className="size-5" />
+                      <span>
+                        <span className="block font-bold">Live Stream</span>
+                        <span className="block text-xs font-normal opacity-80">Teacher broadcasts; students chat, answer quizzes, and keep local tool sandboxes.</span>
+                      </span>
+                    </button>
+                  </div>
+                </div>
                 <button type="submit" className="btn btn-primary rounded-2xl" disabled={createClassSessionMutation.isPending}>
-                  Schedule Class
+                  <CalendarPlusIcon className="size-4" />
+                  Schedule
                 </button>
               </form>
             </section>
@@ -542,7 +610,8 @@ function CourseDetailPage() {
                   required
                 />
                 <button type="submit" className="btn btn-primary rounded-2xl" disabled={createAssignmentMutation.isPending}>
-                  Create Assignment
+                  <ClipboardTextIcon className="size-4" />
+                  Create
                 </button>
               </form>
 
@@ -577,7 +646,8 @@ function CourseDetailPage() {
                               })
                             }
                           >
-                            Mark Reviewed
+                            <ClipboardCheckIcon className="size-4" />
+                            Reviewed
                           </button>
                         </div>
                       ))}
@@ -627,7 +697,8 @@ function CourseDetailPage() {
                             })
                           }
                         >
-                          Submit Assignment
+                          <SendIcon className="size-4" />
+                          Submit
                         </button>
                       </div>
                     )}

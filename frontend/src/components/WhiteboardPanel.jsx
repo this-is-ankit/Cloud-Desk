@@ -214,7 +214,7 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
   }, [canWrite]);
 
   const handleChange = useCallback((elements, appState) => {
-    if (isApplyingRemoteScene.current || !socket || !roomId || !canWrite) return;
+    if (isApplyingRemoteScene.current || !roomId || !canWrite) return;
 
     const safeElements = sanitizeElements(elements);
 
@@ -224,6 +224,7 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
     };
 
     const nextScene = { elements: safeElements, appState: normalizedAppState };
+    if (!socket) return;
     lastLocalSceneSignatureRef.current = sceneSignature(safeElements);
     pendingSceneRef.current = nextScene;
     scheduleSceneEmit();

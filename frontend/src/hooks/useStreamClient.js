@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import { initializeStreamClient, disconnectStreamClient } from "../lib/stream";
 import { sessionApi } from "../api/sessions";
 
-function useStreamClient(session, loadingSession, isHost, isParticipant) {
+function useStreamClient(session, loadingSession, isHost, isParticipant, isViewer = false) {
   const [streamClient, setStreamClient] = useState(null);
   const [call, setCall] = useState(null);
   const [chatClient, setChatClient] = useState(null);
@@ -12,6 +12,8 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
   const [isInitializingCall, setIsInitializingCall] = useState(true);
   const callId = session?.callId;
   const sessionStatus = session?.status;
+  const sessionType = session?.sessionType === "livestream" ? "livestream" : "interactive";
+  const isLivestreamLive = Boolean(session?.livestream?.isLive);
 
   useEffect(() => {
     let isMounted = true;
@@ -19,7 +21,7 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
     let chatClientInstance = null;
 
     const initCall = async () => {
-      if (!callId || !isHost && !isParticipant || sessionStatus === "completed") {
+      if (!callId || (!isHost && !isParticipant && !isViewer) || sessionStatus === "completed") {
         setIsInitializingCall(false);
         return;
       }
@@ -41,10 +43,20 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
 
         setStreamClient(client);
 
-        videoCall = client.call("default", callId);
-        await videoCall.join({ create: true });
+        const callType = sessionType === "livestream" ? "livestream" : "default";
+        videoCall = client.call(callType, callId);
+        const shouldJoinVideo = sessionType !== "livestream" || isHost || isLivestreamLive;
+        if (shouldJoinVideo) {
+          await videoCall.join({ create: sessionType !== "livestream" });
+        }
         if (!isMounted) return;
         setCall(videoCall);
+
+        if (sessionType === "livestream") {
+          setChatClient(null);
+          setChannel(null);
+          return;
+        }
 
         const apiKey = import.meta.env.VITE_STREAM_API_KEY;
         chatClientInstance = StreamChat.getInstance(apiKey);
@@ -90,7 +102,7 @@ function useStreamClient(session, loadingSession, isHost, isParticipant) {
         }
       })();
     };
-  }, [callId, sessionStatus, loadingSession, isHost, isParticipant]);
+  }, [callId, sessionStatus, loadingSession, isHost, isParticipant, isViewer, sessionType, isLivestreamLive]);
 
   return {
     streamClient,

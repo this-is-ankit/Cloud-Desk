@@ -31,6 +31,7 @@ const normalizeTags = (value) => {
 
 const normalizeRole = (value) => (value === "teacher" ? "teacher" : "student");
 const normalizeEnrollmentMode = (value) => (COURSE_ENROLLMENT_MODES.has(value) ? value : "open");
+const normalizeClassSessionType = (value) => (value === "livestream" ? "livestream" : "interactive");
 
 const assertTeacher = (user) => normalizeRole(user?.role) === "teacher";
 
@@ -174,6 +175,7 @@ const serializeClassSession = (classSession, canManage) => ({
   scheduledStart: classSession.scheduledStart,
   scheduledEnd: classSession.scheduledEnd,
   status: classSession.status,
+  sessionType: normalizeClassSessionType(classSession.sessionType),
   sessionId: classSession.sessionId?._id || classSession.sessionId || null,
   usePersistentRoom: Boolean(classSession.usePersistentRoom),
   startedAt: classSession.startedAt,
@@ -243,6 +245,7 @@ const serializeCourseSummary = (course, currentUser) => {
           scheduledStart: nextClass.scheduledStart,
           scheduledEnd: nextClass.scheduledEnd,
           status: nextClass.status,
+          sessionType: normalizeClassSessionType(nextClass.sessionType),
           sessionId: nextClass.sessionId?._id || nextClass.sessionId || null,
         }
       : null,
@@ -308,29 +311,48 @@ const createRealtimeSession = async ({
   sessionKind = "ad_hoc",
 }) => {
   const sessionLanguage = normalizeSessionLanguage(language);
+  const normalizedSessionType = normalizeClassSessionType(sessionType);
+  const streamCallType = normalizedSessionType === "livestream" ? "livestream" : "default";
   const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
   const session = await Session.create({
     language: sessionLanguage,
     host: hostUser._id,
+    hostId: hostUser._id,
     callId,
     code,
-    sessionType,
+    sessionType: normalizedSessionType,
     maxParticipants,
     participants: [],
     title,
     courseId,
     classSessionId,
     sessionKind,
+    livestream:
+      normalizedSessionType === "livestream"
+        ? {
+            isLive: false,
+            startedAt: null,
+            endedAt: null,
+            hostDisconnectedAt: null,
+            hostDisconnectDeadline: null,
+            peakViewerCount: 0,
+          }
+        : undefined,
   });
 
-  await streamClient.video.call("default", callId).getOrCreate({
+  await streamClient.video.call(streamCallType, callId).getOrCreate({
     data: {
       created_by_id: hostUser.clerkId,
+      members:
+        normalizedSessionType === "livestream"
+          ? [{ user_id: hostUser.clerkId, role: "host" }]
+          : undefined,
       custom: {
         language: sessionLanguage,
         sessionId: session._id.toString(),
+        sessionType: normalizedSessionType,
         courseId: courseId ? courseId.toString() : null,
         classSessionId: classSessionId ? classSessionId.toString() : null,
         sessionKind,
@@ -338,13 +360,15 @@ const createRealtimeSession = async ({
     },
   });
 
-  const channel = chatClient.channel("messaging", callId, {
-    name: title || `${getSessionLanguageLabel(sessionLanguage)} Session`,
-    created_by_id: hostUser.clerkId,
-    members: [hostUser.clerkId],
-  });
+  if (normalizedSessionType !== "livestream") {
+    const channel = chatClient.channel("messaging", callId, {
+      name: title || `${getSessionLanguageLabel(sessionLanguage)} Session`,
+      created_by_id: hostUser.clerkId,
+      members: [hostUser.clerkId],
+    });
 
-  await channel.create();
+    await channel.create();
+  }
   return session;
 };
 
@@ -767,7 +791,8 @@ export async function createClassSession(req, res) {
     const description = normalizeText(req.body.description);
     const scheduledStart = req.body.scheduledStart ? new Date(req.body.scheduledStart) : null;
     const scheduledEnd = req.body.scheduledEnd ? new Date(req.body.scheduledEnd) : null;
-    const usePersistentRoom = req.body.usePersistentRoom === true;
+    const sessionType = normalizeClassSessionType(req.body.sessionType);
+    const usePersistentRoom = sessionType === "interactive" && req.body.usePersistentRoom === true;
 
     if (!title || !scheduledStart || !scheduledEnd || Number.isNaN(scheduledStart.getTime()) || Number.isNaN(scheduledEnd.getTime())) {
       return res.status(400).json({ message: "Title, start time, and end time are required" });
@@ -783,6 +808,7 @@ export async function createClassSession(req, res) {
       scheduledStart,
       scheduledEnd,
       usePersistentRoom,
+      sessionType,
       status: "scheduled",
     });
     await saveCourseWithRepair(course);
@@ -811,7 +837,9 @@ export async function updateClassSession(req, res) {
     if ("status" in req.body && ["scheduled", "live", "completed", "cancelled"].includes(req.body.status)) {
       classSession.status = req.body.status;
     }
+    if ("sessionType" in req.body) classSession.sessionType = normalizeClassSessionType(req.body.sessionType);
     if ("usePersistentRoom" in req.body) classSession.usePersistentRoom = req.body.usePersistentRoom === true;
+    if (normalizeClassSessionType(classSession.sessionType) === "livestream") classSession.usePersistentRoom = false;
     if ("scheduledStart" in req.body) classSession.scheduledStart = new Date(req.body.scheduledStart);
     if ("scheduledEnd" in req.body) classSession.scheduledEnd = new Date(req.body.scheduledEnd);
 
@@ -848,7 +876,7 @@ export async function startClassSession(req, res) {
         hostUser: req.user,
         language: course.language,
         title: `${course.title} • ${classSession.title}`,
-        sessionType: "group",
+        sessionType: normalizeClassSessionType(classSession.sessionType),
         maxParticipants: Math.max(5, (course.enrollments || []).filter((entry) => entry.status === "approved").length + 3),
         courseId: course._id,
         classSessionId: classSession._id,
