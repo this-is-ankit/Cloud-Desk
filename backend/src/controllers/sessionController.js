@@ -1,11 +1,7 @@
 import { chatClient, streamClient } from "../lib/stream.js";
 import Course from "../models/Course.js";
 import Session from "../models/Session.js";
-import {
-  quizStateByRoom,
-  whiteboardPersistTimersByRoom,
-  whiteboardStateByRoom,
-} from "../server.js";
+import { getRedisClient } from "../lib/redis.js";
 import { saveCourseWithRepair } from "../lib/coursePersistence.js";
 import {
   getNormalizedSessionLanguage,
@@ -499,13 +495,9 @@ export async function endSession(req, res) {
     await session.save();
     await completeLinkedCourseClass(session);
 
-    const whiteboardPersistTimer = whiteboardPersistTimersByRoom.get(id);
-    if (whiteboardPersistTimer) clearTimeout(whiteboardPersistTimer);
-    whiteboardPersistTimersByRoom.delete(id);
-    whiteboardStateByRoom.delete(id);
-    const quizState = quizStateByRoom.get(id);
-    if (quizState?.activeTimer) clearTimeout(quizState.activeTimer);
-    quizStateByRoom.delete(id);
+    const redis = await getRedisClient();
+    await redis.del(`room:${id}:whiteboard`);
+    await redis.del(`room:${id}:quiz`);
 
     res.status(200).json({ session, message: "Session ended successfully" });
   } catch (error) {

@@ -95,6 +95,9 @@ export function PresentationIcon(props) {
 export function RadioTowerIcon(props) {
   return <BaseIcon icon="ph:broadcast" {...props} />;
 }
+export function CpuIcon(props) {
+  return <BaseIcon icon="ph:cpu" {...props} />;
+}
 export function MessageSquareIcon(props) {
   return <BaseIcon icon="ph:chat-circle-text" {...props} />;
 }

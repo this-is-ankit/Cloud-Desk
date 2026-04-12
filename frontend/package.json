@@ -16,6 +16,7 @@
     "@stream-io/video-react-sdk": "^1.24.0",
     "@tailwindcss/vite": "^4.1.14",
     "@tanstack/react-query": "^5.90.5",
+    "@tscircuit/core": "^0.0.1154",
     "axios": "^1.12.2",
     "canvas-confetti": "^1.9.3",
     "date-fns": "^4.1.0",

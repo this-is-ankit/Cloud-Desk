@@ -183,6 +183,17 @@ const sessionSchema = new mongoose.Schema(
         default: null,
       },
     },
+    isCircuitOpen: {
+      type: Boolean,
+      default: false,
+    },
+    circuitState: {
+      type: Object,
+      default: {
+        components: [],
+        wires: [],
+      },
+    },
   },
   { timestamps: true },
 );

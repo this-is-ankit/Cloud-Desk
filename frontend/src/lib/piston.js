@@ -15,9 +15,10 @@ const LANGUAGE_VERSIONS = {
 /**
  * @param {string} language - programming language
  * @param {string} code - source code to executed
- * @returns {Promise<{success:boolean, output?:string, error?: string}>}
+ * @param {string} roomId - the room ID
+ * @returns {Promise<{success:boolean, output?:string, error?: string, async?: boolean}>}
  */
-export async function executeCode(language, code) {
+export async function executeCode(language, code, roomId) {
   try {
     if (!LANGUAGE_VERSIONS[language]) {
       return {
@@ -29,7 +30,17 @@ export async function executeCode(language, code) {
     const response = await axiosInstance.post("/code/execute", {
       language,
       code,
+      roomId,
     });
+    
+    if (response.status === 202) {
+      return {
+        success: true,
+        async: true,
+        message: "Execution started...",
+      };
+    }
+
     const data = response.data;
 
     const output = data.run.output || "";

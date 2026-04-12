@@ -10,6 +10,7 @@ import {
   ShieldCheckIcon,
   UserMinusIcon,
   WrenchIcon,
+  CpuIcon,
 } from "./icons/ModernIcons";
 import { createPortal } from "react-dom";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -19,11 +20,13 @@ function HostToolsPopover({
   isAntiCheatEnabled,
   isCodeOpen,
   isWhiteboardOpen,
+  isCircuitOpen,
   whiteboardWriteMode,
   whiteboardWriterIds,
   onToggleAntiCheat,
   onToggleCodeSpace,
   onToggleWhiteboard,
+  onToggleCircuit,
   onWhiteboardWriteModeChange,
   onToggleWriterAccess,
   onToggleQuizPanel,
@@ -126,6 +129,14 @@ function HostToolsPopover({
               >
                 <PresentationIcon className="w-4 h-4" />
                 {isWhiteboardOpen ? "Close Whiteboard" : "Open Whiteboard"}
+              </button>
+
+              <button
+                onClick={onToggleCircuit}
+                className={`btn btn-sm w-full justify-start gap-2 ${isCircuitOpen ? "btn-secondary" : "btn-ghost"}`}
+              >
+                <CpuIcon className="w-4 h-4" />
+                {isCircuitOpen ? "Close Circuit Sim" : "Open Circuit Sim"}
               </button>
 
               {isWhiteboardOpen && (

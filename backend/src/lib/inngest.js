@@ -1,9 +1,15 @@
-import { Inngest } from "inngest";
 import { connectDB } from "./db.js";
 import User from "../models/User.js";
 import { deleteStreamUser, upsertStreamUser } from "./stream.js";
+import {
+  scheduleWhiteboardPersistence,
+  scheduleCircuitPersistence,
+  handleHostTimeout,
+} from "./inngest/sessionJobs.js";
+import { executeCodeJob } from "./inngest/codeExecutionJob.js";
+import { inngest } from "./inngest/client.js";
 
-export const inngest = new Inngest({ id: "talent-iq" });
+export { inngest };
 
 const syncUser = inngest.createFunction(
   { id: "sync-user" },
@@ -44,4 +50,11 @@ const deleteUserFromDB = inngest.createFunction(
   },
 );
 
-export const functions = [syncUser, deleteUserFromDB];
+export const functions = [
+  syncUser,
+  deleteUserFromDB,
+  scheduleWhiteboardPersistence,
+  scheduleCircuitPersistence,
+  handleHostTimeout,
+  executeCodeJob,
+];

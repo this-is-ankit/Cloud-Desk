@@ -55,22 +55,17 @@ function useStreamClient(
 
         setStreamClient(client);
 
-        const callType =
-          sessionType === "livestream" ? "livestream" : "default";
+        const callType = "default";
         videoCall = client.call(callType, callId);
-        const shouldJoinVideo =
-          sessionType !== "livestream" || isHost || isLivestreamLive;
-        if (shouldJoinVideo) {
-          await videoCall.join({ create: sessionType !== "livestream" });
-        }
+        
+        await videoCall.join({ create: isHost });
+        
+        // Automatically enable media for everyone in this interactive pivot
+        videoCall.camera.enable();
+        videoCall.microphone.enable();
+        
         if (!isMounted) return;
         setCall(videoCall);
-
-        if (sessionType === "livestream") {
-          setChatClient(null);
-          setChannel(null);
-          return;
-        }
 
         const apiKey = import.meta.env.VITE_STREAM_API_KEY;
         chatClientInstance = StreamChat.getInstance(apiKey);
