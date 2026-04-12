@@ -128,11 +128,9 @@ export async function createSession(req, res) {
         !isTeacher(req.user) ||
         course.teacher.toString() !== userId.toString()
       ) {
-        return res
-          .status(403)
-          .json({
-            message: "Only the course teacher can create course live sessions",
-          });
+        return res.status(403).json({
+          message: "Only the course teacher can create course live sessions",
+        });
       }
     }
 
@@ -248,11 +246,9 @@ export async function getSessionById(req, res) {
         !approvedEnrollment &&
         session.host?.clerkId !== req.user.clerkId
       ) {
-        return res
-          .status(403)
-          .json({
-            message: "You are not approved to access this course session",
-          });
+        return res.status(403).json({
+          message: "You are not approved to access this course session",
+        });
       }
 
       courseAccess = {

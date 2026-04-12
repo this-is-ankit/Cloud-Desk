@@ -471,12 +471,10 @@ export async function createCourse(req, res) {
       normalizeText(req.body.inviteCode).toUpperCase() || generateInviteCode();
 
     if (!title || !code || !category || !rawLanguage || !shortDescription) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Title, code, category, language, and short description are required",
-        });
+      return res.status(400).json({
+        message:
+          "Title, code, category, language, and short description are required",
+      });
     }
     if (!language) {
       return res
@@ -523,14 +521,12 @@ export async function createCourse(req, res) {
       .json({ course: serializeCourseDetail(populatedCourse, req.user) });
   } catch (error) {
     console.error("Error in createCourse controller:", error.message);
-    res
-      .status(500)
-      .json({
-        message:
-          error?.name === "ValidationError"
-            ? "Invalid course data"
-            : "Internal Server Error",
-      });
+    res.status(500).json({
+      message:
+        error?.name === "ValidationError"
+          ? "Invalid course data"
+          : "Internal Server Error",
+    });
   }
 }
 
@@ -741,14 +737,12 @@ export async function updateCourse(req, res) {
       .json({ course: serializeCourseDetail(populatedCourse, req.user) });
   } catch (error) {
     console.error("Error in updateCourse controller:", error.message);
-    res
-      .status(500)
-      .json({
-        message:
-          error?.name === "ValidationError"
-            ? "Invalid course data"
-            : "Internal Server Error",
-      });
+    res.status(500).json({
+      message:
+        error?.name === "ValidationError"
+          ? "Invalid course data"
+          : "Internal Server Error",
+    });
   }
 }
 
@@ -777,24 +771,20 @@ export async function publishCourse(req, res) {
       !course.persistentRoomEnabled &&
       (course.classSessions || []).length === 0
     ) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Enable the persistent room or schedule at least one class before publishing",
-        });
+      return res.status(400).json({
+        message:
+          "Enable the persistent room or schedule at least one class before publishing",
+      });
     }
 
     course.status = "published";
     await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res
-      .status(200)
-      .json({
-        course: serializeCourseDetail(populatedCourse, req.user),
-        message: "Course published successfully",
-      });
+    res.status(200).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Course published successfully",
+    });
   } catch (error) {
     console.error("Error in publishCourse controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -815,12 +805,10 @@ export async function archiveCourse(req, res) {
     await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res
-      .status(200)
-      .json({
-        course: serializeCourseDetail(populatedCourse, req.user),
-        message: "Course archived",
-      });
+    res.status(200).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Course archived",
+    });
   } catch (error) {
     console.error("Error in archiveCourse controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -838,30 +826,24 @@ export async function requestEnrollment(req, res) {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
     if (course.status !== "published") {
-      return res
-        .status(400)
-        .json({
-          message: "Only published courses can accept enrollment requests",
-        });
+      return res.status(400).json({
+        message: "Only published courses can accept enrollment requests",
+      });
     }
 
     const existing = findEnrollment(course, req.user._id.toString());
     if (existing) {
-      return res
-        .status(200)
-        .json({
-          message: `Enrollment is already ${existing.status}`,
-          enrollmentStatus: existing.status,
-        });
+      return res.status(200).json({
+        message: `Enrollment is already ${existing.status}`,
+        enrollmentStatus: existing.status,
+      });
     }
 
     if (course.enrollmentMode === "invite") {
-      return res
-        .status(400)
-        .json({
-          message: "This course requires an invite code",
-          enrollmentStatus: "invite-required",
-        });
+      return res.status(400).json({
+        message: "This course requires an invite code",
+        enrollmentStatus: "invite-required",
+      });
     }
 
     course.enrollments.push({
@@ -910,12 +892,10 @@ export async function joinCourseWithInvite(req, res) {
 
     const existing = findEnrollment(course, req.user._id.toString());
     if (existing) {
-      return res
-        .status(200)
-        .json({
-          message: `Enrollment is already ${existing.status}`,
-          enrollmentStatus: existing.status,
-        });
+      return res.status(200).json({
+        message: `Enrollment is already ${existing.status}`,
+        enrollmentStatus: existing.status,
+      });
     }
 
     const inviteCode = normalizeText(req.body.inviteCode).toUpperCase();
@@ -931,12 +911,10 @@ export async function joinCourseWithInvite(req, res) {
     });
     await saveCourseWithRepair(course);
 
-    res
-      .status(200)
-      .json({
-        message: "You joined the course successfully",
-        enrollmentStatus: "approved",
-      });
+    res.status(200).json({
+      message: "You joined the course successfully",
+      enrollmentStatus: "approved",
+    });
   } catch (error) {
     console.error("Error in joinCourseWithInvite controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -962,12 +940,10 @@ export async function approveEnrollment(req, res) {
     await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res
-      .status(200)
-      .json({
-        course: serializeCourseDetail(populatedCourse, req.user),
-        message: "Enrollment approved",
-      });
+    res.status(200).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Enrollment approved",
+    });
   } catch (error) {
     console.error("Error in approveEnrollment controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -993,12 +969,10 @@ export async function rejectEnrollment(req, res) {
     await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res
-      .status(200)
-      .json({
-        course: serializeCourseDetail(populatedCourse, req.user),
-        message: "Enrollment rejected",
-      });
+    res.status(200).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Enrollment rejected",
+    });
   } catch (error) {
     console.error("Error in rejectEnrollment controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -1057,12 +1031,10 @@ export async function createClassSession(req, res) {
     await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res
-      .status(201)
-      .json({
-        course: serializeCourseDetail(populatedCourse, req.user),
-        message: "Class scheduled successfully",
-      });
+    res.status(201).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Class scheduled successfully",
+    });
   } catch (error) {
     console.error("Error in createClassSession controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -1108,12 +1080,10 @@ export async function updateClassSession(req, res) {
 
     await saveCourseWithRepair(course);
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res
-      .status(200)
-      .json({
-        course: serializeCourseDetail(populatedCourse, req.user),
-        message: "Class updated",
-      });
+    res.status(200).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Class updated",
+    });
   } catch (error) {
     console.error("Error in updateClassSession controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -1185,11 +1155,9 @@ export async function startPersistentRoom(req, res) {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
     if (!ensureCourseTeacher(course, req.user)) {
-      return res
-        .status(403)
-        .json({
-          message: "Only the course teacher can start the persistent room",
-        });
+      return res.status(403).json({
+        message: "Only the course teacher can start the persistent room",
+      });
     }
     if (!course.persistentRoomEnabled) {
       return res
@@ -1261,12 +1229,10 @@ export async function createAssignment(req, res) {
     await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res
-      .status(201)
-      .json({
-        course: serializeCourseDetail(populatedCourse, req.user),
-        message: "Assignment created",
-      });
+    res.status(201).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Assignment created",
+    });
   } catch (error) {
     console.error("Error in createAssignment controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -1327,12 +1293,10 @@ export async function submitAssignment(req, res) {
 
     await saveCourseWithRepair(course);
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res
-      .status(200)
-      .json({
-        course: serializeCourseDetail(populatedCourse, req.user),
-        message: "Assignment submitted",
-      });
+    res.status(200).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Assignment submitted",
+    });
   } catch (error) {
     console.error("Error in submitAssignment controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -1363,12 +1327,10 @@ export async function reviewAssignmentSubmission(req, res) {
     await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res
-      .status(200)
-      .json({
-        course: serializeCourseDetail(populatedCourse, req.user),
-        message: "Submission reviewed",
-      });
+    res.status(200).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Submission reviewed",
+    });
   } catch (error) {
     console.error(
       "Error in reviewAssignmentSubmission controller:",

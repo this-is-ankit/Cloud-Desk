@@ -100,12 +100,10 @@ export async function completeOnboarding(req, res) {
       req.user.role === "teacher"
         ? await buildTeacherStats(req.user._id)
         : null;
-    res
-      .status(200)
-      .json({
-        profile: serializeProfile(req.user, stats),
-        message: "Onboarding completed",
-      });
+    res.status(200).json({
+      profile: serializeProfile(req.user, stats),
+      message: "Onboarding completed",
+    });
   } catch (error) {
     console.error("Error in completeOnboarding controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -128,12 +126,10 @@ export async function updateRole(req, res) {
       req.user.role === "teacher"
         ? await buildTeacherStats(req.user._id)
         : null;
-    res
-      .status(200)
-      .json({
-        profile: serializeProfile(req.user, stats),
-        message: "Role updated",
-      });
+    res.status(200).json({
+      profile: serializeProfile(req.user, stats),
+      message: "Role updated",
+    });
   } catch (error) {
     console.error("Error in updateRole controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -160,12 +156,10 @@ export async function updateProfile(req, res) {
       req.user.role === "teacher"
         ? await buildTeacherStats(req.user._id)
         : null;
-    res
-      .status(200)
-      .json({
-        profile: serializeProfile(req.user, stats),
-        message: "Profile updated",
-      });
+    res.status(200).json({
+      profile: serializeProfile(req.user, stats),
+      message: "Profile updated",
+    });
   } catch (error) {
     console.error("Error in updateProfile controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
