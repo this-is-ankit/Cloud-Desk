@@ -4,7 +4,12 @@ import { useNavigate } from "react-router";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import CreateCourseModal from "../components/CreateCourseModal";
-import { useCourses, useCreateCourse, useJoinCourseWithInvite, useRequestEnrollment } from "../hooks/useCourses";
+import {
+  useCourses,
+  useCreateCourse,
+  useJoinCourseWithInvite,
+  useRequestEnrollment,
+} from "../hooks/useCourses";
 import { useAppUser } from "../hooks/useAppUser";
 import { getSessionLanguageLabel } from "../lib/sessionLanguage";
 import PageContainer from "../components/PageContainer";
@@ -57,7 +62,13 @@ function CoursesPage() {
   useEffect(() => {
     setFilters((current) => ({
       ...current,
-      scope: isTeacher ? (current.scope === "enrolled" ? "mine" : current.scope || "mine") : (current.scope === "mine" ? "discover" : current.scope || "discover"),
+      scope: isTeacher
+        ? current.scope === "enrolled"
+          ? "mine"
+          : current.scope || "mine"
+        : current.scope === "mine"
+          ? "discover"
+          : current.scope || "discover",
     }));
   }, [isTeacher]);
 
@@ -103,7 +114,9 @@ function CoursesPage() {
                 {isTeacher ? "Teacher Course Hub" : "Live Course Catalog"}
               </span>
               <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">
-                {isTeacher ? "Create, publish, and manage live teaching courses." : "Discover teacher-led live courses."}
+                {isTeacher
+                  ? "Create, publish, and manage live teaching courses."
+                  : "Discover teacher-led live courses."}
               </h1>
               <p className="mt-4 max-w-xl text-sm leading-relaxed opacity-60">
                 {isTeacher
@@ -113,12 +126,18 @@ function CoursesPage() {
 
               <div className="mt-8 flex flex-wrap gap-2">
                 {isTeacher && (
-                  <button className="btn btn-primary btn-sm rounded-none px-6" onClick={() => setIsCreateModalOpen(true)}>
+                  <button
+                    className="btn btn-primary btn-sm rounded-none px-6"
+                    onClick={() => setIsCreateModalOpen(true)}
+                  >
                     <PlusCircleIcon className="size-4" />
                     Create
                   </button>
                 )}
-                <button className="btn btn-outline btn-sm rounded-none px-6 gap-2" onClick={() => navigate("/dashboard")}>
+                <button
+                  className="btn btn-outline btn-sm rounded-none px-6 gap-2"
+                  onClick={() => navigate("/dashboard")}
+                >
                   <LayoutDashboardIcon className="size-4" />
                   Dashboard
                 </button>
@@ -128,8 +147,12 @@ function CoursesPage() {
             <div className="flex flex-col gap-3">
               <div className="group flex flex-1 items-center justify-between rounded-xl border border-base-content/10 bg-base-100 p-5 transition-all hover:border-primary/30">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest opacity-40">Matching Courses</p>
-                  <p className="mt-1 text-3xl font-black leading-none">{totalCourses}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest opacity-40">
+                    Matching Courses
+                  </p>
+                  <p className="mt-1 text-3xl font-black leading-none">
+                    {totalCourses}
+                  </p>
                 </div>
                 <div className="rounded-lg bg-base-200 p-3 transition-colors group-hover:bg-primary/10 group-hover:text-primary">
                   <SparklesIcon className="size-6" />
@@ -144,7 +167,9 @@ function CoursesPage() {
                   <p className="mt-1 text-3xl font-black leading-none">
                     {
                       courses.filter((course) =>
-                        isTeacher ? course.status === "published" : course.viewerEnrollmentStatus === "approved",
+                        isTeacher
+                          ? course.status === "published"
+                          : course.viewerEnrollmentStatus === "approved",
                       ).length
                     }
                   </p>
@@ -162,7 +187,12 @@ function CoursesPage() {
                   <p className="mt-1 text-3xl font-black leading-none">
                     {courses.reduce(
                       (sum, course) =>
-                        sum + (isTeacher ? course.pendingEnrollmentCount || 0 : course.viewerEnrollmentStatus === "pending" ? 1 : 0),
+                        sum +
+                        (isTeacher
+                          ? course.pendingEnrollmentCount || 0
+                          : course.viewerEnrollmentStatus === "pending"
+                            ? 1
+                            : 0),
                       0,
                     )}
                   </p>
@@ -219,7 +249,9 @@ function CoursesPage() {
 
             <div className="grid gap-4 xl:grid-cols-[1.5fr_repeat(5,0.7fr)]">
               <label className="form-control xl:col-span-2">
-                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">Search</span>
+                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
+                  Search
+                </span>
                 <div className="relative">
                   <SearchIcon className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 opacity-30" />
                   <input
@@ -233,7 +265,9 @@ function CoursesPage() {
               </label>
 
               <label className="form-control">
-                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">Category</span>
+                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
+                  Category
+                </span>
                 <input
                   name="category"
                   value={filters.category}
@@ -244,7 +278,9 @@ function CoursesPage() {
               </label>
 
               <label className="form-control">
-                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">Level</span>
+                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
+                  Level
+                </span>
                 <select
                   name="level"
                   value={filters.level}
@@ -260,7 +296,9 @@ function CoursesPage() {
               </label>
 
               <label className="form-control">
-                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">Language</span>
+                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
+                  Language
+                </span>
                 <input
                   name="language"
                   value={filters.language}
@@ -271,7 +309,9 @@ function CoursesPage() {
               </label>
 
               <label className="form-control">
-                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">Access</span>
+                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
+                  Access
+                </span>
                 <select
                   name="enrollmentMode"
                   value={filters.enrollmentMode}
@@ -286,7 +326,9 @@ function CoursesPage() {
               </label>
 
               <label className="form-control">
-                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">Sort</span>
+                <span className="mb-2 text-[10px] font-bold uppercase tracking-widest opacity-60">
+                  Sort
+                </span>
                 <select
                   name="sort"
                   value={filters.sort}
@@ -317,15 +359,21 @@ function CoursesPage() {
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">{course.code}</p>
-                        <h2 className="mt-2 text-xl font-black tracking-tight text-base-content">{course.title}</h2>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                          {course.code}
+                        </p>
+                        <h2 className="mt-2 text-xl font-black tracking-tight text-base-content">
+                          {course.title}
+                        </h2>
                       </div>
                       <span className="badge badge-sm rounded-none border-base-content/20 bg-transparent font-bold uppercase text-base-content/60">
                         {course.status}
                       </span>
                     </div>
 
-                    <p className="mt-4 flex-1 text-sm leading-relaxed opacity-60">{course.shortDescription}</p>
+                    <p className="mt-4 flex-1 text-sm leading-relaxed opacity-60">
+                      {course.shortDescription}
+                    </p>
 
                     <div className="mt-6 flex flex-wrap gap-1.5">
                       <span className="rounded-none border border-base-content/10 bg-base-200/50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider opacity-70">
@@ -347,20 +395,29 @@ function CoursesPage() {
                     <div className="mt-6 space-y-2 border-y border-base-content/5 py-4 text-[11px] font-medium uppercase tracking-wider opacity-60">
                       <div className="flex justify-between">
                         <span>Teacher</span>
-                        <span className="text-base-content">{course.teacher?.name || "Unknown"}</span>
+                        <span className="text-base-content">
+                          {course.teacher?.name || "Unknown"}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Access</span>
-                        <span className="text-base-content">{course.enrollmentMode}</span>
+                        <span className="text-base-content">
+                          {course.enrollmentMode}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Students</span>
-                        <span className="text-base-content">{course.approvedStudentCount}</span>
+                        <span className="text-base-content">
+                          {course.approvedStudentCount}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Enrollment Status</span>
                         <span className="text-primary">
-                          {course.viewerEnrollmentStatus || (isTeacher && course.isTeacherOwner ? "teacher" : "not requested")}
+                          {course.viewerEnrollmentStatus ||
+                            (isTeacher && course.isTeacherOwner
+                              ? "teacher"
+                              : "not requested")}
                         </span>
                       </div>
                     </div>
@@ -373,12 +430,19 @@ function CoursesPage() {
                         Open
                         <ArrowRightIcon className="size-4" />
                       </button>
-                      {!isTeacher && !course.isTeacherOwner && (
-                        course.enrollmentMode === "invite" && !course.viewerEnrollmentStatus ? (
+                      {!isTeacher &&
+                        !course.isTeacherOwner &&
+                        (course.enrollmentMode === "invite" &&
+                        !course.viewerEnrollmentStatus ? (
                           <div className="flex flex-1 flex-col gap-2">
                             <input
                               value={inviteCodes[course._id] || ""}
-                              onChange={(event) => setInviteCodes((current) => ({ ...current, [course._id]: event.target.value }))}
+                              onChange={(event) =>
+                                setInviteCodes((current) => ({
+                                  ...current,
+                                  [course._id]: event.target.value,
+                                }))
+                              }
                               className="input input-bordered h-8 w-full rounded-none text-xs uppercase"
                               placeholder="Invite Code"
                             />
@@ -395,7 +459,10 @@ function CoursesPage() {
                           <button
                             className="btn btn-primary btn-sm flex-1 gap-2 rounded-none uppercase tracking-widest"
                             onClick={() => handleRequestEnrollment(course._id)}
-                            disabled={Boolean(course.viewerEnrollmentStatus) || requestEnrollmentMutation.isPending}
+                            disabled={
+                              Boolean(course.viewerEnrollmentStatus) ||
+                              requestEnrollmentMutation.isPending
+                            }
                           >
                             {course.viewerEnrollmentStatus ? (
                               <UserCheckIcon className="size-4" />
@@ -410,17 +477,20 @@ function CoursesPage() {
                                 ? "Join"
                                 : "Request"}
                           </button>
-                        )
-                      )}
+                        ))}
                     </div>
                   </article>
                 ))}
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-base-content/15 bg-base-100/60 px-6 py-20 text-center">
-                <h2 className="text-2xl font-black text-base-content">No courses found</h2>
+                <h2 className="text-2xl font-black text-base-content">
+                  No courses found
+                </h2>
                 <p className="mt-3 text-sm opacity-60">
-                  {isTeacher ? "Create a draft course or switch filters." : "Try a broader search or request enrollment."}
+                  {isTeacher
+                    ? "Create a draft course or switch filters."
+                    : "Try a broader search or request enrollment."}
                 </p>
               </div>
             )}

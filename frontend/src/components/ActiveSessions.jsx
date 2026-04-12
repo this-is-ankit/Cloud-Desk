@@ -27,7 +27,9 @@ function ActiveSessions({ sessions, isLoading, isUserInSession }) {
 
           <div className="flex items-center gap-2">
             <div className="size-2 bg-success rounded-none" />
-            <span className="text-sm font-medium text-success">{sessions.length} active</span>
+            <span className="text-sm font-medium text-success">
+              {sessions.length} active
+            </span>
           </div>
         </div>
 
@@ -61,28 +63,45 @@ function ActiveSessions({ sessions, isLoading, isUserInSession }) {
                       <div className="flex items-center gap-4 text-sm opacity-80">
                         <div className="flex items-center gap-1.5">
                           <CrownIcon className="size-4" />
-                          <span className="font-medium">{session.host?.name}</span>
+                          <span className="font-medium">
+                            {session.host?.name}
+                          </span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <UsersIcon className="size-4" />
-                          <span className="text-xs">{session.participants?.length >= session.maxParticipants ? `${session.participants.length + 1}/${session.maxParticipants + 1}` : `${session.participants?.length || 0 + 1}/${session.maxParticipants + 1}`}</span>
+                          <span className="text-xs">
+                            {session.participants?.length >=
+                            session.maxParticipants
+                              ? `${session.participants.length + 1}/${session.maxParticipants + 1}`
+                              : `${session.participants?.length || 0 + 1}/${session.maxParticipants + 1}`}
+                          </span>
                         </div>
-                        {session.participants?.length >= session.maxParticipants && !isUserInSession(session) ? (
-                          <span className="badge badge-error badge-sm">FULL</span>
+                        {session.participants?.length >=
+                          session.maxParticipants &&
+                        !isUserInSession(session) ? (
+                          <span className="badge badge-error badge-sm">
+                            FULL
+                          </span>
                         ) : (
-                          <span className="badge badge-success badge-sm">OPEN</span>
+                          <span className="badge badge-success badge-sm">
+                            OPEN
+                          </span>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  {session.participants?.length >= session.maxParticipants && !isUserInSession(session) ? (
+                  {session.participants?.length >= session.maxParticipants &&
+                  !isUserInSession(session) ? (
                     <button className="btn btn-disabled btn-sm gap-2">
                       <XCircleIcon className="size-4" />
                       Full
                     </button>
                   ) : (
-                    <Link to={`/session/${session._id}`} className="btn btn-primary btn-sm gap-2">
+                    <Link
+                      to={`/session/${session._id}`}
+                      className="btn btn-primary btn-sm gap-2"
+                    >
                       {isUserInSession(session) ? "Rejoin" : "Join"}
                       <ArrowRightIcon className="size-4" />
                     </Link>
@@ -95,7 +114,9 @@ function ActiveSessions({ sessions, isLoading, isUserInSession }) {
               <div className="icon-box w-20 h-20 mx-auto mb-4">
                 <SparklesIcon className="w-10 h-10 text-base-content/70" />
               </div>
-              <p className="text-lg font-semibold opacity-70 mb-1">No active sessions</p>
+              <p className="text-lg font-semibold opacity-70 mb-1">
+                No active sessions
+              </p>
               <p className="text-sm opacity-50">Be the first to create one!</p>
             </div>
           )}

@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { Clock3Icon, PlusCircleIcon, SendIcon, TrophyIcon, UploadIcon, XCircleIcon, XIcon } from "./icons/ModernIcons";
+import {
+  Clock3Icon,
+  PlusCircleIcon,
+  SendIcon,
+  TrophyIcon,
+  UploadIcon,
+  XCircleIcon,
+  XIcon,
+} from "./icons/ModernIcons";
 
 const formatRemaining = (endsAt) => {
   const remainingMs = Math.max(0, (endsAt || 0) - Date.now());
@@ -89,14 +97,22 @@ function QuizPanel({
           : "absolute right-4 bottom-4 z-40 w-[380px] max-h-[85%] overflow-y-auto rounded-xl border border-base-300 bg-base-100 shadow-2xl"
       }
     >
-      <div className={`${isSidebar ? "shrink-0" : "sticky top-0 z-10"} flex items-center justify-between border-b border-base-300 bg-base-100 px-3 py-2`}>
+      <div
+        className={`${isSidebar ? "shrink-0" : "sticky top-0 z-10"} flex items-center justify-between border-b border-base-300 bg-base-100 px-3 py-2`}
+      >
         <h3 className="font-semibold">Quiz</h3>
-        <button className="btn btn-ghost btn-xs btn-square rounded-lg" onClick={onClose} aria-label="Close quiz panel">
+        <button
+          className="btn btn-ghost btn-xs btn-square rounded-lg"
+          onClick={onClose}
+          aria-label="Close quiz panel"
+        >
           <XIcon className="size-4" />
         </button>
       </div>
 
-      <div className={`${isSidebar ? "min-h-0 flex-1 overflow-y-auto" : ""} space-y-4 p-3`}>
+      <div
+        className={`${isSidebar ? "min-h-0 flex-1 overflow-y-auto" : ""} space-y-4 p-3`}
+      >
         {activeRound && (
           <div className="rounded-lg border border-primary/30 bg-primary/10 p-3">
             <div className="mb-2 flex items-center justify-between">
@@ -125,11 +141,16 @@ function QuizPanel({
             </div>
 
             {!isHost && hasSubmitted && (
-              <p className="mt-2 text-xs text-success">Answer submitted. Waiting for round end.</p>
+              <p className="mt-2 text-xs text-success">
+                Answer submitted. Waiting for round end.
+              </p>
             )}
 
             {isHost && (
-              <button className="btn btn-warning btn-sm mt-3 w-full gap-2" onClick={onEndRound}>
+              <button
+                className="btn btn-warning btn-sm mt-3 w-full gap-2"
+                onClick={onEndRound}
+              >
                 <XCircleIcon className="size-4" />
                 End Round
               </button>
@@ -143,11 +164,15 @@ function QuizPanel({
             <p>
               Correct option:{" "}
               <span className="font-semibold">
-                {String.fromCharCode(65 + (roundResult.correctOptionIndex ?? 0))}
+                {String.fromCharCode(
+                  65 + (roundResult.correctOptionIndex ?? 0),
+                )}
               </span>
             </p>
             {roundResult.explanation ? (
-              <p className="mt-1 text-xs text-base-content/70">{roundResult.explanation}</p>
+              <p className="mt-1 text-xs text-base-content/70">
+                {roundResult.explanation}
+              </p>
             ) : null}
           </div>
         )}
@@ -172,7 +197,12 @@ function QuizPanel({
                 className="textarea textarea-bordered textarea-sm w-full"
                 placeholder="Question prompt"
                 value={manualQuestion.prompt}
-                onChange={(e) => setManualQuestion((prev) => ({ ...prev, prompt: e.target.value }))}
+                onChange={(e) =>
+                  setManualQuestion((prev) => ({
+                    ...prev,
+                    prompt: e.target.value,
+                  }))
+                }
               />
               <div className="mt-2 grid gap-2">
                 {manualQuestion.options.map((option, index) => (
@@ -220,17 +250,25 @@ function QuizPanel({
                 placeholder="Explanation (optional)"
                 value={manualQuestion.explanation}
                 onChange={(e) =>
-                  setManualQuestion((prev) => ({ ...prev, explanation: e.target.value }))
+                  setManualQuestion((prev) => ({
+                    ...prev,
+                    explanation: e.target.value,
+                  }))
                 }
               />
-              <button className="btn btn-primary btn-sm mt-2 w-full gap-2" onClick={handleAddQuestion}>
+              <button
+                className="btn btn-primary btn-sm mt-2 w-full gap-2"
+                onClick={handleAddQuestion}
+              >
                 <PlusCircleIcon className="size-4" />
                 Add Question
               </button>
             </div>
 
             <div className="rounded-lg border border-base-300 p-3">
-              <p className="mb-2 text-sm font-medium">Question bank ({quizBank.length})</p>
+              <p className="mb-2 text-sm font-medium">
+                Question bank ({quizBank.length})
+              </p>
               <select
                 className="select select-bordered select-sm w-full"
                 value={selectedQuestionId}

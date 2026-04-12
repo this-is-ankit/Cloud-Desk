@@ -9,7 +9,9 @@ const ThemeContext = createContext(null);
 
 const getSystemTheme = () => {
   if (typeof window === "undefined") return THEME_LIGHT;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? THEME_DARK : THEME_LIGHT;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? THEME_DARK
+    : THEME_LIGHT;
 };
 
 const resolveTheme = (mode) => {
@@ -22,7 +24,9 @@ export function ThemeProvider({ children }) {
   const [mode, setMode] = useState(() => {
     if (typeof window === "undefined") return "system";
     const persisted = window.localStorage.getItem(STORAGE_KEY);
-    return persisted === "light" || persisted === "dark" || persisted === "system"
+    return persisted === "light" ||
+      persisted === "dark" ||
+      persisted === "system"
       ? persisted
       : "system";
   });
@@ -34,7 +38,8 @@ export function ThemeProvider({ children }) {
 
     if (typeof document !== "undefined") {
       document.documentElement.setAttribute("data-theme", nextTheme);
-      document.documentElement.style.colorScheme = nextTheme === THEME_DARK ? "dark" : "light";
+      document.documentElement.style.colorScheme =
+        nextTheme === THEME_DARK ? "dark" : "light";
     }
 
     if (typeof window !== "undefined") {
@@ -48,7 +53,10 @@ export function ThemeProvider({ children }) {
     const onChange = () => {
       if (mode !== "system") return;
       setTheme(resolveTheme("system"));
-      document.documentElement.setAttribute("data-theme", resolveTheme("system"));
+      document.documentElement.setAttribute(
+        "data-theme",
+        resolveTheme("system"),
+      );
       document.documentElement.style.colorScheme =
         resolveTheme("system") === THEME_DARK ? "dark" : "light";
     };
@@ -63,10 +71,12 @@ export function ThemeProvider({ children }) {
       setMode,
       isDark: theme === THEME_DARK,
     }),
-    [mode, theme]
+    [mode, theme],
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  );
 }
 
 export function useTheme() {

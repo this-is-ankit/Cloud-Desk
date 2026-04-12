@@ -45,18 +45,105 @@ function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={!isSignedIn ? <HomePage /> : <Navigate to={onboardingCompleted ? "/dashboard" : "/onboarding"} />} />
-        <Route path="/onboarding" element={isSignedIn ? (onboardingCompleted ? <Navigate to="/dashboard" /> : <OnboardingPage />) : <Navigate to="/" />} />
-        <Route path="/dashboard" element={<ProtectedAppRoute><DashboardPage /></ProtectedAppRoute>} />
-        <Route path="/courses" element={<ProtectedAppRoute><CoursesPage /></ProtectedAppRoute>} />
-        <Route path="/courses/:id" element={<ProtectedAppRoute><CourseDetailPage /></ProtectedAppRoute>} />
-        <Route path="/teachers" element={<ProtectedAppRoute><TeachersPage /></ProtectedAppRoute>} />
-        <Route path="/teachers/:id" element={<ProtectedAppRoute><TeacherDetailPage /></ProtectedAppRoute>} />
-        <Route path="/settings/profile" element={<ProtectedAppRoute><ProfileSettingsPage /></ProtectedAppRoute>} />
+        <Route
+          path="/"
+          element={
+            !isSignedIn ? (
+              <HomePage />
+            ) : (
+              <Navigate
+                to={onboardingCompleted ? "/dashboard" : "/onboarding"}
+              />
+            )
+          }
+        />
+        <Route
+          path="/onboarding"
+          element={
+            isSignedIn ? (
+              onboardingCompleted ? (
+                <Navigate to="/dashboard" />
+              ) : (
+                <OnboardingPage />
+              )
+            ) : (
+              <Navigate to="/" />
+            )
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedAppRoute>
+              <DashboardPage />
+            </ProtectedAppRoute>
+          }
+        />
+        <Route
+          path="/courses"
+          element={
+            <ProtectedAppRoute>
+              <CoursesPage />
+            </ProtectedAppRoute>
+          }
+        />
+        <Route
+          path="/courses/:id"
+          element={
+            <ProtectedAppRoute>
+              <CourseDetailPage />
+            </ProtectedAppRoute>
+          }
+        />
+        <Route
+          path="/teachers"
+          element={
+            <ProtectedAppRoute>
+              <TeachersPage />
+            </ProtectedAppRoute>
+          }
+        />
+        <Route
+          path="/teachers/:id"
+          element={
+            <ProtectedAppRoute>
+              <TeacherDetailPage />
+            </ProtectedAppRoute>
+          }
+        />
+        <Route
+          path="/settings/profile"
+          element={
+            <ProtectedAppRoute>
+              <ProfileSettingsPage />
+            </ProtectedAppRoute>
+          }
+        />
 
-        <Route path="/problems" element={<ProtectedAppRoute><ProblemsPage /></ProtectedAppRoute>} />
-        <Route path="/problem/:id" element={<ProtectedAppRoute><ProblemPage /></ProtectedAppRoute>} />
-        <Route path="/session/:id" element={<ProtectedAppRoute><SessionPage /></ProtectedAppRoute>} />
+        <Route
+          path="/problems"
+          element={
+            <ProtectedAppRoute>
+              <ProblemsPage />
+            </ProtectedAppRoute>
+          }
+        />
+        <Route
+          path="/problem/:id"
+          element={
+            <ProtectedAppRoute>
+              <ProblemPage />
+            </ProtectedAppRoute>
+          }
+        />
+        <Route
+          path="/session/:id"
+          element={
+            <ProtectedAppRoute>
+              <SessionPage />
+            </ProtectedAppRoute>
+          }
+        />
       </Routes>
 
       <Toaster

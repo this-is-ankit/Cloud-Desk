@@ -9,23 +9,38 @@ function Footer() {
       <PageContainer className="py-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm font-semibold text-base-content">Cloud Desk</p>
+            <p className="text-sm font-semibold text-base-content">
+              Cloud Desk
+            </p>
             <p className="mt-1 text-sm text-base-content/60">
-              Live teaching, collaborative classes, and real-time coding in one place.
+              Live teaching, collaborative classes, and real-time coding in one
+              place.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Link to="/" className="btn btn-ghost btn-sm rounded-xl text-base-content/70 hover:text-base-content">
+            <Link
+              to="/"
+              className="btn btn-ghost btn-sm rounded-xl text-base-content/70 hover:text-base-content"
+            >
               Home
             </Link>
-            <Link to="/dashboard" className="btn btn-ghost btn-sm rounded-xl text-base-content/70 hover:text-base-content">
+            <Link
+              to="/dashboard"
+              className="btn btn-ghost btn-sm rounded-xl text-base-content/70 hover:text-base-content"
+            >
               Dashboard
             </Link>
-            <Link to="/courses" className="btn btn-ghost btn-sm rounded-xl text-base-content/70 hover:text-base-content">
+            <Link
+              to="/courses"
+              className="btn btn-ghost btn-sm rounded-xl text-base-content/70 hover:text-base-content"
+            >
               Courses
             </Link>
-            <Link to="/teachers" className="btn btn-ghost btn-sm rounded-xl text-base-content/70 hover:text-base-content">
+            <Link
+              to="/teachers"
+              className="btn btn-ghost btn-sm rounded-xl text-base-content/70 hover:text-base-content"
+            >
               Teachers
             </Link>
           </div>

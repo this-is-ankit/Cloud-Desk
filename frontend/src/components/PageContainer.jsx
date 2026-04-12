@@ -5,7 +5,9 @@
  */
 export default function PageContainer({ children, className = "" }) {
   return (
-    <div className={`mx-auto w-full max-w-[1320px] px-4 md:px-6 lg:px-8 py-6 md:py-10 ${className}`}>
+    <div
+      className={`mx-auto w-full max-w-[1320px] px-4 md:px-6 lg:px-8 py-6 md:py-10 ${className}`}
+    >
       {children}
     </div>
   );

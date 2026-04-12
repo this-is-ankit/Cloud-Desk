@@ -13,7 +13,8 @@ export const useCreateSession = () => {
       // Refresh the active sessions list immediately
       queryClient.invalidateQueries({ queryKey: ["activeSessions"] });
     },
-    onError: (error) => toast.error(error.response?.data?.message || "Failed to create room"),
+    onError: (error) =>
+      toast.error(error.response?.data?.message || "Failed to create room"),
   });
 
   return result;
@@ -58,7 +59,10 @@ export const useKickParticipant = () => {
       toast.success("Participant kicked successfully");
       queryClient.invalidateQueries({ queryKey: ["session"] });
     },
-    onError: (error) => toast.error(error.response?.data?.message || "Failed to kick participant"),
+    onError: (error) =>
+      toast.error(
+        error.response?.data?.message || "Failed to kick participant",
+      ),
   });
 
   return result;
@@ -77,7 +81,8 @@ export const useJoinSession = () => {
       queryClient.invalidateQueries({ queryKey: ["activeSessions"] });
       queryClient.invalidateQueries({ queryKey: ["session"] });
     },
-    onError: (error) => toast.error(error.response?.data?.message || "Failed to join session"),
+    onError: (error) =>
+      toast.error(error.response?.data?.message || "Failed to join session"),
   });
 
   return result;
@@ -94,7 +99,8 @@ export const useJoinSessionByCode = () => {
       queryClient.invalidateQueries({ queryKey: ["activeSessions"] });
       queryClient.invalidateQueries({ queryKey: ["session"] });
     },
-    onError: (error) => toast.error(error.response?.data?.message || "Failed to join session"),
+    onError: (error) =>
+      toast.error(error.response?.data?.message || "Failed to join session"),
   });
 };
 
@@ -111,25 +117,28 @@ export const useEndSession = () => {
       queryClient.invalidateQueries({ queryKey: ["myRecentSessions"] });
       queryClient.invalidateQueries({ queryKey: ["session"] });
     },
-    onError: (error) => toast.error(error.response?.data?.message || "Failed to end session"),
+    onError: (error) =>
+      toast.error(error.response?.data?.message || "Failed to end session"),
   });
 
   return result;
 };
 
-const createLivestreamMutation = (mutationKey, mutationFn, successMessage, errorMessage) => () => {
-  const queryClient = useQueryClient();
+const createLivestreamMutation =
+  (mutationKey, mutationFn, successMessage, errorMessage) => () => {
+    const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationKey: [mutationKey],
-    mutationFn,
-    onSuccess: () => {
-      toast.success(successMessage);
-      queryClient.invalidateQueries({ queryKey: ["session"] });
-    },
-    onError: (error) => toast.error(error.response?.data?.message || errorMessage),
-  });
-};
+    return useMutation({
+      mutationKey: [mutationKey],
+      mutationFn,
+      onSuccess: () => {
+        toast.success(successMessage);
+        queryClient.invalidateQueries({ queryKey: ["session"] });
+      },
+      onError: (error) =>
+        toast.error(error.response?.data?.message || errorMessage),
+    });
+  };
 
 export const useStartLivestream = createLivestreamMutation(
   "startLivestream",

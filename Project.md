@@ -4,6 +4,7 @@
 
 Cloud Desk is a full-stack collaborative coding platform for technical interviews and pair programming.  
 It combines:
+
 - realtime video calls,
 - realtime chat,
 - shared coding session state (language/code/whiteboard/events),
@@ -43,6 +44,7 @@ Cloud-Desk/
 ## Tech Stack
 
 ### Frontend
+
 - React (Vite)
 - React Router
 - TanStack Query
@@ -53,6 +55,7 @@ Cloud-Desk/
 - Tailwind CSS + DaisyUI
 
 ### Backend
+
 - Node.js + Express
 - MongoDB + Mongoose
 - Clerk Express middleware
@@ -63,6 +66,7 @@ Cloud-Desk/
 ## High-Level Architecture
 
 ### 1. Auth and User Sync
+
 - Frontend authenticates users with Clerk.
 - Backend protects API routes with `protectRoute` middleware.
 - Middleware resolves the Clerk user and ensures a matching MongoDB user exists.
@@ -71,6 +75,7 @@ Cloud-Desk/
   - Fallback sync in `protectRoute` if user is missing in DB.
 
 ### 2. Session Lifecycle
+
 - Host creates session via `POST /api/sessions`.
 - Backend creates:
   - MongoDB session document,
@@ -81,6 +86,7 @@ Cloud-Desk/
 - Session status transitions from `active` to `completed`.
 
 ### 3. Realtime Collaboration
+
 - Socket.IO room key is session ID.
 - Realtime events include:
   - code changes,
@@ -90,6 +96,7 @@ Cloud-Desk/
   - anti-cheat toggles and alerts.
 
 ### 4. Coding Practice Mode
+
 - Separate from live sessions: `/problem/:id`.
 - Loads static problems from `frontend/src/data/problems.js`.
 - Executes code through Piston API client in `frontend/src/lib/piston.js`.
@@ -98,6 +105,7 @@ Cloud-Desk/
 ## Backend Walkthrough
 
 ### Entry Point
+
 - `backend/src/server.js`
   - Initializes Express, CORS, Clerk middleware, Socket.IO.
   - Registers routes:
@@ -108,12 +116,14 @@ Cloud-Desk/
   - In production, serves frontend build output.
 
 ### Core Libraries
+
 - `backend/src/lib/env.js`: environment variable mapping.
 - `backend/src/lib/db.js`: MongoDB connection bootstrap.
 - `backend/src/lib/stream.js`: Stream clients + user upsert/delete helpers.
 - `backend/src/lib/inngest.js`: Inngest client and user sync functions.
 
 ### Data Models
+
 - `backend/src/models/User.js`
   - `name`, `email`, `profileImage`, `clerkId`.
 - `backend/src/models/Session.js`
@@ -121,12 +131,14 @@ Cloud-Desk/
   - access code and call/channel linkage.
 
 ### Controllers
+
 - `sessionController.js`
   - create/join/get/end/kick session operations.
 - `chatController.js`
   - Stream token generation for authenticated user.
 
 ### Middleware
+
 - `protectRoute.js`
   - Requires auth.
   - Attaches hydrated DB user as `req.user`.
@@ -134,22 +146,26 @@ Cloud-Desk/
 ## Frontend Walkthrough
 
 ### App Shell
+
 - `frontend/src/main.jsx`
   - Wraps app with BrowserRouter, QueryClientProvider, ClerkProvider.
 - `frontend/src/App.jsx`
   - Route-level auth gating.
 
 ### API + Data Access
+
 - `frontend/src/lib/axios.js`: Axios instance with API base URL.
 - `frontend/src/api/sessions.js`: session/chat API calls.
 - `frontend/src/hooks/useSessions.js`: React Query hooks for CRUD flows.
 
 ### Realtime + Stream Hooks
+
 - `frontend/src/hooks/useStreamClient.js`
   - Initializes Stream Video and Stream Chat clients.
   - Joins/leaves calls/channels and handles cleanup.
 
 ### Main Pages
+
 - `HomePage.jsx`: marketing/entry page.
 - `DashboardPage.jsx`: create session, view active sessions/history.
 - `SessionPage.jsx`: primary live collaboration screen.
@@ -157,6 +173,7 @@ Cloud-Desk/
 - `ProblemPage.jsx`: coding practice environment.
 
 ### Key Components
+
 - `VideoCallUI.jsx`: Stream call UI + integrated chat.
 - `CodeEditorPanel.jsx`: Monaco editor + run button.
 - `OutputPanel.jsx`: execution result rendering.
@@ -168,6 +185,7 @@ Cloud-Desk/
 ### Required Environment Variables (summary)
 
 Backend typically needs:
+
 - `PORT`
 - `NODE_ENV`
 - `DB_URL`
@@ -179,6 +197,7 @@ Backend typically needs:
 - `INNGEST_SIGNING_KEY`
 
 Frontend typically needs:
+
 - `VITE_API_URL`
 - `VITE_CLERK_PUBLISHABLE_KEY`
 - `VITE_STREAM_API_KEY`
@@ -188,24 +207,29 @@ Use local `.env` files for development. Do not commit real credentials.
 ## Local Development
 
 ### Install
+
 - Root: `npm install`
 - Backend: `npm install --prefix backend`
 - Frontend: `npm install --prefix frontend`
 
 ### Run
+
 - Backend: `npm run dev --prefix backend`
 - Frontend: `npm run dev --prefix frontend`
 
 ### Build
+
 - Frontend build: `npm run build --prefix frontend`
 - Root convenience build: `npm run build`
 
 ### Lint
+
 - Frontend: `npm run lint --prefix frontend`
 
 ## API Surface (current)
 
 ### Session routes (`/api/sessions`)
+
 - `POST /` create session
 - `GET /active` list active sessions
 - `GET /my-recent` list completed sessions for current user
@@ -215,15 +239,18 @@ Use local `.env` files for development. Do not commit real credentials.
 - `POST /:id/kick` kick participant (host)
 
 ### Chat route (`/api/chat`)
+
 - `GET /token` Stream auth token for current user
 
 ## Known Gaps
 
 Current issues and remediation backlog are already documented in:
+
 - `ISSUES.md`
 - `TODO.md`
 
 Recommended onboarding order for a new contributor:
+
 1. Read this file (`Project.md`).
 2. Read `ISSUES.md` and `TODO.md`.
 3. Start with P0 fixes (security + broken session flows).

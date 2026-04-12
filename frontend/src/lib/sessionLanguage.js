@@ -23,23 +23,33 @@ const LANGUAGE_ALIASES = {
 };
 
 const normalizeLanguageToken = (value) =>
-  typeof value === "string" ? value.trim().toLowerCase().replace(/[.\s_-]+/g, "") : "";
+  typeof value === "string"
+    ? value
+        .trim()
+        .toLowerCase()
+        .replace(/[.\s_-]+/g, "")
+    : "";
 
 export const getNormalizedSessionLanguage = (value) => {
   const token = normalizeLanguageToken(value);
   return LANGUAGE_ALIASES[token] || null;
 };
 
-export const normalizeSessionLanguage = (value, fallback = DEFAULT_SESSION_LANGUAGE) =>
-  getNormalizedSessionLanguage(value) || fallback;
+export const normalizeSessionLanguage = (
+  value,
+  fallback = DEFAULT_SESSION_LANGUAGE,
+) => getNormalizedSessionLanguage(value) || fallback;
 
 export const getSessionLanguageConfig = (value) =>
   LANGUAGE_CONFIG[normalizeSessionLanguage(value)];
 
 export const getSessionLanguageLabel = (value) =>
-  getSessionLanguageConfig(value)?.name || LANGUAGE_CONFIG[DEFAULT_SESSION_LANGUAGE].name;
+  getSessionLanguageConfig(value)?.name ||
+  LANGUAGE_CONFIG[DEFAULT_SESSION_LANGUAGE].name;
 
-export const SESSION_LANGUAGE_OPTIONS = Object.entries(LANGUAGE_CONFIG).map(([value, config]) => ({
-  value,
-  label: config.name,
-}));
+export const SESSION_LANGUAGE_OPTIONS = Object.entries(LANGUAGE_CONFIG).map(
+  ([value, config]) => ({
+    value,
+    label: config.name,
+  }),
+);

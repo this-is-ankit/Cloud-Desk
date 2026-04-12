@@ -3,9 +3,12 @@ import { upsertStreamUser } from "./stream.js";
 import { ENV } from "./env.js";
 
 const normalizeRole = (value) => (value === "teacher" ? "teacher" : "student");
-const normalizeText = (value) => (typeof value === "string" ? value.trim() : "");
+const normalizeText = (value) =>
+  typeof value === "string" ? value.trim() : "";
 const buildDevClerkId = (value) => {
-  const base = normalizeText(value).toLowerCase().replace(/[^a-z0-9@_. -]/g, "-");
+  const base = normalizeText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9@_. -]/g, "-");
   if (!base) return "dev-student";
   return base.startsWith("dev-") ? base : `dev-${base}`;
 };
@@ -15,9 +18,12 @@ export const isDevAuthEnabled = ENV.DEV_AUTH_BYPASS === "true";
 const buildDevUserPayload = (source = {}) => {
   const role = normalizeRole(source.role);
   const id = normalizeText(source.id) || `dev-${role}`;
-  const name = normalizeText(source.name) || (role === "teacher" ? "Demo Teacher" : "Demo Student");
+  const name =
+    normalizeText(source.name) ||
+    (role === "teacher" ? "Demo Teacher" : "Demo Student");
   const email = normalizeText(source.email) || `${role}@cloud-desk.dev`;
-  const profileImage = normalizeText(source.imageUrl) || normalizeText(source.profileImage);
+  const profileImage =
+    normalizeText(source.imageUrl) || normalizeText(source.profileImage);
 
   return {
     clerkId: buildDevClerkId(id),

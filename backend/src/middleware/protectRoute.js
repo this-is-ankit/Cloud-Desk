@@ -19,7 +19,8 @@ export const protectRoute = async (req, res, next) => {
 
     let user = await User.findOne({ clerkId });
     const clerkUser = await clerkClient.users.getUser(clerkId);
-    const name = `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim();
+    const name =
+      `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim();
     const email = clerkUser.emailAddresses[0]?.emailAddress;
     const image = clerkUser.imageUrl;
 
@@ -42,7 +43,9 @@ export const protectRoute = async (req, res, next) => {
         user = await User.findOne({ clerkId });
 
         if (!user) {
-          return res.status(500).json({ message: "Failed to sync user account" });
+          return res
+            .status(500)
+            .json({ message: "Failed to sync user account" });
         }
       }
     } else {

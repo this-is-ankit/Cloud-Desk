@@ -14,7 +14,12 @@
     {
       "id": "q2",
       "prompt": "Which data structure is best for LRU cache eviction order?",
-      "options": ["Array only", "Linked list + hash map", "Queue only", "Stack + trie"],
+      "options": [
+        "Array only",
+        "Linked list + hash map",
+        "Queue only",
+        "Stack + trie"
+      ],
       "correctOptionIndex": 1,
       "timeLimitSec": 30,
       "explanation": "Hash map for lookup and linked list for recency order."

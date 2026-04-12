@@ -21,12 +21,20 @@
 .str-chat {
   --str-chat__background-color: var(--bg-1);
   --str-chat__channel-preview-bg: var(--bg-1);
-  --str-chat__message-bubble-bg-color: color-mix(in oklab, var(--primary) 12%, var(--bg-1) 88%);
+  --str-chat__message-bubble-bg-color: color-mix(
+    in oklab,
+    var(--primary) 12%,
+    var(--bg-1) 88%
+  );
   --str-chat__message-bubble-color: var(--text-1);
   --str-chat__text-low-emphasis-color: var(--text-3);
   --str-chat__border-color: var(--border);
   --str-chat__primary-color: var(--primary);
-  --str-chat__active-primary-color: color-mix(in oklab, var(--primary) 80%, white 20%);
+  --str-chat__active-primary-color: color-mix(
+    in oklab,
+    var(--primary) 80%,
+    white 20%
+  );
 }
 
 .str-chat .str-chat__main-panel {

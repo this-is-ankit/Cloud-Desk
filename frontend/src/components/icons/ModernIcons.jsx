@@ -1,7 +1,15 @@
 function BaseIcon({ icon, className, ...props }) {
   return (
-    <span className={`inline-flex items-center justify-center leading-none shrink-0 ${className || ""}`} {...props}>
-      <iconify-icon icon={icon} width="1em" height="1em" style={{ display: "block" }} />
+    <span
+      className={`inline-flex items-center justify-center leading-none shrink-0 ${className || ""}`}
+      {...props}
+    >
+      <iconify-icon
+        icon={icon}
+        width="1em"
+        height="1em"
+        style={{ display: "block" }}
+      />
     </span>
   );
 }
@@ -86,6 +94,9 @@ export function PresentationIcon(props) {
 }
 export function RadioTowerIcon(props) {
   return <BaseIcon icon="ph:broadcast" {...props} />;
+}
+export function CpuIcon(props) {
+  return <BaseIcon icon="ph:cpu" {...props} />;
 }
 export function MessageSquareIcon(props) {
   return <BaseIcon icon="ph:chat-circle-text" {...props} />;

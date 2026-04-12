@@ -11,7 +11,11 @@ import CreateSessionModal from "../components/CreateSessionModal";
 import Footer from "../components/Footer";
 import JoinSessionByCodeModal from "../components/JoinSessionByCodeModal";
 import { useCourses, useStartPersistentRoom } from "../hooks/useCourses";
-import { useCreateSession, useJoinSessionByCode, useMyRecentSessions } from "../hooks/useSessions";
+import {
+  useCreateSession,
+  useJoinSessionByCode,
+  useMyRecentSessions,
+} from "../hooks/useSessions";
 import { useAppUser } from "../hooks/useAppUser";
 import {
   BookOpenIcon,
@@ -38,18 +42,35 @@ function DashboardPage() {
   const joinSessionByCodeMutation = useJoinSessionByCode();
   const startPersistentRoomMutation = useStartPersistentRoom();
 
-  const teacherCoursesQuery = useCourses({ scope: "mine", sort: "upcoming", limit: 24 });
-  const studentCoursesQuery = useCourses({ scope: "enrolled", sort: "upcoming", limit: 24 });
-  const discoverCoursesQuery = useCourses({ scope: "discover", sort: "upcoming", limit: 24 });
+  const teacherCoursesQuery = useCourses({
+    scope: "mine",
+    sort: "upcoming",
+    limit: 24,
+  });
+  const studentCoursesQuery = useCourses({
+    scope: "enrolled",
+    sort: "upcoming",
+    limit: 24,
+  });
+  const discoverCoursesQuery = useCourses({
+    scope: "discover",
+    sort: "upcoming",
+    limit: 24,
+  });
   const recentSessionsQuery = useMyRecentSessions();
 
-  const courses = isTeacher ? teacherCoursesQuery.data?.courses || [] : studentCoursesQuery.data?.courses || [];
+  const courses = isTeacher
+    ? teacherCoursesQuery.data?.courses || []
+    : studentCoursesQuery.data?.courses || [];
   const recentSessions = recentSessionsQuery.data?.sessions || [];
   const featuredCourses = courses.slice(0, 5);
 
   let dashboardData;
   if (isTeacher) {
-    const pendingApprovals = courses.reduce((sum, course) => sum + (course.pendingEnrollmentCount || 0), 0);
+    const pendingApprovals = courses.reduce(
+      (sum, course) => sum + (course.pendingEnrollmentCount || 0),
+      0,
+    );
     const upcomingClasses = courses
       .flatMap((course) =>
         course.nextClass
@@ -66,28 +87,58 @@ function DashboardPage() {
       )
       .sort((a, b) => new Date(a.date) - new Date(b.date))
       .slice(0, 5);
-    const reviewCount = courses.reduce((sum, course) => sum + (course.nextAssignment ? 1 : 0), 0);
+    const reviewCount = courses.reduce(
+      (sum, course) => sum + (course.nextAssignment ? 1 : 0),
+      0,
+    );
 
     dashboardData = {
       stats: [
-        { label: "Active Courses", value: courses.length, icon: BookOpenIcon, iconWrapClass: "bg-primary/10 text-primary" },
-        { label: "Pending Enrollments", value: pendingApprovals, icon: UserCheckIcon, iconWrapClass: "bg-warning/10 text-warning" },
-        { label: "Upcoming Classes", value: upcomingClasses.length, icon: CalendarPlusIcon, iconWrapClass: "bg-secondary/10 text-secondary" },
-        { label: "Assignments Live", value: reviewCount, icon: ClipboardTextIcon, iconWrapClass: "bg-success/10 text-success" },
+        {
+          label: "Active Courses",
+          value: courses.length,
+          icon: BookOpenIcon,
+          iconWrapClass: "bg-primary/10 text-primary",
+        },
+        {
+          label: "Pending Enrollments",
+          value: pendingApprovals,
+          icon: UserCheckIcon,
+          iconWrapClass: "bg-warning/10 text-warning",
+        },
+        {
+          label: "Upcoming Classes",
+          value: upcomingClasses.length,
+          icon: CalendarPlusIcon,
+          iconWrapClass: "bg-secondary/10 text-secondary",
+        },
+        {
+          label: "Assignments Live",
+          value: reviewCount,
+          icon: ClipboardTextIcon,
+          iconWrapClass: "bg-success/10 text-success",
+        },
       ],
       items: upcomingClasses,
       gridTitle: "My Teaching Courses",
-      gridSubtitle: "Manage every live course, roster, schedule, and classroom launch from here",
+      gridSubtitle:
+        "Manage every live course, roster, schedule, and classroom launch from here",
       emptyLabel: "No teaching courses yet",
-      emptyHint: "Create your first live course draft to start scheduling classes.",
+      emptyHint:
+        "Create your first live course draft to start scheduling classes.",
       sideTitle: "Upcoming Live Classes",
       sideSubtitle: "Your next scheduled teaching sessions",
       sideEmptyLabel: "No upcoming classes",
       sideEmptyHint: "Schedule the first live class from a course page.",
     };
   } else {
-    const approvedCourses = courses.filter((course) => course.viewerEnrollmentStatus === "approved");
-    const pendingCourses = discoverCoursesQuery.data?.courses?.filter((course) => course.viewerEnrollmentStatus === "pending") || [];
+    const approvedCourses = courses.filter(
+      (course) => course.viewerEnrollmentStatus === "approved",
+    );
+    const pendingCourses =
+      discoverCoursesQuery.data?.courses?.filter(
+        (course) => course.viewerEnrollmentStatus === "pending",
+      ) || [];
     const upcomingItems = approvedCourses
       .flatMap((course) => {
         const items = [];
@@ -116,20 +167,43 @@ function DashboardPage() {
 
     dashboardData = {
       stats: [
-        { label: "Approved Courses", value: approvedCourses.length, icon: BookOpenIcon, iconWrapClass: "bg-primary/10 text-primary" },
-        { label: "Pending Requests", value: pendingCourses.length, icon: UsersIcon, iconWrapClass: "bg-warning/10 text-warning" },
-        { label: "Upcoming Items", value: upcomingItems.length, icon: CalendarPlusIcon, iconWrapClass: "bg-secondary/10 text-secondary" },
-        { label: "Completed Sessions", value: recentSessions.length, icon: RadioTowerIcon, iconWrapClass: "bg-success/10 text-success" },
+        {
+          label: "Approved Courses",
+          value: approvedCourses.length,
+          icon: BookOpenIcon,
+          iconWrapClass: "bg-primary/10 text-primary",
+        },
+        {
+          label: "Pending Requests",
+          value: pendingCourses.length,
+          icon: UsersIcon,
+          iconWrapClass: "bg-warning/10 text-warning",
+        },
+        {
+          label: "Upcoming Items",
+          value: upcomingItems.length,
+          icon: CalendarPlusIcon,
+          iconWrapClass: "bg-secondary/10 text-secondary",
+        },
+        {
+          label: "Completed Sessions",
+          value: recentSessions.length,
+          icon: RadioTowerIcon,
+          iconWrapClass: "bg-success/10 text-success",
+        },
       ],
       items: upcomingItems,
       gridTitle: "My Live Courses",
-      gridSubtitle: "Courses where you can attend live classes, assignments, and teacher-managed sessions",
+      gridSubtitle:
+        "Courses where you can attend live classes, assignments, and teacher-managed sessions",
       emptyLabel: "No approved live courses yet",
-      emptyHint: "Request enrollment from the course catalog and wait for teacher approval.",
+      emptyHint:
+        "Request enrollment from the course catalog and wait for teacher approval.",
       sideTitle: "Upcoming Work",
       sideSubtitle: "Approved classes and assignments",
       sideEmptyLabel: "Nothing upcoming yet",
-      sideEmptyHint: "Once teachers approve you and schedule classes, they will appear here.",
+      sideEmptyHint:
+        "Once teachers approve you and schedule classes, they will appear here.",
     };
   }
 
@@ -162,7 +236,8 @@ function DashboardPage() {
   };
 
   const handleQuickTeacherLaunch = () => {
-    const firstPublishedCourse = courses.find((course) => course.status === "published") || courses[0];
+    const firstPublishedCourse =
+      courses.find((course) => course.status === "published") || courses[0];
     if (!firstPublishedCourse) {
       navigate("/courses");
       return;
@@ -192,7 +267,9 @@ function DashboardPage() {
           role={role}
           primaryAction={{
             label: isTeacher ? "Launch Course Room" : "Start Study Room",
-            onClick: isTeacher ? handleQuickTeacherLaunch : () => setShowCreateModal(true),
+            onClick: isTeacher
+              ? handleQuickTeacherLaunch
+              : () => setShowCreateModal(true),
             icon: isTeacher ? RadioTowerIcon : VideoIcon,
           }}
           secondaryAction={{

@@ -5,7 +5,7 @@ const sessionSchema = new mongoose.Schema(
     language: {
       type: String,
       required: true,
-      default: "javascript"
+      default: "javascript",
     },
     code: {
       type: String,
@@ -25,7 +25,7 @@ const sessionSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-      }
+      },
     ],
     sessionType: {
       type: String,
@@ -72,15 +72,18 @@ const sessionSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    whiteboardElements: { // Array to store Excalidraw elements
+    whiteboardElements: {
+      // Array to store Excalidraw elements
       type: Array,
       default: [],
     },
-    whiteboardAppState: { // Object to store Excalidraw appState
+    whiteboardAppState: {
+      // Object to store Excalidraw appState
       type: Object,
       default: {},
     },
-    whiteboardIsOpen: { // State for whiteboard visibility
+    whiteboardIsOpen: {
+      // State for whiteboard visibility
       type: Boolean,
       default: false,
     },
@@ -180,8 +183,19 @@ const sessionSchema = new mongoose.Schema(
         default: null,
       },
     },
+    isCircuitOpen: {
+      type: Boolean,
+      default: false,
+    },
+    circuitState: {
+      type: Object,
+      default: {
+        components: [],
+        wires: [],
+      },
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 sessionSchema.pre("validate", function normalizeLegacySessionFields(next) {

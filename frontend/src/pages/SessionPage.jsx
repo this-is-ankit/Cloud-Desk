@@ -30,19 +30,31 @@ import {
   UsersIcon,
   XCircleIcon,
   XIcon,
+  CpuIcon,
 } from "../components/icons/ModernIcons";
 import toast from "react-hot-toast";
 import CodeEditorPanel from "../components/CodeEditorPanel";
 import OutputPanel from "../components/OutputPanel";
 import QuizPanel from "../components/QuizPanel";
+import CircuitSimulatorPanel from "../components/CircuitSimulatorPanel";
 import HostToolsPopover from "../components/HostToolsPopover";
 
 import useStreamClient from "../hooks/useStreamClient";
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
 import VideoCallUI from "../components/VideoCallUI";
 import { useRuntimeAuth } from "../hooks/useRuntimeAuth";
-import { getSessionLanguageLabel, normalizeSessionLanguage } from "../lib/sessionLanguage";
-import { Channel, Chat, MessageInput, MessageList, Thread, Window } from "stream-chat-react";
+import {
+  getSessionLanguageLabel,
+  normalizeSessionLanguage,
+} from "../lib/sessionLanguage";
+import {
+  Channel,
+  Chat,
+  MessageInput,
+  MessageList,
+  Thread,
+  Window,
+} from "stream-chat-react";
 
 function EmptySidebarState({ children }) {
   return (
@@ -59,7 +71,10 @@ function StreamChatPanel({ chatClient, channel }) {
 
   return (
     <div className="h-full min-h-0 overflow-hidden">
-      <Chat client={chatClient} theme="str-chat__theme-v2 str-chat__theme-light">
+      <Chat
+        client={chatClient}
+        theme="str-chat__theme-v2 str-chat__theme-light"
+      >
         <Channel channel={channel}>
           <Window>
             <MessageList />
@@ -78,8 +93,14 @@ function LivestreamChatPanel({ messages, draft, onDraftChange, onSubmit }) {
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 text-sm">
         {messages.length ? (
           messages.slice(-100).map((message) => (
-            <p key={message.id || `${message.createdAt}-${message.message}`} className="break-words">
-              <span className="font-semibold">{message.userName || "Viewer"}:</span> {message.message}
+            <p
+              key={message.id || `${message.createdAt}-${message.message}`}
+              className="break-words"
+            >
+              <span className="font-semibold">
+                {message.userName || "Viewer"}:
+              </span>{" "}
+              {message.message}
             </p>
           ))
         ) : (
@@ -93,7 +114,12 @@ function LivestreamChatPanel({ messages, draft, onDraftChange, onSubmit }) {
           onChange={(event) => onDraftChange(event.target.value)}
           placeholder="Message"
         />
-        <button type="submit" className="btn btn-primary btn-sm btn-square rounded-lg" aria-label="Send message" title="Send">
+        <button
+          type="submit"
+          className="btn btn-primary btn-sm btn-square rounded-lg"
+          aria-label="Send message"
+          title="Send"
+        >
           <SendIcon className="size-4" />
         </button>
       </div>
@@ -107,7 +133,9 @@ function ParticipantsPanel({ session, isHost, onKickParticipant }) {
   return (
     <div className="h-full min-h-0 overflow-y-auto p-3">
       <div className="mb-3 rounded-lg border border-primary/20 bg-primary/10 p-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Host</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+          Host
+        </p>
         <p className="mt-1 font-semibold">{session?.host?.name || "Teacher"}</p>
       </div>
 
@@ -124,11 +152,21 @@ function ParticipantsPanel({ session, isHost, onKickParticipant }) {
               className="flex items-center justify-between gap-3 rounded-lg border border-base-content/10 bg-base-200/60 px-3 py-2"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{participant.name || "Participant"}</p>
-                {participant.email && <p className="truncate text-xs text-base-content/55">{participant.email}</p>}
+                <p className="truncate text-sm font-semibold">
+                  {participant.name || "Participant"}
+                </p>
+                {participant.email && (
+                  <p className="truncate text-xs text-base-content/55">
+                    {participant.email}
+                  </p>
+                )}
               </div>
               {isHost && participant._id && (
-                <button type="button" className="btn btn-error btn-xs gap-1 rounded-lg" onClick={() => onKickParticipant(participant._id)}>
+                <button
+                  type="button"
+                  className="btn btn-error btn-xs gap-1 rounded-lg"
+                  onClick={() => onKickParticipant(participant._id)}
+                >
                   <UserMinusIcon className="size-3.5" />
                   Kick
                 </button>
@@ -154,6 +192,7 @@ function SessionPage() {
   const [isCodeOpen, setIsCodeOpen] = useState(false);
   const [isAntiCheatEnabled, setIsAntiCheatEnabled] = useState(false);
   const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
+  const [isCircuitOpen, setIsCircuitOpen] = useState(false);
   const [whiteboardScene, setWhiteboardScene] = useState(null);
   const [whiteboardWriteMode, setWhiteboardWriteMode] = useState("host-only");
   const [whiteboardWriterIds, setWhiteboardWriterIds] = useState([]);
@@ -182,6 +221,7 @@ function SessionPage() {
   const livestreamJoinedCallIdRef = useRef(null);
   const activeToolRef = useRef(activeTool);
   const pendingHostWhiteboardSnapshotRef = useRef(null);
+  const isInitialLoadRef = useRef(true);
 
   const {
     data: sessionData,
@@ -197,25 +237,28 @@ function SessionPage() {
 
   const session = sessionData?.session;
   const isLivestream = session?.sessionType === "livestream";
-  const livestreamLive = Boolean(livestreamState?.isLive ?? session?.livestream?.isLive);
   const layoutMode = activeTool ? "tool-pip" : "video";
 
   // Calculate roles
   const isHost = session?.host?.clerkId === user?.id;
   const isParticipant = session?.participants?.some(
-    (p) => p.clerkId === user?.id
+    (p) => p.clerkId === user?.id,
   );
-  const isLivestreamViewer = Boolean(isLivestream && !isHost && session?.courseAccess?.canJoinWithoutCode);
-  const hasSessionAccess = Boolean(isHost || isParticipant || isLivestreamViewer);
+  const isLivestreamViewer = Boolean(
+    isLivestream && !isHost && session?.courseAccess?.canJoinWithoutCode,
+  );
+  const hasSessionAccess = Boolean(
+    isHost || isParticipant || isLivestreamViewer,
+  );
   const currentMongoUserId = isHost
     ? session?.host?._id
     : session?.participants?.find((p) => p.clerkId === user?.id)?._id;
   const canWriteWhiteboard = Boolean(
     isHost ||
-      whiteboardWriteMode === "all" ||
-      (whiteboardWriteMode === "approved" &&
-        currentMongoUserId &&
-        whiteboardWriterIds.includes(currentMongoUserId))
+    whiteboardWriteMode === "all" ||
+    (whiteboardWriteMode === "approved" &&
+      currentMongoUserId &&
+      whiteboardWriterIds.includes(currentMongoUserId)),
   );
 
   // --- FIX: Live Reference for Host Status ---
@@ -238,7 +281,14 @@ function SessionPage() {
 
   useEffect(() => {
     if (!session?.courseAccess?.canJoinWithoutCode) return;
-    if (loadingSession || isHost || isParticipant || isLivestreamViewer || joinSessionMutation.isPending) return;
+    if (
+      loadingSession ||
+      isHost ||
+      isParticipant ||
+      isLivestreamViewer ||
+      joinSessionMutation.isPending
+    )
+      return;
 
     joinSessionMutation.mutate(
       { id, code: "" },
@@ -246,34 +296,24 @@ function SessionPage() {
         onSuccess: refetch,
       },
     );
-  }, [id, isHost, isParticipant, isLivestreamViewer, joinSessionMutation, loadingSession, refetch, session?.courseAccess?.canJoinWithoutCode]);
+  }, [
+    id,
+    isHost,
+    isParticipant,
+    isLivestreamViewer,
+    joinSessionMutation,
+    loadingSession,
+    refetch,
+    session?.courseAccess?.canJoinWithoutCode,
+  ]);
 
   const { call, channel, chatClient, streamClient } = useStreamClient(
     session,
     loadingSession,
     isHost,
     isParticipant,
-    isLivestreamViewer
+    isLivestreamViewer,
   );
-
-  useEffect(() => {
-    if (!isLivestream || !livestreamLive) {
-      livestreamJoinedCallIdRef.current = null;
-      return;
-    }
-    if (!call || livestreamJoinedCallIdRef.current === call.id) return;
-
-    livestreamJoinedCallIdRef.current = call.id;
-    call
-      .join()
-      .then(() => {
-        refetch();
-      })
-      .catch((error) => {
-        livestreamJoinedCallIdRef.current = null;
-        console.error("Error joining live stream:", error);
-      });
-  }, [isLivestream, livestreamLive, call, refetch]);
 
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
   const [code, setCode] = useState("");
@@ -284,7 +324,10 @@ function SessionPage() {
 
   useEffect(() => {
     activeToolRef.current = activeTool;
-    if (activeTool !== "whiteboard" && pendingHostWhiteboardSnapshotRef.current) {
+    if (
+      activeTool !== "whiteboard" &&
+      pendingHostWhiteboardSnapshotRef.current
+    ) {
       setWhiteboardScene(pendingHostWhiteboardSnapshotRef.current);
       pendingHostWhiteboardSnapshotRef.current = null;
     }
@@ -298,9 +341,11 @@ function SessionPage() {
       setWhiteboardWriterIds(
         writerIds
           .map((id) =>
-            typeof id === "string" ? id : id?._id?.toString?.() || id?.toString?.() || ""
+            typeof id === "string"
+              ? id
+              : id?._id?.toString?.() || id?.toString?.() || "",
           )
-          .filter(Boolean)
+          .filter(Boolean),
       );
     }
   }, []);
@@ -332,7 +377,10 @@ function SessionPage() {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (sessionMenuRef.current && !sessionMenuRef.current.contains(event.target)) {
+      if (
+        sessionMenuRef.current &&
+        !sessionMenuRef.current.contains(event.target)
+      ) {
         setIsSessionMenuOpen(false);
       }
     };
@@ -366,10 +414,14 @@ function SessionPage() {
       socketRef.current = socket;
 
       socket.on("error", (error) => {
-        if (
-          error?.message === "Not authorized to join this session" &&
-          !hasSessionAccessRef.current
-        ) {
+        // Ignore "Not authorized" errors during initial handshake or if access is pending
+        if (error?.message?.includes("authorized") || error?.message?.includes("Authentication")) {
+          console.warn("Socket auth warning (ignoring and retrying in 2s):", error.message);
+          setTimeout(() => {
+            if (socketRef.current?.connected && hasSessionAccess) {
+              socketRef.current.emit("join-session", id);
+            }
+          }, 2000);
           return;
         }
         console.error("Socket error:", error.message);
@@ -377,7 +429,7 @@ function SessionPage() {
       });
 
       socket.on("connect", () => {
-        if (hasSessionAccessRef.current) {
+        if (hasSessionAccess) {
           socket.emit("join-session", id);
         }
       });
@@ -394,52 +446,85 @@ function SessionPage() {
       });
 
       socket.on("code-space-state", (isOpen) => {
-        setIsCodeOpen(isOpen);
-        if (isOpen) setActiveTool((current) => current || "code");
+        setIsCodeOpen(Boolean(isOpen));
+        if (isOpen) setActiveTool("code");
       });
 
       socket.on("whiteboard-state", (isOpen) => {
         setIsWhiteboardOpen(Boolean(isOpen));
-        if (isOpen) setActiveTool((current) => current || "whiteboard");
+        if (isOpen) setActiveTool("whiteboard");
       });
 
-      socket.on("whiteboard-update", ({ elements, appState, senderSocketId }) => {
-        if (senderSocketId && senderSocketId === socket.id) return;
-        if (!Array.isArray(elements)) return;
-        setWhiteboardScene({ elements, appState: appState || null });
+      socket.on("toggle-circuit", ({ isOpen }) => {
+        setIsCircuitOpen(Boolean(isOpen));
+        if (isOpen) setActiveTool("circuit");
       });
 
-      socket.on("whiteboard-sync", ({ isOpen, elements, appState, writeMode, writerIds }) => {
-        setIsWhiteboardOpen(Boolean(isOpen));
-        applyWhiteboardPermissions({ writeMode, writerIds });
-        if (!Array.isArray(elements)) return;
-        setWhiteboardScene({ elements, appState: appState || null });
+      socket.on(
+        "whiteboard-update",
+        ({ elements, appState, senderSocketId }) => {
+          if (senderSocketId && senderSocketId === socket.id) return;
+          if (!Array.isArray(elements)) return;
+          setWhiteboardScene({ elements, appState: appState || null });
+        },
+      );
+
+      socket.on(
+        "whiteboard-sync",
+        ({ isOpen, elements, appState, writeMode, writerIds }) => {
+          const isActuallyOpen = Boolean(isOpen);
+          setIsWhiteboardOpen(isActuallyOpen);
+          if (isActuallyOpen) setActiveTool("whiteboard");
+          applyWhiteboardPermissions({ writeMode, writerIds });
+          if (!Array.isArray(elements)) return;
+          setWhiteboardScene({ elements, appState: appState || null });
+        },
+      );
+
+      socket.on(
+        "whiteboard-permissions-updated",
+        ({ writeMode, writerIds }) => {
+          applyWhiteboardPermissions({ writeMode, writerIds });
+        },
+      );
+
+      socket.on("room/circuit/sync", ({ isOpen }) => {
+        const isActuallyOpen = Boolean(isOpen);
+        setIsCircuitOpen(isActuallyOpen);
+        if (isActuallyOpen) setActiveTool("circuit");
       });
 
-      socket.on("whiteboard-permissions-updated", ({ writeMode, writerIds }) => {
-        applyWhiteboardPermissions({ writeMode, writerIds });
+      socket.on("room/code-sync", ({ isOpen }) => {
+        const isActuallyOpen = Boolean(isOpen);
+        setIsCodeOpen(isActuallyOpen);
+        if (isActuallyOpen) setActiveTool("code");
       });
 
       socket.on("whiteboard-write-denied", ({ message }) => {
-        toast.error(message || "You do not have write access to this whiteboard.");
+        toast.error(
+          message || "You do not have write access to this whiteboard.",
+        );
       });
 
       socket.on("quiz-bank-loaded", ({ quizBank: nextBank }) => {
         setQuizBank(Array.isArray(nextBank) ? nextBank : []);
       });
 
-      socket.on("quiz-round-sync", ({ quizBank: nextBank, leaderboard, top3, activeRound }) => {
-        setQuizBank(Array.isArray(nextBank) ? nextBank : []);
-        setQuizLeaderboard(Array.isArray(leaderboard) ? leaderboard : []);
-        setQuizTop3(Array.isArray(top3) ? top3 : []);
-        setActiveQuizRound(activeRound || null);
-        setMyQuizSubmission(activeRound?.mySubmission || null);
-        if (activeRound) {
-          setIsQuizOpen(true);
-          setSidebarOpen(true);
-          setActiveSidebarTab("quiz");
-        }
-      });
+      socket.on(
+        "quiz-round-sync",
+        ({ quizBank: nextBank, leaderboard, top3, activeRound }) => {
+          setQuizBank(Array.isArray(nextBank) ? nextBank : []);
+          setQuizLeaderboard(Array.isArray(leaderboard) ? leaderboard : []);
+          setQuizTop3(Array.isArray(top3) ? top3 : []);
+          setActiveQuizRound(activeRound || null);
+          setMyQuizSubmission(activeRound?.mySubmission || null);
+          if (activeRound) {
+            setIsQuizOpen(true);
+            setSidebarOpen(true);
+            setActiveSidebarTab("quiz");
+          }
+        },
+      );
 
       socket.on("quiz-round-started", (roundData) => {
         setActiveQuizRound(roundData);
@@ -450,9 +535,12 @@ function SessionPage() {
         setActiveSidebarTab("quiz");
       });
 
-      socket.on("quiz-answer-accepted", ({ selectedOptionIndex, submittedAt, responseMs }) => {
-        setMyQuizSubmission({ selectedOptionIndex, submittedAt, responseMs });
-      });
+      socket.on(
+        "quiz-answer-accepted",
+        ({ selectedOptionIndex, submittedAt, responseMs }) => {
+          setMyQuizSubmission({ selectedOptionIndex, submittedAt, responseMs });
+        },
+      );
 
       socket.on("quiz-round-closed", (result) => {
         setLastRoundResult(result);
@@ -471,6 +559,14 @@ function SessionPage() {
         toast.error(message || "Quiz action failed");
       });
 
+      socket.on("code/execute.result", ({ userId: resultUserId, result }) => {
+        if (resultUserId === user?.id || resultUserId === currentMongoUserId) {
+          setOutput(result);
+          setIsRunning(false);
+          toast.success("Execution completed");
+        }
+      });
+
       socket.on("livestream-state", (nextState) => {
         setLivestreamState(nextState || null);
       });
@@ -480,7 +576,10 @@ function SessionPage() {
       });
 
       socket.on("livestream-chat-message", (message) => {
-        setLivestreamChatMessages((current) => [...current.slice(-99), message]);
+        setLivestreamChatMessages((current) => [
+          ...current.slice(-99),
+          message,
+        ]);
       });
 
       socket.on("livestream-chat-error", ({ message }) => {
@@ -528,12 +627,13 @@ function SessionPage() {
         if (amIHost) {
           toast.error(
             `⚠️ Candidate Warning: ${
-              reason === "tab-switch" ? "Switched Tab" : "Window Minimized/Blurred"
-            }`
+              reason === "tab-switch"
+                ? "Switched Tab"
+                : "Window Minimized/Blurred"
+            }`,
           );
         }
       });
-
     };
 
     connectSocket();
@@ -545,7 +645,7 @@ function SessionPage() {
       }
       socketRef.current = null;
     };
-  }, [id, getToken, user?.id, applyWhiteboardPermissions, authMode, devAuth]);
+  }, [id, getToken, user?.id, applyWhiteboardPermissions, authMode, devAuth, hasSessionAccess]);
 
   useEffect(() => {
     if (!id || !socketRef.current) return;
@@ -554,23 +654,34 @@ function SessionPage() {
   }, [id, hasSessionAccess]);
 
   useEffect(() => {
-    if (session?.isCodeOpen !== undefined) setIsCodeOpen(session.isCodeOpen);
-    if (session?.isAntiCheatEnabled !== undefined)
+    if (!session) return;
+
+    if (session.isCodeOpen !== undefined) setIsCodeOpen(session.isCodeOpen);
+    if (session.isAntiCheatEnabled !== undefined)
       setIsAntiCheatEnabled(session.isAntiCheatEnabled);
-    if (typeof session?.whiteboardWriteMode === "string") {
+    if (typeof session.whiteboardWriteMode === "string") {
       setWhiteboardWriteMode(session.whiteboardWriteMode);
     }
-    if (Array.isArray(session?.whiteboardWriters)) {
+    if (Array.isArray(session.whiteboardWriters)) {
       setWhiteboardWriterIds(
         session.whiteboardWriters
           .map((id) =>
-            typeof id === "string" ? id : id?._id?.toString?.() || id?.toString?.() || ""
+            typeof id === "string"
+              ? id
+              : id?._id?.toString?.() || id?.toString?.() || "",
           )
-          .filter(Boolean)
+          .filter(Boolean),
       );
     }
-    if (session?.isCodeOpen) setActiveTool((current) => current || "code");
-    if (session?.whiteboardIsOpen) setActiveTool((current) => current || "whiteboard");
+
+    // Only auto-set activeTool on initial load from DB
+    // Subsequent changes should come from Socket.IO events for real-time responsiveness
+    if (isInitialLoadRef.current) {
+      if (session.isCodeOpen) setActiveTool("code");
+      if (session.isCircuitOpen) setActiveTool("circuit");
+      if (session.whiteboardIsOpen) setActiveTool("whiteboard");
+      isInitialLoadRef.current = false;
+    }
   }, [session]);
 
   // --- Candidate Detection Logic ---
@@ -704,9 +815,21 @@ function SessionPage() {
   const toggleWhiteboard = () => {
     const newState = !isWhiteboardOpen;
     setIsWhiteboardOpen(newState);
-    setActiveTool(newState ? "whiteboard" : isCodeOpen ? "code" : null);
+    setActiveTool(newState ? "whiteboard" : isCodeOpen ? "code" : isCircuitOpen ? "circuit" : null);
     if (isHost && socketRef.current) {
       socketRef.current.emit("toggle-whiteboard", {
+        roomId: id,
+        isOpen: newState,
+      });
+    }
+  };
+
+  const toggleCircuit = () => {
+    const newState = !isCircuitOpen;
+    setIsCircuitOpen(newState);
+    setActiveTool(newState ? "circuit" : isCodeOpen ? "code" : isWhiteboardOpen ? "whiteboard" : null);
+    if (isHost && socketRef.current) {
+      socketRef.current.emit("toggle-circuit", {
         roomId: id,
         isOpen: newState,
       });
@@ -735,14 +858,22 @@ function SessionPage() {
 
   const handleToggleWriterAccess = (participantId, hasAccess) => {
     if (!isHost || !socketRef.current || !participantId) return;
-    socketRef.current.emit(hasAccess ? "whiteboard-revoke-writer" : "whiteboard-grant-writer", {
-      roomId: id,
-      userId: participantId,
-    });
+    socketRef.current.emit(
+      hasAccess ? "whiteboard-revoke-writer" : "whiteboard-grant-writer",
+      {
+        roomId: id,
+        userId: participantId,
+      },
+    );
   };
 
   const toggleQuizPanel = () => {
-    const shouldOpen = !(activeSidebarTab === "quiz" && sidebarOpen && isQuizOpen && !activeQuizRound);
+    const shouldOpen = !(
+      activeSidebarTab === "quiz" &&
+      sidebarOpen &&
+      isQuizOpen &&
+      !activeQuizRound
+    );
     setActiveSidebarTab("quiz");
     setSidebarOpen(shouldOpen || Boolean(activeQuizRound));
     setIsQuizOpen(shouldOpen || Boolean(activeQuizRound));
@@ -818,23 +949,33 @@ function SessionPage() {
     initializedSessionRef.current = id;
     const normalizedLanguage = normalizeSessionLanguage(session.language);
     setSelectedLanguage(normalizedLanguage);
-    setCode(`// Start coding in ${getSessionLanguageLabel(normalizedLanguage)}...`);
+    setCode(
+      `// Start coding in ${getSessionLanguageLabel(normalizedLanguage)}...`,
+    );
   }, [id, session?.language]);
 
   useEffect(() => {
     if (activeTool === "code" && !isCodeOpen) {
-      setActiveTool(isWhiteboardOpen ? "whiteboard" : null);
+      setActiveTool(
+        isWhiteboardOpen ? "whiteboard" : isCircuitOpen ? "circuit" : null,
+      );
     } else if (activeTool === "whiteboard" && !isWhiteboardOpen) {
-      setActiveTool(isCodeOpen ? "code" : null);
+      setActiveTool(isCodeOpen ? "code" : isCircuitOpen ? "circuit" : null);
+    } else if (activeTool === "circuit" && !isCircuitOpen) {
+      setActiveTool(isCodeOpen ? "code" : isWhiteboardOpen ? "whiteboard" : null);
     }
-  }, [activeTool, isCodeOpen, isWhiteboardOpen]);
+  }, [activeTool, isCodeOpen, isWhiteboardOpen, isCircuitOpen]);
 
   const handleRunCode = async () => {
     setIsRunning(true);
     setOutput(null);
-    const result = await executeCode(selectedLanguage, code);
-    setOutput(result);
-    setIsRunning(false);
+    const result = await executeCode(selectedLanguage, code, id);
+    if (!result.async) {
+      setOutput(result);
+      setIsRunning(false);
+    } else {
+      toast.success("Code running in background...");
+    }
   };
 
   const handleEndSession = () => {
@@ -850,7 +991,7 @@ function SessionPage() {
     if (!accessCode && !session?.courseAccess?.canJoinWithoutCode) return;
     joinSessionMutation.mutate(
       { id, code: accessCode || "" },
-      { onSuccess: refetch }
+      { onSuccess: refetch },
     );
   };
 
@@ -863,7 +1004,12 @@ function SessionPage() {
 
   const availableStageTools = [
     isCodeOpen ? { id: "code", label: "Code", icon: CodeIcon } : null,
-    isWhiteboardOpen ? { id: "whiteboard", label: "Whiteboard", icon: PresentationIcon } : null,
+    isWhiteboardOpen
+      ? { id: "whiteboard", label: "Whiteboard", icon: PresentationIcon }
+      : null,
+    isCircuitOpen
+      ? { id: "circuit", label: "Circuit", icon: CpuIcon }
+      : null,
   ].filter(Boolean);
 
   const openToolStage = (toolId) => {
@@ -898,7 +1044,11 @@ function SessionPage() {
       label: "Quiz",
       icon: ListChecksIcon,
       onClick: toggleQuizPanel,
-      active: Boolean(activeQuizRound || isQuizOpen || (sidebarOpen && activeSidebarTab === "quiz")),
+      active: Boolean(
+        activeQuizRound ||
+        isQuizOpen ||
+        (sidebarOpen && activeSidebarTab === "quiz"),
+      ),
     },
     ...availableStageTools.map((tool) => ({
       id: tool.id,
@@ -907,31 +1057,6 @@ function SessionPage() {
       onClick: () => openToolStage(tool.id),
       active: activeTool === tool.id,
     })),
-    ...(isLivestream && isHost
-      ? [
-          {
-            id: "go-live",
-            label: "Go Live",
-            icon: RadioTowerIcon,
-            onClick: () => {
-              handleStartLivestream();
-              setIsSessionMenuOpen(false);
-            },
-            disabled: livestreamLive,
-            primary: true,
-          },
-          {
-            id: "stop-live",
-            label: "Stop Live",
-            icon: XCircleIcon,
-            onClick: () => {
-              handleStopLivestream();
-              setIsSessionMenuOpen(false);
-            },
-            disabled: !livestreamLive,
-          },
-        ]
-      : []),
     ...(isLivestream
       ? [
           {
@@ -954,7 +1079,9 @@ function SessionPage() {
     if (!streamClient || !call) {
       return (
         <div className="h-full flex items-center justify-center">
-          <Loader2Icon className={`animate-spin text-primary ${compact ? "size-8" : "size-10"}`} />
+          <Loader2Icon
+            className={`animate-spin text-primary ${compact ? "size-8" : "size-10"}`}
+          />
         </div>
       );
     }
@@ -963,16 +1090,8 @@ function SessionPage() {
       <StreamVideo client={streamClient}>
         <StreamCall call={call}>
           <VideoCallUI
-            sessionType={session?.sessionType}
             isHost={isHost}
-            isLive={livestreamLive}
-            onStartLivestream={handleStartLivestream}
-            onStopLivestream={handleStopLivestream}
             compact={compact}
-            showHeader={!compact && isLivestream}
-            showControls={!compact && !isLivestream}
-            showLivestreamActions={false}
-            hostUserId={session?.host?.clerkId}
             onLeave={() => navigate("/dashboard")}
           />
         </StreamCall>
@@ -983,7 +1102,11 @@ function SessionPage() {
   const renderCodeStage = () => (
     <div className="relative h-full min-h-0 overflow-hidden rounded-xl border border-base-content/10 bg-base-100">
       {isLivestream && !isHost && isCodeDirtyFromHost && (
-        <button type="button" className="btn btn-primary btn-xs absolute right-3 top-3 z-20 gap-2 rounded-lg" onClick={syncCodeFromHost}>
+        <button
+          type="button"
+          className="btn btn-primary btn-xs absolute right-3 top-3 z-20 gap-2 rounded-lg"
+          onClick={syncCodeFromHost}
+        >
           <CodeIcon className="size-4" />
           Sync code
         </button>
@@ -1022,8 +1145,12 @@ function SessionPage() {
   );
 
   const renderMainStage = () => {
-    if (layoutMode === "video") {
-      return <div className="h-full min-h-0 overflow-hidden rounded-xl bg-base-300">{renderCall()}</div>;
+    if (layoutMode === "video" || !activeTool) {
+      return (
+        <div className="h-full min-h-0 overflow-hidden rounded-xl bg-base-300">
+          {renderCall()}
+        </div>
+      );
     }
 
     return (
@@ -1047,10 +1174,19 @@ function SessionPage() {
         </div>
 
         <div className="h-full min-h-0">
-          {activeTool === "code" ? renderCodeStage() : renderWhiteboardStage()}
+          {activeTool === "code" && renderCodeStage()}
+          {activeTool === "whiteboard" && renderWhiteboardStage()}
+          {activeTool === "circuit" && (
+            <CircuitSimulatorPanel
+              roomId={id}
+              socket={socketRef.current}
+              canWrite={isHost || isParticipant}
+            />
+          )}
         </div>
 
-        <div className="absolute bottom-3 right-3 z-30 h-28 w-44 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-lg border border-base-content/20 bg-base-300 shadow-2xl transition-all duration-300 ease-out md:bottom-4 md:right-4 md:h-48 md:w-72">
+        {/* Picture-in-Picture Video for tools */}
+        <div className="absolute bottom-3 right-3 z-[100] h-28 w-44 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-lg border-2 border-primary/20 bg-base-300 shadow-2xl transition-all duration-300 ease-out md:bottom-4 md:right-4 md:h-48 md:w-72">
           {renderCall({ compact: true })}
         </div>
       </div>
@@ -1059,7 +1195,13 @@ function SessionPage() {
 
   const renderSidebarContent = () => {
     if (activeSidebarTab === "participants") {
-      return <ParticipantsPanel session={session} isHost={isHost} onKickParticipant={handleKickParticipant} />;
+      return (
+        <ParticipantsPanel
+          session={session}
+          isHost={isHost}
+          onKickParticipant={handleKickParticipant}
+        />
+      );
     }
 
     if (activeSidebarTab === "quiz") {
@@ -1119,7 +1261,10 @@ function SessionPage() {
   }
 
   if (!hasSessionAccess) {
-    if (session?.courseAccess?.canJoinWithoutCode && joinSessionMutation.isPending) {
+    if (
+      session?.courseAccess?.canJoinWithoutCode &&
+      joinSessionMutation.isPending
+    ) {
       return (
         <div className="h-screen bg-base-100 flex items-center justify-center">
           <Loader2Icon className="size-10 animate-spin text-primary" />
@@ -1132,9 +1277,13 @@ function SessionPage() {
         <div className="flex flex-1 items-center justify-center p-4">
           <div className="w-full max-w-lg rounded-[2rem] border border-base-content/10 bg-base-100 p-7 shadow-xl">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Live classroom</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+                Live classroom
+              </p>
               <h2 className="mt-3 text-3xl font-black tracking-tight text-base-content">
-                {session?.courseAccess?.canJoinWithoutCode ? "Joining class" : "Join Session"}
+                {session?.courseAccess?.canJoinWithoutCode
+                  ? "Joining class"
+                  : "Join Session"}
               </h2>
               <p className="mt-3 text-sm leading-6 text-base-content/62">
                 {session?.courseAccess?.canJoinWithoutCode
@@ -1144,9 +1293,17 @@ function SessionPage() {
               {session?.courseAccess?.canJoinWithoutCode ? (
                 <div className="mt-6 space-y-4">
                   <p className="text-sm text-base-content/70">
-                    You are approved for <span className="font-semibold">{session.courseAccess.courseTitle}</span>. Entering the live class now.
+                    You are approved for{" "}
+                    <span className="font-semibold">
+                      {session.courseAccess.courseTitle}
+                    </span>
+                    . Entering the live class now.
                   </p>
-                  <button type="button" className="btn btn-primary h-12 w-full gap-2 rounded-xl" onClick={handleJoinSession}>
+                  <button
+                    type="button"
+                    className="btn btn-primary h-12 w-full gap-2 rounded-xl"
+                    onClick={handleJoinSession}
+                  >
                     <DoorOpenIcon className="size-5" />
                     Join Live Class
                   </button>
@@ -1168,7 +1325,10 @@ function SessionPage() {
                       />
                     </div>
                   </div>
-                  <button type="submit" className="btn btn-primary h-12 w-full gap-2 rounded-xl">
+                  <button
+                    type="submit"
+                    className="btn btn-primary h-12 w-full gap-2 rounded-xl"
+                  >
                     <KeyIcon className="size-5" />
                     Join Session
                   </button>
@@ -1193,16 +1353,9 @@ function SessionPage() {
               <span>Host: {session?.host?.name}</span>
               <span>•</span>
               <span>
-                Participants: {session?.participants?.length || 0} / {session?.maxParticipants}
+                Participants: {session?.participants?.length || 0} /{" "}
+                {session?.maxParticipants}
               </span>
-              {isLivestream && (
-                <>
-                  <span>•</span>
-                  <span className={livestreamLive ? "text-success" : "text-base-content/60"}>
-                    {livestreamLive ? "Live now" : isHost ? "Backstage" : "Waiting for host"}
-                  </span>
-                </>
-              )}
               {isHost && (
                 <>
                   <span>•</span>
@@ -1219,8 +1372,16 @@ function SessionPage() {
               type="button"
               onClick={toggleChatSidebar}
               className={`btn btn-sm btn-square rounded-lg ${sidebarOpen && activeSidebarTab === "chat" ? "btn-primary" : "btn-ghost"}`}
-              aria-label={sidebarOpen && activeSidebarTab === "chat" ? "Close chat" : "Open chat"}
-              title={sidebarOpen && activeSidebarTab === "chat" ? "Close chat" : "Chat"}
+              aria-label={
+                sidebarOpen && activeSidebarTab === "chat"
+                  ? "Close chat"
+                  : "Open chat"
+              }
+              title={
+                sidebarOpen && activeSidebarTab === "chat"
+                  ? "Close chat"
+                  : "Chat"
+              }
             >
               <MessageSquareIcon className="size-4" />
             </button>
@@ -1247,7 +1408,11 @@ function SessionPage() {
                           onClick={item.onClick}
                           disabled={item.disabled}
                           className={`btn btn-sm h-9 min-h-9 w-full justify-start gap-2 rounded-xl px-3 ${
-                            item.active ? "btn-primary" : item.primary ? "btn-primary" : "btn-ghost"
+                            item.active
+                              ? "btn-primary"
+                              : item.primary
+                                ? "btn-primary"
+                                : "btn-ghost"
                           }`}
                         >
                           <Icon className="size-4" />
@@ -1273,11 +1438,13 @@ function SessionPage() {
                 isAntiCheatEnabled={isAntiCheatEnabled}
                 isCodeOpen={isCodeOpen}
                 isWhiteboardOpen={isWhiteboardOpen}
+                isCircuitOpen={isCircuitOpen}
                 whiteboardWriteMode={whiteboardWriteMode}
                 whiteboardWriterIds={whiteboardWriterIds}
                 onToggleAntiCheat={toggleAntiCheat}
                 onToggleCodeSpace={toggleCodeSpace}
                 onToggleWhiteboard={toggleWhiteboard}
+                onToggleCircuit={toggleCircuit}
                 onWhiteboardWriteModeChange={handleWhiteboardWriteModeChange}
                 onToggleWriterAccess={handleToggleWriterAccess}
                 onToggleQuizPanel={toggleQuizPanel}
@@ -1291,7 +1458,9 @@ function SessionPage() {
 
       <div
         className={`grid min-h-0 flex-1 gap-3 p-2 transition-[grid-template-columns] duration-300 ease-out md:p-3 ${
-          sidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_24rem]" : "lg:grid-cols-[minmax(0,1fr)_0rem]"
+          sidebarOpen
+            ? "lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_24rem]"
+            : "lg:grid-cols-[minmax(0,1fr)_0rem]"
         }`}
       >
         <main className="relative min-h-0 overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
@@ -1323,11 +1492,19 @@ function SessionPage() {
                   );
                 })}
               </div>
-              <button type="button" className="btn btn-ghost btn-sm btn-square rounded-lg" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar" title="Close">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm btn-square rounded-lg"
+                onClick={() => setSidebarOpen(false)}
+                aria-label="Close sidebar"
+                title="Close"
+              >
                 <XIcon className="size-4" />
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-hidden">{renderSidebarContent()}</div>
+            <div className="min-h-0 flex-1 overflow-hidden">
+              {renderSidebarContent()}
+            </div>
           </div>
         </aside>
       </div>
@@ -1357,11 +1534,19 @@ function SessionPage() {
                 );
               })}
             </div>
-            <button type="button" className="btn btn-ghost btn-sm btn-square ml-2 rounded-lg" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar" title="Close">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm btn-square ml-2 rounded-lg"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Close sidebar"
+              title="Close"
+            >
               <XIcon className="size-4" />
             </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-hidden">{renderSidebarContent()}</div>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {renderSidebarContent()}
+          </div>
         </div>
       </div>
     </div>

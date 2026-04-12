@@ -16,5 +16,7 @@ export function AppProviders({ children }) {
     return content;
   }
 
-  return <ClerkProvider publishableKey={PUBLISHABLE_KEY}>{content}</ClerkProvider>;
+  return (
+    <ClerkProvider publishableKey={PUBLISHABLE_KEY}>{content}</ClerkProvider>
+  );
 }

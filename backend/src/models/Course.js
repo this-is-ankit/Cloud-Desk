@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
-const generateInviteCode = () => Math.random().toString(36).slice(2, 10).toUpperCase();
+const generateInviteCode = () =>
+  Math.random().toString(36).slice(2, 10).toUpperCase();
 
 const enrollmentSchema = new mongoose.Schema(
   {
@@ -274,15 +275,18 @@ const courseSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-courseSchema.index({
-  title: "text",
-  code: "text",
-  shortDescription: "text",
-  description: "text",
-  category: "text",
-  language: "text",
-  tags: "text",
-}, { language_override: "searchLanguage" });
+courseSchema.index(
+  {
+    title: "text",
+    code: "text",
+    shortDescription: "text",
+    description: "text",
+    category: "text",
+    language: "text",
+    tags: "text",
+  },
+  { language_override: "searchLanguage" },
+);
 
 const Course = mongoose.model("Course", courseSchema);
 

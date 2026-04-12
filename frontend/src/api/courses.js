@@ -32,58 +32,88 @@ export const courseApi = {
   },
 
   requestEnrollment: async (courseId) => {
-    const response = await axiosInstance.post(`/courses/${courseId}/enrollment-request`);
+    const response = await axiosInstance.post(
+      `/courses/${courseId}/enrollment-request`,
+    );
     return response.data;
   },
 
   joinCourseWithInvite: async ({ courseId, inviteCode }) => {
-    const response = await axiosInstance.post(`/courses/${courseId}/join-invite`, { inviteCode });
+    const response = await axiosInstance.post(
+      `/courses/${courseId}/join-invite`,
+      { inviteCode },
+    );
     return response.data;
   },
 
   approveEnrollment: async ({ courseId, enrollmentId }) => {
-    const response = await axiosInstance.post(`/courses/${courseId}/enrollments/${enrollmentId}/approve`);
+    const response = await axiosInstance.post(
+      `/courses/${courseId}/enrollments/${enrollmentId}/approve`,
+    );
     return response.data;
   },
 
   rejectEnrollment: async ({ courseId, enrollmentId }) => {
-    const response = await axiosInstance.post(`/courses/${courseId}/enrollments/${enrollmentId}/reject`);
+    const response = await axiosInstance.post(
+      `/courses/${courseId}/enrollments/${enrollmentId}/reject`,
+    );
     return response.data;
   },
 
   createClassSession: async ({ courseId, data }) => {
-    const response = await axiosInstance.post(`/courses/${courseId}/classes`, data);
+    const response = await axiosInstance.post(
+      `/courses/${courseId}/classes`,
+      data,
+    );
     return response.data;
   },
 
   updateClassSession: async ({ courseId, classId, data }) => {
-    const response = await axiosInstance.patch(`/courses/${courseId}/classes/${classId}`, data);
+    const response = await axiosInstance.patch(
+      `/courses/${courseId}/classes/${classId}`,
+      data,
+    );
     return response.data;
   },
 
   startClassSession: async ({ courseId, classId }) => {
-    const response = await axiosInstance.post(`/courses/${courseId}/classes/${classId}/start`);
+    const response = await axiosInstance.post(
+      `/courses/${courseId}/classes/${classId}/start`,
+    );
     return response.data;
   },
 
   startPersistentRoom: async (courseId) => {
-    const response = await axiosInstance.post(`/courses/${courseId}/persistent-room/start`);
+    const response = await axiosInstance.post(
+      `/courses/${courseId}/persistent-room/start`,
+    );
     return response.data;
   },
 
   createAssignment: async ({ courseId, data }) => {
-    const response = await axiosInstance.post(`/courses/${courseId}/assignments`, data);
+    const response = await axiosInstance.post(
+      `/courses/${courseId}/assignments`,
+      data,
+    );
     return response.data;
   },
 
   submitAssignment: async ({ courseId, assignmentId, content }) => {
-    const response = await axiosInstance.post(`/courses/${courseId}/assignments/${assignmentId}/submissions`, {
-      content,
-    });
+    const response = await axiosInstance.post(
+      `/courses/${courseId}/assignments/${assignmentId}/submissions`,
+      {
+        content,
+      },
+    );
     return response.data;
   },
 
-  reviewAssignmentSubmission: async ({ courseId, assignmentId, submissionId, feedback }) => {
+  reviewAssignmentSubmission: async ({
+    courseId,
+    assignmentId,
+    submissionId,
+    feedback,
+  }) => {
     const response = await axiosInstance.post(
       `/courses/${courseId}/assignments/${assignmentId}/submissions/${submissionId}/review`,
       { feedback },

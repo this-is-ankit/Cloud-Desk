@@ -47,51 +47,55 @@ function HomePage() {
       <nav className="sticky top-0 z-50 border-b border-base-content/10 bg-base-100/80 backdrop-blur-xl">
         <PageContainer className="py-4">
           <div className="flex items-center justify-between gap-4">
-          <Link
-            to={"/"}
-            className="flex items-center gap-3 transition-transform duration-200 hover:scale-[1.02]"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-content shadow-sm">
-              <SparklesIcon className="size-5" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-lg tracking-tight text-base-content leading-none">Cloud Desk</span>
-              <span className="text-[11px] font-medium text-base-content/50 uppercase tracking-widest mt-1">Platform</span>
-            </div>
-          </Link>
+            <Link
+              to={"/"}
+              className="flex items-center gap-3 transition-transform duration-200 hover:scale-[1.02]"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-content shadow-sm">
+                <SparklesIcon className="size-5" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-lg tracking-tight text-base-content leading-none">
+                  Cloud Desk
+                </span>
+                <span className="text-[11px] font-medium text-base-content/50 uppercase tracking-widest mt-1">
+                  Platform
+                </span>
+              </div>
+            </Link>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:block">
-              <ThemeToggle />
-            </div>
-            
-            {isLoaded && isSignedIn ? (
-              <button 
-                onClick={() => navigate("/dashboard")}
-                className="btn btn-primary btn-sm rounded-xl px-4 shadow-sm"
-              >
-                Go to Dashboard
-                <ArrowRightIcon className="size-4 ml-1" />
-              </button>
-            ) : (
-              <div className="hidden items-center gap-2 sm:flex">
-                <AuthIntentButton
-                  role="student"
-                  action="signin"
-                  className="btn btn-outline btn-sm rounded-xl border-base-content/15 px-4 text-base-content/70 hover:bg-base-200 hover:text-base-content"
-                >
-                  Student sign in
-                </AuthIntentButton>
-                <AuthIntentButton
-                  role="teacher"
-                  action="signin"
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:block">
+                <ThemeToggle />
+              </div>
+
+              {isLoaded && isSignedIn ? (
+                <button
+                  onClick={() => navigate("/dashboard")}
                   className="btn btn-primary btn-sm rounded-xl px-4 shadow-sm"
                 >
-                  Teacher sign in
-                </AuthIntentButton>
-              </div>
-            )}
-          </div>
+                  Go to Dashboard
+                  <ArrowRightIcon className="size-4 ml-1" />
+                </button>
+              ) : (
+                <div className="hidden items-center gap-2 sm:flex">
+                  <AuthIntentButton
+                    role="student"
+                    action="signin"
+                    className="btn btn-outline btn-sm rounded-xl border-base-content/15 px-4 text-base-content/70 hover:bg-base-200 hover:text-base-content"
+                  >
+                    Student sign in
+                  </AuthIntentButton>
+                  <AuthIntentButton
+                    role="teacher"
+                    action="signin"
+                    className="btn btn-primary btn-sm rounded-xl px-4 shadow-sm"
+                  >
+                    Teacher sign in
+                  </AuthIntentButton>
+                </div>
+              )}
+            </div>
           </div>
         </PageContainer>
       </nav>
@@ -111,8 +115,10 @@ function HomePage() {
               </h1>
 
               <p className="max-w-2xl text-lg leading-relaxed text-base-content/65">
-                Cloud Desk brings live classrooms, course operations, and collaborative coding into one product.
-                Teachers and students get distinct entry flows, clearer workspaces, and a familiar modern experience.
+                Cloud Desk brings live classrooms, course operations, and
+                collaborative coding into one product. Teachers and students get
+                distinct entry flows, clearer workspaces, and a familiar modern
+                experience.
               </p>
 
               <div className="flex flex-wrap gap-3">
@@ -148,12 +154,19 @@ function HomePage() {
                     copy: "Cleaner navigation, calmer surfaces, and clearer actions across the app.",
                   },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-2xl border border-base-content/10 bg-base-100/80 p-5 shadow-sm">
+                  <div
+                    key={item.label}
+                    className="rounded-2xl border border-base-content/10 bg-base-100/80 p-5 shadow-sm"
+                  >
                     <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                       <item.icon className="size-5" />
                     </div>
-                    <p className="font-semibold text-base-content">{item.label}</p>
-                    <p className="mt-2 text-sm leading-6 text-base-content/62">{item.copy}</p>
+                    <p className="font-semibold text-base-content">
+                      {item.label}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-base-content/62">
+                      {item.copy}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -161,10 +174,15 @@ function HomePage() {
 
             <div className="rounded-[2rem] border border-base-content/10 bg-base-100/95 p-6 shadow-2xl shadow-primary/5 lg:p-7">
               <div className="rounded-[1.5rem] border border-base-content/10 bg-gradient-to-br from-base-100 to-base-200/70 p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Choose your entry</p>
-                <h2 className="mt-3 text-3xl font-black tracking-tight text-base-content">Sign in the way you actually use the platform.</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+                  Choose your entry
+                </p>
+                <h2 className="mt-3 text-3xl font-black tracking-tight text-base-content">
+                  Sign in the way you actually use the platform.
+                </h2>
                 <p className="mt-3 text-sm leading-6 text-base-content/62">
-                  Teachers and students now enter through separate paths, while keeping the same secure authentication backend.
+                  Teachers and students now enter through separate paths, while
+                  keeping the same secure authentication backend.
                 </p>
               </div>
 
@@ -175,9 +193,15 @@ function HomePage() {
                     className={`rounded-[1.6rem] border border-base-content/10 bg-gradient-to-br ${card.accentClass} p-5`}
                   >
                     <div className="rounded-[1.35rem] bg-base-100/92 p-5 shadow-sm">
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-base-content/45">{card.eyebrow}</p>
-                      <h3 className="mt-2 text-2xl font-black text-base-content">{card.title}</h3>
-                      <p className="mt-3 text-sm leading-6 text-base-content/62">{card.description}</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-base-content/45">
+                        {card.eyebrow}
+                      </p>
+                      <h3 className="mt-2 text-2xl font-black text-base-content">
+                        {card.title}
+                      </h3>
+                      <p className="mt-3 text-sm leading-6 text-base-content/62">
+                        {card.description}
+                      </p>
 
                       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                         <AuthIntentButton
@@ -211,7 +235,8 @@ function HomePage() {
             One platform for classrooms, cohorts, and collaborative coding.
           </h2>
           <p className="text-lg font-medium text-base-content/60">
-            Built so the product feels like a normal, high-quality learning platform instead of a collection of disconnected tools.
+            Built so the product feels like a normal, high-quality learning
+            platform instead of a collection of disconnected tools.
           </p>
         </div>
 
@@ -220,9 +245,12 @@ function HomePage() {
             <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
               <VideoIcon className="size-7 text-primary" />
             </div>
-            <h3 className="text-xl font-bold mb-3 text-base-content">Live Studio Rooms</h3>
+            <h3 className="text-xl font-bold mb-3 text-base-content">
+              Live Studio Rooms
+            </h3>
             <p className="text-base-content/60 font-medium leading-relaxed">
-              Video, chat, and teaching tools stay inside the course workspace so live classes feel organized from the start.
+              Video, chat, and teaching tools stay inside the course workspace
+              so live classes feel organized from the start.
             </p>
           </div>
 
@@ -230,9 +258,12 @@ function HomePage() {
             <div className="w-14 h-14 rounded-2xl bg-secondary/10 flex items-center justify-center mb-6">
               <Code2Icon className="size-7 text-secondary" />
             </div>
-            <h3 className="text-xl font-bold mb-3 text-base-content">Multiplayer Editor</h3>
+            <h3 className="text-xl font-bold mb-3 text-base-content">
+              Multiplayer Editor
+            </h3>
             <p className="text-base-content/60 font-medium leading-relaxed">
-              Teachers and students can solve problems together with synchronized code editing, execution, and language-aware sessions.
+              Teachers and students can solve problems together with
+              synchronized code editing, execution, and language-aware sessions.
             </p>
           </div>
 
@@ -240,9 +271,12 @@ function HomePage() {
             <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-6">
               <UsersIcon className="size-7 text-accent" />
             </div>
-            <h3 className="text-xl font-bold mb-3 text-base-content">Cohort Discovery</h3>
+            <h3 className="text-xl font-bold mb-3 text-base-content">
+              Cohort Discovery
+            </h3>
             <p className="text-base-content/60 font-medium leading-relaxed">
-              Discover teachers, request access to live courses, and build structured learning routines around scheduled classes.
+              Discover teachers, request access to live courses, and build
+              structured learning routines around scheduled classes.
             </p>
           </div>
         </div>

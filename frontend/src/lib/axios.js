@@ -8,7 +8,10 @@ const axiosInstance = axios.create({
 });
 
 axiosInstance.interceptors.request.use((config) => {
-  if (import.meta.env.VITE_ENABLE_DEV_AUTH === "true" && typeof window !== "undefined") {
+  if (
+    import.meta.env.VITE_ENABLE_DEV_AUTH === "true" &&
+    typeof window !== "undefined"
+  ) {
     try {
       const raw = window.localStorage.getItem(DEV_AUTH_STORAGE_KEY);
       const session = raw ? JSON.parse(raw) : null;

@@ -2,15 +2,30 @@ import mongoose from "mongoose";
 import Course from "../models/Course.js";
 import Session from "../models/Session.js";
 import { chatClient, streamClient } from "../lib/stream.js";
-import { createCourseWithRepair, saveCourseWithRepair } from "../lib/coursePersistence.js";
+import {
+  createCourseWithRepair,
+  saveCourseWithRepair,
+} from "../lib/coursePersistence.js";
 import {
   getNormalizedSessionLanguage,
   getSessionLanguageLabel,
   normalizeSessionLanguage,
 } from "../lib/sessionLanguage.js";
 
-const COURSE_LEVELS = new Set(["Beginner", "Intermediate", "Advanced", "All Levels"]);
-const COURSE_SORTS = new Set(["relevance", "newest", "oldest", "popular", "title", "upcoming"]);
+const COURSE_LEVELS = new Set([
+  "Beginner",
+  "Intermediate",
+  "Advanced",
+  "All Levels",
+]);
+const COURSE_SORTS = new Set([
+  "relevance",
+  "newest",
+  "oldest",
+  "popular",
+  "title",
+  "upcoming",
+]);
 const COURSE_ENROLLMENT_MODES = new Set(["open", "approval", "invite"]);
 const MAX_COURSE_LIMIT = 100;
 const COURSE_FIELD_LIMITS = {
@@ -22,32 +37,51 @@ const COURSE_FIELD_LIMITS = {
   description: 4000,
 };
 
-const normalizeText = (value) => (typeof value === "string" ? value.trim() : "");
+const normalizeText = (value) =>
+  typeof value === "string" ? value.trim() : "";
 
 const normalizeTags = (value) => {
-  const tags = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
-  return [...new Set(tags.map((tag) => normalizeText(tag).toLowerCase()).filter(Boolean))].slice(0, 12);
+  const tags = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : [];
+  return [
+    ...new Set(
+      tags.map((tag) => normalizeText(tag).toLowerCase()).filter(Boolean),
+    ),
+  ].slice(0, 12);
 };
 
 const normalizeRole = (value) => (value === "teacher" ? "teacher" : "student");
-const normalizeEnrollmentMode = (value) => (COURSE_ENROLLMENT_MODES.has(value) ? value : "open");
-const normalizeClassSessionType = (value) => (value === "livestream" ? "livestream" : "interactive");
+const normalizeEnrollmentMode = (value) =>
+  COURSE_ENROLLMENT_MODES.has(value) ? value : "open";
+const normalizeClassSessionType = (value) =>
+  value === "livestream" ? "livestream" : "interactive";
 
 const assertTeacher = (user) => normalizeRole(user?.role) === "teacher";
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const findEnrollment = (course, userId) =>
-  (course.enrollments || []).find((entry) => entry.student?._id?.toString?.() === userId || entry.student?.toString?.() === userId);
+  (course.enrollments || []).find(
+    (entry) =>
+      entry.student?._id?.toString?.() === userId ||
+      entry.student?.toString?.() === userId,
+  );
 
-const isTeacherOwner = (course, userId) => course.teacher?._id?.toString?.() === userId || course.teacher?.toString?.() === userId;
-const generateInviteCode = () => Math.random().toString(36).slice(2, 10).toUpperCase();
+const isTeacherOwner = (course, userId) =>
+  course.teacher?._id?.toString?.() === userId ||
+  course.teacher?.toString?.() === userId;
+const generateInviteCode = () =>
+  Math.random().toString(36).slice(2, 10).toUpperCase();
 
 const ensureEnrolledStudent = (course, userId, statuses = ["approved"]) =>
   (course.enrollments || []).find(
     (entry) =>
       statuses.includes(entry.status) &&
-      (entry.student?._id?.toString?.() === userId || entry.student?.toString?.() === userId),
+      (entry.student?._id?.toString?.() === userId ||
+        entry.student?.toString?.() === userId),
   );
 
 const getCourseFieldLengthError = (fields) => {
@@ -65,9 +99,14 @@ const getNextUpcomingClass = (classSessions = []) => {
   const now = Date.now();
   return (
     classSessions
-      .filter((classSession) => classSession.status === "scheduled" || classSession.status === "live")
+      .filter(
+        (classSession) =>
+          classSession.status === "scheduled" || classSession.status === "live",
+      )
       .sort((a, b) => new Date(a.scheduledStart) - new Date(b.scheduledStart))
-      .find((classSession) => new Date(classSession.scheduledEnd).getTime() >= now) || null
+      .find(
+        (classSession) => new Date(classSession.scheduledEnd).getTime() >= now,
+      ) || null
   );
 };
 
@@ -77,7 +116,8 @@ const getNextAssignment = (assignments = []) => {
     assignments
       .filter((assignment) => assignment.status === "open")
       .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
-      .find((assignment) => new Date(assignment.dueDate).getTime() >= now) || null
+      .find((assignment) => new Date(assignment.dueDate).getTime() >= now) ||
+    null
   );
 };
 
@@ -127,7 +167,9 @@ const serializeEnrollment = (entry) => ({
 const serializeAssignment = (assignment, currentUserId, canManage) => {
   const mySubmission =
     (assignment.submissions || []).find(
-      (submission) => submission.student?._id?.toString?.() === currentUserId || submission.student?.toString?.() === currentUserId,
+      (submission) =>
+        submission.student?._id?.toString?.() === currentUserId ||
+        submission.student?.toString?.() === currentUserId,
     ) || null;
 
   return {
@@ -205,8 +247,12 @@ const serializeCourseSummary = (course, currentUser) => {
   const enrollment = findEnrollment(course, currentUserId);
   const nextClass = getNextUpcomingClass(course.classSessions || []);
   const nextAssignment = getNextAssignment(course.assignments || []);
-  const pendingEnrollmentCount = (course.enrollments || []).filter((entry) => entry.status === "pending").length;
-  const approvedStudentCount = (course.enrollments || []).filter((entry) => entry.status === "approved").length;
+  const pendingEnrollmentCount = (course.enrollments || []).filter(
+    (entry) => entry.status === "pending",
+  ).length;
+  const approvedStudentCount = (course.enrollments || []).filter(
+    (entry) => entry.status === "approved",
+  ).length;
 
   return {
     _id: course._id,
@@ -258,22 +304,33 @@ const serializeCourseSummary = (course, currentUser) => {
         }
       : null,
     persistentRoomEnabled: Boolean(course.persistentRoomEnabled),
-    persistentSessionId: course.persistentSessionId?._id || course.persistentSessionId || null,
-    inviteCode: isTeacherOwner(course, currentUserId) ? course.inviteCode : undefined,
+    persistentSessionId:
+      course.persistentSessionId?._id || course.persistentSessionId || null,
+    inviteCode: isTeacherOwner(course, currentUserId)
+      ? course.inviteCode
+      : undefined,
   };
 };
 
 const serializeCourseDetail = (course, currentUser) => {
   const currentUserId = currentUser._id.toString();
-  const canManage = isTeacherOwner(course, currentUserId) && normalizeRole(currentUser.role) === "teacher";
+  const canManage =
+    isTeacherOwner(course, currentUserId) &&
+    normalizeRole(currentUser.role) === "teacher";
   const enrollment = findEnrollment(course, currentUserId);
 
   return {
     ...serializeCourseSummary(course, currentUser),
     canManage,
-    classSessions: (course.classSessions || []).map((entry) => serializeClassSession(entry, canManage)),
-    assignments: (course.assignments || []).map((entry) => serializeAssignment(entry, currentUserId, canManage)),
-    enrollments: canManage ? (course.enrollments || []).map(serializeEnrollment) : undefined,
+    classSessions: (course.classSessions || []).map((entry) =>
+      serializeClassSession(entry, canManage),
+    ),
+    assignments: (course.assignments || []).map((entry) =>
+      serializeAssignment(entry, currentUserId, canManage),
+    ),
+    enrollments: canManage
+      ? (course.enrollments || []).map(serializeEnrollment)
+      : undefined,
     approvedStudents: canManage
       ? (course.enrollments || [])
           .filter((entry) => entry.status === "approved")
@@ -293,12 +350,21 @@ const serializeCourseDetail = (course, currentUser) => {
 
 const coursePopulate = (query) =>
   query
-    .populate("teacher", "name email profileImage role clerkId headline subjects languagesSpoken availabilityNote")
+    .populate(
+      "teacher",
+      "name email profileImage role clerkId headline subjects languagesSpoken availabilityNote",
+    )
     .populate("persistentSessionId", "_id status code")
     .populate("enrollments.student", "name email profileImage role clerkId")
     .populate("classSessions.sessionId", "_id status code")
-    .populate("classSessions.attendance.student", "name email profileImage role clerkId")
-    .populate("assignments.submissions.student", "name email profileImage role clerkId");
+    .populate(
+      "classSessions.attendance.student",
+      "name email profileImage role clerkId",
+    )
+    .populate(
+      "assignments.submissions.student",
+      "name email profileImage role clerkId",
+    );
 
 const createRealtimeSession = async ({
   hostUser,
@@ -312,7 +378,8 @@ const createRealtimeSession = async ({
 }) => {
   const sessionLanguage = normalizeSessionLanguage(language);
   const normalizedSessionType = normalizeClassSessionType(sessionType);
-  const streamCallType = normalizedSessionType === "livestream" ? "livestream" : "default";
+  const streamCallType =
+    normalizedSessionType === "livestream" ? "livestream" : "default";
   const callId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
@@ -382,7 +449,9 @@ const ensureCourseTeacher = (course, user) => {
 export async function createCourse(req, res) {
   try {
     if (!assertTeacher(req.user)) {
-      return res.status(403).json({ message: "Only teachers can create courses" });
+      return res
+        .status(403)
+        .json({ message: "Only teachers can create courses" });
     }
 
     const title = normalizeText(req.body.title);
@@ -390,19 +459,27 @@ export async function createCourse(req, res) {
     const category = normalizeText(req.body.category);
     const rawLanguage = normalizeText(req.body.language);
     const language = getNormalizedSessionLanguage(rawLanguage);
-    const level = COURSE_LEVELS.has(req.body.level) ? req.body.level : "All Levels";
+    const level = COURSE_LEVELS.has(req.body.level)
+      ? req.body.level
+      : "All Levels";
     const shortDescription = normalizeText(req.body.shortDescription);
     const description = normalizeText(req.body.description);
     const tags = normalizeTags(req.body.tags);
     const persistentRoomEnabled = req.body.persistentRoomEnabled !== false;
     const enrollmentMode = normalizeEnrollmentMode(req.body.enrollmentMode);
-    const inviteCode = normalizeText(req.body.inviteCode).toUpperCase() || generateInviteCode();
+    const inviteCode =
+      normalizeText(req.body.inviteCode).toUpperCase() || generateInviteCode();
 
     if (!title || !code || !category || !rawLanguage || !shortDescription) {
-      return res.status(400).json({ message: "Title, code, category, language, and short description are required" });
+      return res.status(400).json({
+        message:
+          "Title, code, category, language, and short description are required",
+      });
     }
     if (!language) {
-      return res.status(400).json({ message: "Choose a supported classroom language" });
+      return res
+        .status(400)
+        .json({ message: "Choose a supported classroom language" });
     }
 
     const fieldLengthError = getCourseFieldLengthError({
@@ -439,10 +516,17 @@ export async function createCourse(req, res) {
     });
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res.status(201).json({ course: serializeCourseDetail(populatedCourse, req.user) });
+    res
+      .status(201)
+      .json({ course: serializeCourseDetail(populatedCourse, req.user) });
   } catch (error) {
     console.error("Error in createCourse controller:", error.message);
-    res.status(500).json({ message: error?.name === "ValidationError" ? "Invalid course data" : "Internal Server Error" });
+    res.status(500).json({
+      message:
+        error?.name === "ValidationError"
+          ? "Invalid course data"
+          : "Internal Server Error",
+    });
   }
 }
 
@@ -456,8 +540,15 @@ export async function getCourses(req, res) {
     const teacher = normalizeText(req.query.teacher);
     const enrollmentMode = normalizeText(req.query.enrollmentMode);
     const scope = normalizeText(req.query.scope);
-    const sort = COURSE_SORTS.has(req.query.sort) ? req.query.sort : query ? "relevance" : "popular";
-    const limit = Math.min(MAX_COURSE_LIMIT, Math.max(1, Number.parseInt(req.query.limit, 10) || 24));
+    const sort = COURSE_SORTS.has(req.query.sort)
+      ? req.query.sort
+      : query
+        ? "relevance"
+        : "popular";
+    const limit = Math.min(
+      MAX_COURSE_LIMIT,
+      Math.max(1, Number.parseInt(req.query.limit, 10) || 24),
+    );
 
     const baseQuery = {};
     if (assertTeacher(user)) {
@@ -474,37 +565,57 @@ export async function getCourses(req, res) {
       }
     }
 
-    if (category) baseQuery.category = new RegExp(`^${escapeRegex(category)}$`, "i");
+    if (category)
+      baseQuery.category = new RegExp(`^${escapeRegex(category)}$`, "i");
     if (level) baseQuery.level = level;
     if (language) baseQuery.language = new RegExp(escapeRegex(language), "i");
-    if (enrollmentMode && COURSE_ENROLLMENT_MODES.has(enrollmentMode)) baseQuery.enrollmentMode = enrollmentMode;
+    if (enrollmentMode && COURSE_ENROLLMENT_MODES.has(enrollmentMode))
+      baseQuery.enrollmentMode = enrollmentMode;
 
-    const fetchedCourses = await coursePopulate(Course.find(baseQuery).sort({ createdAt: -1 }));
+    const fetchedCourses = await coursePopulate(
+      Course.find(baseQuery).sort({ createdAt: -1 }),
+    );
     const serializedCourses = fetchedCourses
       .map((course) => serializeCourseSummary(course, user))
-      .filter((course) => !teacher || course.teacher?.name?.toLowerCase().includes(teacher.toLowerCase()));
+      .filter(
+        (course) =>
+          !teacher ||
+          course.teacher?.name?.toLowerCase().includes(teacher.toLowerCase()),
+      );
     const filteredCourses = query
       ? serializedCourses
-          .map((course) => ({ ...course, _score: buildSearchScore(course, query) }))
+          .map((course) => ({
+            ...course,
+            _score: buildSearchScore(course, query),
+          }))
           .filter((course) => course._score > 0)
       : serializedCourses.map((course) => ({ ...course, _score: 0 }));
 
     const sorters = {
-      relevance: (a, b) => b._score - a._score || new Date(b.updatedAt) - new Date(a.updatedAt),
+      relevance: (a, b) =>
+        b._score - a._score || new Date(b.updatedAt) - new Date(a.updatedAt),
       newest: (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
       oldest: (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
-      popular: (a, b) => b.approvedStudentCount - a.approvedStudentCount || new Date(b.createdAt) - new Date(a.createdAt),
+      popular: (a, b) =>
+        b.approvedStudentCount - a.approvedStudentCount ||
+        new Date(b.createdAt) - new Date(a.createdAt),
       title: (a, b) => a.title.localeCompare(b.title),
       upcoming: (a, b) => {
-        const aDate = a.nextClass ? new Date(a.nextClass.scheduledStart).getTime() : Number.POSITIVE_INFINITY;
-        const bDate = b.nextClass ? new Date(b.nextClass.scheduledStart).getTime() : Number.POSITIVE_INFINITY;
+        const aDate = a.nextClass
+          ? new Date(a.nextClass.scheduledStart).getTime()
+          : Number.POSITIVE_INFINITY;
+        const bDate = b.nextClass
+          ? new Date(b.nextClass.scheduledStart).getTime()
+          : Number.POSITIVE_INFINITY;
         return aDate - bDate || a.title.localeCompare(b.title);
       },
     };
 
     const sortedCourses = filteredCourses.sort(sorters[sort]);
     res.status(200).json({
-      courses: sortedCourses.slice(0, limit).map(({ _score, ...course }) => course),
+      courses: sortedCourses
+        .slice(0, limit)
+        .map(({ _score, ...course }) => course),
       meta: {
         total: sortedCourses.length,
         sort,
@@ -527,8 +638,14 @@ export async function getCourseById(req, res) {
     }
 
     const isOwner = isTeacherOwner(course, req.user._id.toString());
-    if (!isOwner && course.status !== "published" && !findEnrollment(course, req.user._id.toString())) {
-      return res.status(403).json({ message: "You do not have access to this course" });
+    if (
+      !isOwner &&
+      course.status !== "published" &&
+      !findEnrollment(course, req.user._id.toString())
+    ) {
+      return res
+        .status(403)
+        .json({ message: "You do not have access to this course" });
     }
 
     res.status(200).json({ course: serializeCourseDetail(course, req.user) });
@@ -545,19 +662,29 @@ export async function updateCourse(req, res) {
       return res.status(404).json({ message: "Course not found" });
     }
     if (!ensureCourseTeacher(course, req.user)) {
-      return res.status(403).json({ message: "Only the course teacher can update this course" });
+      return res
+        .status(403)
+        .json({ message: "Only the course teacher can update this course" });
     }
 
     const nextCode = normalizeText(req.body.code).toUpperCase();
     if (nextCode && nextCode !== course.code) {
-      const existing = await Course.findOne({ code: nextCode, _id: { $ne: course._id } });
+      const existing = await Course.findOne({
+        code: nextCode,
+        _id: { $ne: course._id },
+      });
       if (existing) {
         return res.status(409).json({ message: "Course code already exists" });
       }
       course.code = nextCode;
     }
 
-    const updatableFields = ["title", "category", "shortDescription", "description"];
+    const updatableFields = [
+      "title",
+      "category",
+      "shortDescription",
+      "description",
+    ];
     for (const field of updatableFields) {
       if (field in req.body) {
         const value = normalizeText(req.body[field]);
@@ -567,7 +694,9 @@ export async function updateCourse(req, res) {
     if ("language" in req.body) {
       const nextLanguage = getNormalizedSessionLanguage(req.body.language);
       if (!nextLanguage) {
-        return res.status(400).json({ message: "Choose a supported classroom language" });
+        return res
+          .status(400)
+          .json({ message: "Choose a supported classroom language" });
       }
       course.language = nextLanguage;
     }
@@ -584,7 +713,9 @@ export async function updateCourse(req, res) {
       course.enrollmentMode = normalizeEnrollmentMode(req.body.enrollmentMode);
     }
     if ("inviteCode" in req.body) {
-      course.inviteCode = normalizeText(req.body.inviteCode).toUpperCase() || generateInviteCode();
+      course.inviteCode =
+        normalizeText(req.body.inviteCode).toUpperCase() ||
+        generateInviteCode();
     }
 
     const fieldLengthError = getCourseFieldLengthError({
@@ -601,10 +732,17 @@ export async function updateCourse(req, res) {
 
     await saveCourseWithRepair(course);
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user) });
+    res
+      .status(200)
+      .json({ course: serializeCourseDetail(populatedCourse, req.user) });
   } catch (error) {
     console.error("Error in updateCourse controller:", error.message);
-    res.status(500).json({ message: error?.name === "ValidationError" ? "Invalid course data" : "Internal Server Error" });
+    res.status(500).json({
+      message:
+        error?.name === "ValidationError"
+          ? "Invalid course data"
+          : "Internal Server Error",
+    });
   }
 }
 
@@ -613,21 +751,40 @@ export async function publishCourse(req, res) {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
     if (!ensureCourseTeacher(course, req.user)) {
-      return res.status(403).json({ message: "Only the course teacher can publish this course" });
+      return res
+        .status(403)
+        .json({ message: "Only the course teacher can publish this course" });
     }
 
-    if (!course.title || !course.code || !course.category || !course.language || !course.shortDescription) {
-      return res.status(400).json({ message: "Complete the course details before publishing" });
+    if (
+      !course.title ||
+      !course.code ||
+      !course.category ||
+      !course.language ||
+      !course.shortDescription
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Complete the course details before publishing" });
     }
-    if (!course.persistentRoomEnabled && (course.classSessions || []).length === 0) {
-      return res.status(400).json({ message: "Enable the persistent room or schedule at least one class before publishing" });
+    if (
+      !course.persistentRoomEnabled &&
+      (course.classSessions || []).length === 0
+    ) {
+      return res.status(400).json({
+        message:
+          "Enable the persistent room or schedule at least one class before publishing",
+      });
     }
 
     course.status = "published";
     await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Course published successfully" });
+    res.status(200).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Course published successfully",
+    });
   } catch (error) {
     console.error("Error in publishCourse controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -639,14 +796,19 @@ export async function archiveCourse(req, res) {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
     if (!ensureCourseTeacher(course, req.user)) {
-      return res.status(403).json({ message: "Only the course teacher can archive this course" });
+      return res
+        .status(403)
+        .json({ message: "Only the course teacher can archive this course" });
     }
 
     course.status = "archived";
     await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Course archived" });
+    res.status(200).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Course archived",
+    });
   } catch (error) {
     console.error("Error in archiveCourse controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -656,22 +818,32 @@ export async function archiveCourse(req, res) {
 export async function requestEnrollment(req, res) {
   try {
     if (assertTeacher(req.user)) {
-      return res.status(403).json({ message: "Teachers do not enroll in courses" });
+      return res
+        .status(403)
+        .json({ message: "Teachers do not enroll in courses" });
     }
 
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
     if (course.status !== "published") {
-      return res.status(400).json({ message: "Only published courses can accept enrollment requests" });
+      return res.status(400).json({
+        message: "Only published courses can accept enrollment requests",
+      });
     }
 
     const existing = findEnrollment(course, req.user._id.toString());
     if (existing) {
-      return res.status(200).json({ message: `Enrollment is already ${existing.status}`, enrollmentStatus: existing.status });
+      return res.status(200).json({
+        message: `Enrollment is already ${existing.status}`,
+        enrollmentStatus: existing.status,
+      });
     }
 
     if (course.enrollmentMode === "invite") {
-      return res.status(400).json({ message: "This course requires an invite code", enrollmentStatus: "invite-required" });
+      return res.status(400).json({
+        message: "This course requires an invite code",
+        enrollmentStatus: "invite-required",
+      });
     }
 
     course.enrollments.push({
@@ -682,9 +854,13 @@ export async function requestEnrollment(req, res) {
     });
     await saveCourseWithRepair(course);
 
-    const enrollmentStatus = course.enrollmentMode === "open" ? "approved" : "pending";
+    const enrollmentStatus =
+      course.enrollmentMode === "open" ? "approved" : "pending";
     res.status(200).json({
-      message: enrollmentStatus === "approved" ? "You joined the course successfully" : "Enrollment request submitted",
+      message:
+        enrollmentStatus === "approved"
+          ? "You joined the course successfully"
+          : "Enrollment request submitted",
       enrollmentStatus,
     });
   } catch (error) {
@@ -696,21 +872,30 @@ export async function requestEnrollment(req, res) {
 export async function joinCourseWithInvite(req, res) {
   try {
     if (assertTeacher(req.user)) {
-      return res.status(403).json({ message: "Teachers do not enroll in courses" });
+      return res
+        .status(403)
+        .json({ message: "Teachers do not enroll in courses" });
     }
 
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
     if (course.status !== "published") {
-      return res.status(400).json({ message: "Only published courses can be joined" });
+      return res
+        .status(400)
+        .json({ message: "Only published courses can be joined" });
     }
     if (course.enrollmentMode !== "invite") {
-      return res.status(400).json({ message: "This course does not require an invite code" });
+      return res
+        .status(400)
+        .json({ message: "This course does not require an invite code" });
     }
 
     const existing = findEnrollment(course, req.user._id.toString());
     if (existing) {
-      return res.status(200).json({ message: `Enrollment is already ${existing.status}`, enrollmentStatus: existing.status });
+      return res.status(200).json({
+        message: `Enrollment is already ${existing.status}`,
+        enrollmentStatus: existing.status,
+      });
     }
 
     const inviteCode = normalizeText(req.body.inviteCode).toUpperCase();
@@ -726,7 +911,10 @@ export async function joinCourseWithInvite(req, res) {
     });
     await saveCourseWithRepair(course);
 
-    res.status(200).json({ message: "You joined the course successfully", enrollmentStatus: "approved" });
+    res.status(200).json({
+      message: "You joined the course successfully",
+      enrollmentStatus: "approved",
+    });
   } catch (error) {
     console.error("Error in joinCourseWithInvite controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -738,18 +926,24 @@ export async function approveEnrollment(req, res) {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
     if (!ensureCourseTeacher(course, req.user)) {
-      return res.status(403).json({ message: "Only the course teacher can approve enrollments" });
+      return res
+        .status(403)
+        .json({ message: "Only the course teacher can approve enrollments" });
     }
 
     const enrollment = course.enrollments.id(req.params.enrollmentId);
-    if (!enrollment) return res.status(404).json({ message: "Enrollment request not found" });
+    if (!enrollment)
+      return res.status(404).json({ message: "Enrollment request not found" });
 
     enrollment.status = "approved";
     enrollment.decidedAt = new Date();
     await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Enrollment approved" });
+    res.status(200).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Enrollment approved",
+    });
   } catch (error) {
     console.error("Error in approveEnrollment controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -761,18 +955,24 @@ export async function rejectEnrollment(req, res) {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
     if (!ensureCourseTeacher(course, req.user)) {
-      return res.status(403).json({ message: "Only the course teacher can reject enrollments" });
+      return res
+        .status(403)
+        .json({ message: "Only the course teacher can reject enrollments" });
     }
 
     const enrollment = course.enrollments.id(req.params.enrollmentId);
-    if (!enrollment) return res.status(404).json({ message: "Enrollment request not found" });
+    if (!enrollment)
+      return res.status(404).json({ message: "Enrollment request not found" });
 
     enrollment.status = "rejected";
     enrollment.decidedAt = new Date();
     await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Enrollment rejected" });
+    res.status(200).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Enrollment rejected",
+    });
   } catch (error) {
     console.error("Error in rejectEnrollment controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -784,21 +984,38 @@ export async function createClassSession(req, res) {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
     if (!ensureCourseTeacher(course, req.user)) {
-      return res.status(403).json({ message: "Only the course teacher can schedule classes" });
+      return res
+        .status(403)
+        .json({ message: "Only the course teacher can schedule classes" });
     }
 
     const title = normalizeText(req.body.title);
     const description = normalizeText(req.body.description);
-    const scheduledStart = req.body.scheduledStart ? new Date(req.body.scheduledStart) : null;
-    const scheduledEnd = req.body.scheduledEnd ? new Date(req.body.scheduledEnd) : null;
+    const scheduledStart = req.body.scheduledStart
+      ? new Date(req.body.scheduledStart)
+      : null;
+    const scheduledEnd = req.body.scheduledEnd
+      ? new Date(req.body.scheduledEnd)
+      : null;
     const sessionType = normalizeClassSessionType(req.body.sessionType);
-    const usePersistentRoom = sessionType === "interactive" && req.body.usePersistentRoom === true;
+    const usePersistentRoom =
+      sessionType === "interactive" && req.body.usePersistentRoom === true;
 
-    if (!title || !scheduledStart || !scheduledEnd || Number.isNaN(scheduledStart.getTime()) || Number.isNaN(scheduledEnd.getTime())) {
-      return res.status(400).json({ message: "Title, start time, and end time are required" });
+    if (
+      !title ||
+      !scheduledStart ||
+      !scheduledEnd ||
+      Number.isNaN(scheduledStart.getTime()) ||
+      Number.isNaN(scheduledEnd.getTime())
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Title, start time, and end time are required" });
     }
     if (scheduledEnd <= scheduledStart) {
-      return res.status(400).json({ message: "Class end time must be after start time" });
+      return res
+        .status(400)
+        .json({ message: "Class end time must be after start time" });
     }
 
     course.classSessions.push({
@@ -814,7 +1031,10 @@ export async function createClassSession(req, res) {
     await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res.status(201).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Class scheduled successfully" });
+    res.status(201).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Class scheduled successfully",
+    });
   } catch (error) {
     console.error("Error in createClassSession controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -826,26 +1046,44 @@ export async function updateClassSession(req, res) {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
     if (!ensureCourseTeacher(course, req.user)) {
-      return res.status(403).json({ message: "Only the course teacher can update classes" });
+      return res
+        .status(403)
+        .json({ message: "Only the course teacher can update classes" });
     }
 
     const classSession = course.classSessions.id(req.params.classId);
-    if (!classSession) return res.status(404).json({ message: "Class session not found" });
+    if (!classSession)
+      return res.status(404).json({ message: "Class session not found" });
 
-    if ("title" in req.body) classSession.title = normalizeText(req.body.title) || classSession.title;
-    if ("description" in req.body) classSession.description = normalizeText(req.body.description);
-    if ("status" in req.body && ["scheduled", "live", "completed", "cancelled"].includes(req.body.status)) {
+    if ("title" in req.body)
+      classSession.title = normalizeText(req.body.title) || classSession.title;
+    if ("description" in req.body)
+      classSession.description = normalizeText(req.body.description);
+    if (
+      "status" in req.body &&
+      ["scheduled", "live", "completed", "cancelled"].includes(req.body.status)
+    ) {
       classSession.status = req.body.status;
     }
-    if ("sessionType" in req.body) classSession.sessionType = normalizeClassSessionType(req.body.sessionType);
-    if ("usePersistentRoom" in req.body) classSession.usePersistentRoom = req.body.usePersistentRoom === true;
-    if (normalizeClassSessionType(classSession.sessionType) === "livestream") classSession.usePersistentRoom = false;
-    if ("scheduledStart" in req.body) classSession.scheduledStart = new Date(req.body.scheduledStart);
-    if ("scheduledEnd" in req.body) classSession.scheduledEnd = new Date(req.body.scheduledEnd);
+    if ("sessionType" in req.body)
+      classSession.sessionType = normalizeClassSessionType(
+        req.body.sessionType,
+      );
+    if ("usePersistentRoom" in req.body)
+      classSession.usePersistentRoom = req.body.usePersistentRoom === true;
+    if (normalizeClassSessionType(classSession.sessionType) === "livestream")
+      classSession.usePersistentRoom = false;
+    if ("scheduledStart" in req.body)
+      classSession.scheduledStart = new Date(req.body.scheduledStart);
+    if ("scheduledEnd" in req.body)
+      classSession.scheduledEnd = new Date(req.body.scheduledEnd);
 
     await saveCourseWithRepair(course);
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Class updated" });
+    res.status(200).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Class updated",
+    });
   } catch (error) {
     console.error("Error in updateClassSession controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -857,11 +1095,14 @@ export async function startClassSession(req, res) {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
     if (!ensureCourseTeacher(course, req.user)) {
-      return res.status(403).json({ message: "Only the course teacher can start classes" });
+      return res
+        .status(403)
+        .json({ message: "Only the course teacher can start classes" });
     }
 
     const classSession = course.classSessions.id(req.params.classId);
-    if (!classSession) return res.status(404).json({ message: "Class session not found" });
+    if (!classSession)
+      return res.status(404).json({ message: "Class session not found" });
 
     let session = null;
     if (classSession.usePersistentRoom && course.persistentSessionId) {
@@ -877,7 +1118,12 @@ export async function startClassSession(req, res) {
         language: course.language,
         title: `${course.title} • ${classSession.title}`,
         sessionType: normalizeClassSessionType(classSession.sessionType),
-        maxParticipants: Math.max(5, (course.enrollments || []).filter((entry) => entry.status === "approved").length + 3),
+        maxParticipants: Math.max(
+          5,
+          (course.enrollments || []).filter(
+            (entry) => entry.status === "approved",
+          ).length + 3,
+        ),
         courseId: course._id,
         classSessionId: classSession._id,
         sessionKind: classSession.usePersistentRoom ? "course_room" : "class",
@@ -909,20 +1155,31 @@ export async function startPersistentRoom(req, res) {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
     if (!ensureCourseTeacher(course, req.user)) {
-      return res.status(403).json({ message: "Only the course teacher can start the persistent room" });
+      return res.status(403).json({
+        message: "Only the course teacher can start the persistent room",
+      });
     }
     if (!course.persistentRoomEnabled) {
-      return res.status(400).json({ message: "Persistent room is disabled for this course" });
+      return res
+        .status(400)
+        .json({ message: "Persistent room is disabled for this course" });
     }
 
-    let session = course.persistentSessionId ? await Session.findById(course.persistentSessionId) : null;
+    let session = course.persistentSessionId
+      ? await Session.findById(course.persistentSessionId)
+      : null;
     if (!session || session.status !== "active") {
       session = await createRealtimeSession({
         hostUser: req.user,
         language: course.language,
         title: `${course.title} • Persistent Room`,
         sessionType: "group",
-        maxParticipants: Math.max(5, (course.enrollments || []).filter((entry) => entry.status === "approved").length + 3),
+        maxParticipants: Math.max(
+          5,
+          (course.enrollments || []).filter(
+            (entry) => entry.status === "approved",
+          ).length + 3,
+        ),
         courseId: course._id,
         sessionKind: "course_room",
       });
@@ -947,14 +1204,18 @@ export async function createAssignment(req, res) {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
     if (!ensureCourseTeacher(course, req.user)) {
-      return res.status(403).json({ message: "Only the course teacher can create assignments" });
+      return res
+        .status(403)
+        .json({ message: "Only the course teacher can create assignments" });
     }
 
     const title = normalizeText(req.body.title);
     const description = normalizeText(req.body.description);
     const dueDate = req.body.dueDate ? new Date(req.body.dueDate) : null;
     if (!title || !dueDate || Number.isNaN(dueDate.getTime())) {
-      return res.status(400).json({ message: "Title and due date are required" });
+      return res
+        .status(400)
+        .json({ message: "Title and due date are required" });
     }
 
     course.assignments.push({
@@ -968,7 +1229,10 @@ export async function createAssignment(req, res) {
     await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res.status(201).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Assignment created" });
+    res.status(201).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Assignment created",
+    });
   } catch (error) {
     console.error("Error in createAssignment controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -978,25 +1242,34 @@ export async function createAssignment(req, res) {
 export async function submitAssignment(req, res) {
   try {
     if (assertTeacher(req.user)) {
-      return res.status(403).json({ message: "Teachers cannot submit assignments" });
+      return res
+        .status(403)
+        .json({ message: "Teachers cannot submit assignments" });
     }
 
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
-    const enrollment = ensureEnrolledStudent(course, req.user._id.toString(), ["approved"]);
+    const enrollment = ensureEnrolledStudent(course, req.user._id.toString(), [
+      "approved",
+    ]);
     if (!enrollment || enrollment.status !== "approved") {
-      return res.status(403).json({ message: "Only approved students can submit assignments" });
+      return res
+        .status(403)
+        .json({ message: "Only approved students can submit assignments" });
     }
 
     const assignment = course.assignments.id(req.params.assignmentId);
-    if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+    if (!assignment)
+      return res.status(404).json({ message: "Assignment not found" });
     if (assignment.status !== "open") {
       return res.status(400).json({ message: "This assignment is closed" });
     }
 
     const content = normalizeText(req.body.content);
     if (!content) {
-      return res.status(400).json({ message: "Submission content is required" });
+      return res
+        .status(400)
+        .json({ message: "Submission content is required" });
     }
 
     const existingSubmission = (assignment.submissions || []).find(
@@ -1020,7 +1293,10 @@ export async function submitAssignment(req, res) {
 
     await saveCourseWithRepair(course);
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Assignment submitted" });
+    res.status(200).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Assignment submitted",
+    });
   } catch (error) {
     console.error("Error in submitAssignment controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
@@ -1032,14 +1308,18 @@ export async function reviewAssignmentSubmission(req, res) {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ message: "Course not found" });
     if (!ensureCourseTeacher(course, req.user)) {
-      return res.status(403).json({ message: "Only the course teacher can review submissions" });
+      return res
+        .status(403)
+        .json({ message: "Only the course teacher can review submissions" });
     }
 
     const assignment = course.assignments.id(req.params.assignmentId);
-    if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+    if (!assignment)
+      return res.status(404).json({ message: "Assignment not found" });
 
     const submission = assignment.submissions.id(req.params.submissionId);
-    if (!submission) return res.status(404).json({ message: "Submission not found" });
+    if (!submission)
+      return res.status(404).json({ message: "Submission not found" });
 
     submission.status = "reviewed";
     submission.feedback = normalizeText(req.body.feedback);
@@ -1047,9 +1327,15 @@ export async function reviewAssignmentSubmission(req, res) {
     await saveCourseWithRepair(course);
 
     const populatedCourse = await coursePopulate(Course.findById(course._id));
-    res.status(200).json({ course: serializeCourseDetail(populatedCourse, req.user), message: "Submission reviewed" });
+    res.status(200).json({
+      course: serializeCourseDetail(populatedCourse, req.user),
+      message: "Submission reviewed",
+    });
   } catch (error) {
-    console.error("Error in reviewAssignmentSubmission controller:", error.message);
+    console.error(
+      "Error in reviewAssignmentSubmission controller:",
+      error.message,
+    );
     res.status(500).json({ message: "Internal Server Error" });
   }
 }

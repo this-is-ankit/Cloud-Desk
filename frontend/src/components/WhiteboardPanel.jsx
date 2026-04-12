@@ -19,7 +19,8 @@ const MAX_COORDINATE = 4000;
 const MAX_ELEMENTS = 2000;
 const EMIT_INTERVAL_MS = 40;
 
-const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
+const isFiniteNumber = (value) =>
+  typeof value === "number" && Number.isFinite(value);
 
 const isSafePoint = (point) => {
   if (!Array.isArray(point) || point.length < 2) return false;
@@ -42,7 +43,10 @@ const sanitizeElement = (element) => {
   newElement.y = isFiniteNumber(element.y) ? element.y : 0;
 
   // Reject element if its base position is out of bounds
-  if (Math.abs(newElement.x) > MAX_COORDINATE || Math.abs(newElement.y) > MAX_COORDINATE) {
+  if (
+    Math.abs(newElement.x) > MAX_COORDINATE ||
+    Math.abs(newElement.y) > MAX_COORDINATE
+  ) {
     console.warn("Element position out of bounds, rejecting:", element);
     return null;
   }
@@ -51,20 +55,25 @@ const sanitizeElement = (element) => {
   if (Array.isArray(element.points)) {
     newElement.points = element.points.filter(isSafePoint);
     if (newElement.points.length === 0 && element.type === "freedraw") {
-        console.warn("Freedraw element with no safe points, rejecting:", element);
-        return null; // Reject freedraw if it has no valid points
+      console.warn("Freedraw element with no safe points, rejecting:", element);
+      return null; // Reject freedraw if it has no valid points
     }
   } else if (element.type === "freedraw") {
-       console.warn("Freedraw element without a points array, rejecting:", element);
-       return null; // Freedraw must have points
+    console.warn(
+      "Freedraw element without a points array, rejecting:",
+      element,
+    );
+    return null; // Freedraw must have points
   }
-
 
   // Keep freedraw geometry as produced by Excalidraw. Recomputing x/y/width/height
   // from points can corrupt strokes because points are element-local.
   if (element.type === "freedraw") {
     if (!newElement.points || newElement.points.length === 0) {
-      console.warn("Freedraw element with invalid or empty points array after sanitization, rejecting:", element);
+      console.warn(
+        "Freedraw element with invalid or empty points array after sanitization, rejecting:",
+        element,
+      );
       return null;
     }
     if (!isFiniteNumber(newElement.width)) newElement.width = 0;
@@ -74,8 +83,14 @@ const sanitizeElement = (element) => {
     if (!isFiniteNumber(newElement.width)) newElement.width = 0;
     if (!isFiniteNumber(newElement.height)) newElement.height = 0;
 
-    if (Math.abs(newElement.width) > MAX_COORDINATE || Math.abs(newElement.height) > MAX_COORDINATE) {
-      console.warn("Element width/height out of bounds for non-freedraw type, rejecting:", element);
+    if (
+      Math.abs(newElement.width) > MAX_COORDINATE ||
+      Math.abs(newElement.height) > MAX_COORDINATE
+    ) {
+      console.warn(
+        "Element width/height out of bounds for non-freedraw type, rejecting:",
+        element,
+      );
       return null;
     }
   }
@@ -89,7 +104,12 @@ const sanitizeElements = (elements) => {
 };
 
 const sceneSignature = (elements = []) =>
-  elements.map((el) => `${el.id}:${el.version}:${el.versionNonce}:${el.isDeleted ? 1 : 0}`).join("|");
+  elements
+    .map(
+      (el) =>
+        `${el.id}:${el.version}:${el.versionNonce}:${el.isDeleted ? 1 : 0}`,
+    )
+    .join("|");
 
 const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
   const { isDark } = useTheme();
@@ -111,8 +131,16 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
-        if (width > 0 && height > 0 && Number.isFinite(width) && Number.isFinite(height)) {
-          setDimensions({ width: Math.floor(width), height: Math.floor(height) });
+        if (
+          width > 0 &&
+          height > 0 &&
+          Number.isFinite(width) &&
+          Number.isFinite(height)
+        ) {
+          setDimensions({
+            width: Math.floor(width),
+            height: Math.floor(height),
+          });
           setIsReady(true);
         }
       }
@@ -138,7 +166,10 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
     const incomingSignature = sceneSignature(safeElements);
 
     // Ignore server-echoed state that matches the scene we just emitted locally.
-    if (incomingSignature && incomingSignature === lastLocalSceneSignatureRef.current) {
+    if (
+      incomingSignature &&
+      incomingSignature === lastLocalSceneSignatureRef.current
+    ) {
       return;
     }
 
@@ -213,36 +244,46 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
     }
   }, [canWrite]);
 
-  const handleChange = useCallback((elements, appState) => {
-    if (isApplyingRemoteScene.current || !roomId || !canWrite) return;
+  const handleChange = useCallback(
+    (elements, appState) => {
+      if (isApplyingRemoteScene.current || !roomId || !canWrite) return;
 
-    const safeElements = sanitizeElements(elements);
+      const safeElements = sanitizeElements(elements);
 
-    const normalizedAppState = {
-      ...safeAppState,
-      currentItemStrokeColor: appState?.currentItemStrokeColor || safeAppState.currentItemStrokeColor,
-    };
+      const normalizedAppState = {
+        ...safeAppState,
+        currentItemStrokeColor:
+          appState?.currentItemStrokeColor ||
+          safeAppState.currentItemStrokeColor,
+      };
 
-    const nextScene = { elements: safeElements, appState: normalizedAppState };
-    if (!socket) return;
-    lastLocalSceneSignatureRef.current = sceneSignature(safeElements);
-    pendingSceneRef.current = nextScene;
-    scheduleSceneEmit();
-  }, [socket, roomId, canWrite, scheduleSceneEmit, safeAppState]);
+      const nextScene = {
+        elements: safeElements,
+        appState: normalizedAppState,
+      };
+      if (!socket) return;
+      lastLocalSceneSignatureRef.current = sceneSignature(safeElements);
+      pendingSceneRef.current = nextScene;
+      scheduleSceneEmit();
+    },
+    [socket, roomId, canWrite, scheduleSceneEmit, safeAppState],
+  );
 
   if (!isReady || dimensions.width === 0 || dimensions.height === 0) {
     return (
-      <div 
+      <div
         ref={containerRef}
         className="h-full w-full bg-base-100 border-r border-base-300 flex items-center justify-center"
       >
-        <div className="text-sm text-base-content/50">Loading whiteboard...</div>
+        <div className="text-sm text-base-content/50">
+          Loading whiteboard...
+        </div>
       </div>
     );
   }
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className="h-full w-full bg-base-100 border-r border-base-300"
       style={{ minWidth: 100, minHeight: 100 }}
@@ -251,7 +292,7 @@ const WhiteboardPanel = ({ roomId, socket, userName, scene, canWrite }) => {
         theme={isDark ? "dark" : "light"}
         viewModeEnabled={!canWrite}
         initialData={{
-          appState: safeAppState
+          appState: safeAppState,
         }}
         excalidrawAPI={(api) => setExcalidrawAPI(api)}
         onChange={handleChange}

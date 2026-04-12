@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAuth as useClerkAuth, useClerk, useUser as useClerkUser } from "@clerk/clerk-react";
+import {
+  useAuth as useClerkAuth,
+  useClerk,
+  useUser as useClerkUser,
+} from "@clerk/clerk-react";
 import { AuthContext } from "./AuthContext";
 
 const DEV_AUTH_STORAGE_KEY = "cloud-desk-dev-auth";
@@ -16,7 +20,11 @@ const parseStoredDevAuth = () => {
 };
 
 const buildDevClerkId = (value) => {
-  const base = (value || "").toString().trim().toLowerCase().replace(/[^a-z0-9@_. -]/g, "-");
+  const base = (value || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9@_. -]/g, "-");
   if (!base) return "dev-student";
   return base.startsWith("dev-") ? base : `dev-${base}`;
 };
@@ -25,7 +33,8 @@ const buildDevUser = (session) => {
   if (!session) return null;
 
   const role = session.role === "teacher" ? "teacher" : "student";
-  const name = session.name || (role === "teacher" ? "Demo Teacher" : "Demo Student");
+  const name =
+    session.name || (role === "teacher" ? "Demo Teacher" : "Demo Student");
   const parts = name.split(" ");
 
   return {
@@ -33,7 +42,9 @@ const buildDevUser = (session) => {
     firstName: parts[0] || name,
     lastName: parts.slice(1).join(" "),
     fullName: name,
-    imageUrl: session.imageUrl || `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,
+    imageUrl:
+      session.imageUrl ||
+      `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,
     publicMetadata: {
       role,
     },
@@ -49,7 +60,10 @@ function DevAuthProvider({ children }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (session) {
-      window.localStorage.setItem(DEV_AUTH_STORAGE_KEY, JSON.stringify(session));
+      window.localStorage.setItem(
+        DEV_AUTH_STORAGE_KEY,
+        JSON.stringify(session),
+      );
     } else {
       window.localStorage.removeItem(DEV_AUTH_STORAGE_KEY);
     }
@@ -61,7 +75,10 @@ function DevAuthProvider({ children }) {
       id: nextRole,
       role: nextRole,
       name: nextRole === "teacher" ? "Demo Teacher" : "Demo Student",
-      email: nextRole === "teacher" ? "teacher@cloud-desk.dev" : "student@cloud-desk.dev",
+      email:
+        nextRole === "teacher"
+          ? "teacher@cloud-desk.dev"
+          : "student@cloud-desk.dev",
       imageUrl: "",
     });
   }, []);

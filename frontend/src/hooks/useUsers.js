@@ -14,7 +14,12 @@ export const useAppProfile = () => {
   });
 };
 
-const useProfileMutation = (mutationKey, mutationFn, successMessage, errorMessage) => {
+const useProfileMutation = (
+  mutationKey,
+  mutationFn,
+  successMessage,
+  errorMessage,
+) => {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -33,13 +38,28 @@ const useProfileMutation = (mutationKey, mutationFn, successMessage, errorMessag
 };
 
 export const useCompleteOnboarding = () =>
-  useProfileMutation("completeOnboarding", userApi.completeOnboarding, "Onboarding completed", "Failed to complete onboarding");
+  useProfileMutation(
+    "completeOnboarding",
+    userApi.completeOnboarding,
+    "Onboarding completed",
+    "Failed to complete onboarding",
+  );
 
 export const useUpdateRole = () =>
-  useProfileMutation("updateRole", userApi.updateRole, "Role updated", "Failed to update role");
+  useProfileMutation(
+    "updateRole",
+    userApi.updateRole,
+    "Role updated",
+    "Failed to update role",
+  );
 
 export const useUpdateProfile = () =>
-  useProfileMutation("updateProfile", userApi.updateProfile, "Profile updated", "Failed to update profile");
+  useProfileMutation(
+    "updateProfile",
+    userApi.updateProfile,
+    "Profile updated",
+    "Failed to update profile",
+  );
 
 export const useTeachers = (params = {}) =>
   useQuery({

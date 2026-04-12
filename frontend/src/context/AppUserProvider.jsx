@@ -7,7 +7,9 @@ export function AppUserProvider({ children }) {
   const profileQuery = useAppProfile();
   const profile = profileQuery.data?.profile || null;
   const role = profile?.role || "student";
-  const roleLocked = Boolean(profile?.roleLocked ?? profile?.onboardingCompleted);
+  const roleLocked = Boolean(
+    profile?.roleLocked ?? profile?.onboardingCompleted,
+  );
 
   useEffect(() => {
     if (profile?.onboardingCompleted) {
