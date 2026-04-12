@@ -4,7 +4,8 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest"
   },
   "type": "module",
   "keywords": [],
@@ -28,6 +29,8 @@
     "talent-iq": "file:.."
   },
   "devDependencies": {
+    "@jest/globals": "^30.3.0",
+    "jest": "^30.3.0",
     "nodemon": "^3.1.10"
   }
 }
