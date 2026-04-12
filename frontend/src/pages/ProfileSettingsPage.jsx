@@ -34,7 +34,10 @@ function ProfileSettingsPage() {
 
   const handleChange = (event) => {
     const { name, value, type, checked } = event.target;
-    setForm((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
+    setForm((current) => ({
+      ...current,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
   return (
@@ -44,10 +47,13 @@ function ProfileSettingsPage() {
         <div className="rounded-[2rem] border border-base-content/10 bg-base-100 p-7 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Account settings</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+                Account settings
+              </p>
               <h1 className="mt-3 text-4xl font-black">Profile settings</h1>
               <p className="mt-3 max-w-2xl text-base-content/65">
-                Manage your public profile, discoverability, and teaching identity on Cloud Desk.
+                Manage your public profile, discoverability, and teaching
+                identity on Cloud Desk.
               </p>
             </div>
             <div className="rounded-2xl border border-base-content/10 bg-base-200/60 px-4 py-3 text-sm">
@@ -65,18 +71,26 @@ function ProfileSettingsPage() {
                 <div className="rounded-2xl border border-base-content/10 bg-base-200/40 p-5">
                   <p className="font-semibold capitalize">{form.role}</p>
                   <p className="mt-2 text-sm text-base-content/65">
-                    Your account role is locked after onboarding. If you need a different role, create a separate account for that identity.
+                    Your account role is locked after onboarding. If you need a
+                    different role, create a separate account for that identity.
                   </p>
                 </div>
               ) : (
                 <>
-                  <select name="role" value={form.role} onChange={handleChange} className="select select-bordered rounded-2xl w-full">
+                  <select
+                    name="role"
+                    value={form.role}
+                    onChange={handleChange}
+                    className="select select-bordered rounded-2xl w-full"
+                  >
                     <option value="teacher">Teacher</option>
                     <option value="student">Student</option>
                   </select>
                   <button
                     className="btn btn-primary rounded-2xl"
-                    onClick={() => updateRoleMutation.mutate({ role: form.role })}
+                    onClick={() =>
+                      updateRoleMutation.mutate({ role: form.role })
+                    }
                     disabled={updateRoleMutation.isPending}
                   >
                     Save role
@@ -87,14 +101,52 @@ function ProfileSettingsPage() {
 
             <section className="space-y-4">
               <h2 className="text-xl font-bold">Public profile</h2>
-              <input name="headline" value={form.headline} onChange={handleChange} className="input input-bordered rounded-2xl w-full" placeholder="Headline" />
-              <textarea name="bio" value={form.bio} onChange={handleChange} className="textarea textarea-bordered rounded-2xl min-h-28 w-full" placeholder="Bio" />
-              <input name="subjects" value={form.subjects} onChange={handleChange} className="input input-bordered rounded-2xl w-full" placeholder="Subjects" />
-              <input name="languagesSpoken" value={form.languagesSpoken} onChange={handleChange} className="input input-bordered rounded-2xl w-full" placeholder="Languages spoken" />
-              <input name="availabilityNote" value={form.availabilityNote} onChange={handleChange} className="input input-bordered rounded-2xl w-full" placeholder="Availability" />
+              <input
+                name="headline"
+                value={form.headline}
+                onChange={handleChange}
+                className="input input-bordered rounded-2xl w-full"
+                placeholder="Headline"
+              />
+              <textarea
+                name="bio"
+                value={form.bio}
+                onChange={handleChange}
+                className="textarea textarea-bordered rounded-2xl min-h-28 w-full"
+                placeholder="Bio"
+              />
+              <input
+                name="subjects"
+                value={form.subjects}
+                onChange={handleChange}
+                className="input input-bordered rounded-2xl w-full"
+                placeholder="Subjects"
+              />
+              <input
+                name="languagesSpoken"
+                value={form.languagesSpoken}
+                onChange={handleChange}
+                className="input input-bordered rounded-2xl w-full"
+                placeholder="Languages spoken"
+              />
+              <input
+                name="availabilityNote"
+                value={form.availabilityNote}
+                onChange={handleChange}
+                className="input input-bordered rounded-2xl w-full"
+                placeholder="Availability"
+              />
               <label className="flex items-center gap-3 rounded-2xl border border-base-content/10 bg-base-200/40 p-4">
-                <input type="checkbox" name="profileVisible" checked={form.profileVisible} onChange={handleChange} className="checkbox checkbox-primary" />
-                <span className="text-sm">Show my profile in teacher discovery</span>
+                <input
+                  type="checkbox"
+                  name="profileVisible"
+                  checked={form.profileVisible}
+                  onChange={handleChange}
+                  className="checkbox checkbox-primary"
+                />
+                <span className="text-sm">
+                  Show my profile in teacher discovery
+                </span>
               </label>
               <button
                 className="btn btn-primary rounded-2xl"

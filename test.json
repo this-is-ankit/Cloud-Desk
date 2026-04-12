@@ -38,7 +38,12 @@
     {
       "id": "q5",
       "prompt": "What does HTTP status code 404 mean?",
-      "options": ["Unauthorized", "Forbidden", "Internal Server Error", "Not Found"],
+      "options": [
+        "Unauthorized",
+        "Forbidden",
+        "Internal Server Error",
+        "Not Found"
+      ],
       "correctOptionIndex": 3,
       "timeLimitSec": 15,
       "explanation": "404 indicates the requested resource was not found."

@@ -99,7 +99,8 @@ const executeWithJudge0 = async ({ language, code }) => {
   }
 
   if (!submissionResponse.ok) {
-    const details = data?.message || text || `HTTP ${submissionResponse.status}`;
+    const details =
+      data?.message || text || `HTTP ${submissionResponse.status}`;
     throw new Error(`Judge0 execution failed: ${details}`);
   }
 
@@ -119,7 +120,9 @@ export async function executeCode(req, res) {
     const { language, code } = req.body;
 
     if (!language || typeof code !== "string") {
-      return res.status(400).json({ message: "language and code are required" });
+      return res
+        .status(400)
+        .json({ message: "language and code are required" });
     }
 
     if (code.length > 100_000) {
@@ -127,9 +130,13 @@ export async function executeCode(req, res) {
     }
 
     const normalizedLanguage = getNormalizedSessionLanguage(language);
-    const config = normalizedLanguage ? LANGUAGE_CONFIG[normalizedLanguage] : null;
+    const config = normalizedLanguage
+      ? LANGUAGE_CONFIG[normalizedLanguage]
+      : null;
     if (!config) {
-      return res.status(400).json({ message: `Unsupported language: ${language}` });
+      return res
+        .status(400)
+        .json({ message: `Unsupported language: ${language}` });
     }
 
     const endpoints = [
@@ -174,7 +181,8 @@ export async function executeCode(req, res) {
           return res.status(200).json(data);
         }
 
-        const details = data?.message || responseText || `HTTP ${pistonResponse.status}`;
+        const details =
+          data?.message || responseText || `HTTP ${pistonResponse.status}`;
         lastError = `${endpoint} -> ${details}`;
       } catch (error) {
         lastError = `${endpoint} -> ${error.message}`;
@@ -182,10 +190,14 @@ export async function executeCode(req, res) {
     }
 
     try {
-      const judge0Result = await executeWithJudge0({ language: normalizedLanguage, code });
+      const judge0Result = await executeWithJudge0({
+        language: normalizedLanguage,
+        code,
+      });
       return res.status(200).json(judge0Result);
     } catch (judge0Error) {
-      lastError = `${lastError || ""} | Judge0 -> ${judge0Error.message}`.trim();
+      lastError =
+        `${lastError || ""} | Judge0 -> ${judge0Error.message}`.trim();
     }
 
     return res.status(503).json({

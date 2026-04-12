@@ -18,7 +18,9 @@ function ProblemPage() {
 
   const [currentProblemId, setCurrentProblemId] = useState("two-sum");
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
-  const [code, setCode] = useState(PROBLEMS[currentProblemId].starterCode.javascript);
+  const [code, setCode] = useState(
+    PROBLEMS[currentProblemId].starterCode.javascript,
+  );
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
 
@@ -40,7 +42,8 @@ function ProblemPage() {
     setOutput(null);
   };
 
-  const handleProblemChange = (newProblemId) => navigate(`/problem/${newProblemId}`);
+  const handleProblemChange = (newProblemId) =>
+    navigate(`/problem/${newProblemId}`);
 
   const triggerConfetti = () => {
     confetti({
@@ -68,7 +71,7 @@ function ProblemPage() {
           .replace(/\[\s+/g, "[")
           .replace(/\s+\]/g, "]")
           // normalize spaces around commas to single space after comma
-          .replace(/\s*,\s*/g, ",")
+          .replace(/\s*,\s*/g, ","),
       )
       .filter((line) => line.length > 0)
       .join("\n");

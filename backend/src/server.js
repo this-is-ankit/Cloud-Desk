@@ -29,7 +29,10 @@ import {
 } from "./models/Livestream.js";
 import { chatClient, streamClient } from "./lib/stream.js";
 import { extractDevSocketAuth, findOrCreateDevUser } from "./lib/devAuth.js";
-import { repairLegacyCourseTextIndex, saveCourseWithRepair } from "./lib/coursePersistence.js";
+import {
+  repairLegacyCourseTextIndex,
+  saveCourseWithRepair,
+} from "./lib/coursePersistence.js";
 import { normalizeSessionLanguage } from "./lib/sessionLanguage.js";
 
 const app = express();
@@ -57,8 +60,12 @@ const setupSocketRedisAdapter = async () => {
     const pubClient = createClient({ url: ENV.REDIS_URL });
     const subClient = pubClient.duplicate();
 
-    pubClient.on("error", (error) => console.error("Socket Redis pub error:", error.message));
-    subClient.on("error", (error) => console.error("Socket Redis sub error:", error.message));
+    pubClient.on("error", (error) =>
+      console.error("Socket Redis pub error:", error.message),
+    );
+    subClient.on("error", (error) =>
+      console.error("Socket Redis sub error:", error.message),
+    );
 
     await Promise.all([pubClient.connect(), subClient.connect()]);
     io.adapter(createAdapter(pubClient, subClient));
@@ -89,15 +96,20 @@ const LIVESTREAM_CHAT_HISTORY_LIMIT = 100;
 const LIVESTREAM_CHAT_MIN_INTERVAL_MS = 750;
 const LIVESTREAM_SYNC_MIN_INTERVAL_MS = 500;
 
-const normalizeSessionType = (value) => (value === "livestream" ? "livestream" : "interactive");
-const getStreamCallType = (session) => (normalizeSessionType(session?.sessionType) === "livestream" ? "livestream" : "default");
+const normalizeSessionType = (value) =>
+  value === "livestream" ? "livestream" : "interactive";
+const getStreamCallType = (session) =>
+  normalizeSessionType(session?.sessionType) === "livestream"
+    ? "livestream"
+    : "default";
 const isSessionHost = (session, userId) =>
   session?.host?._id?.toString?.() === userId ||
   session?.host?.toString?.() === userId ||
   session?.hostId?._id?.toString?.() === userId ||
   session?.hostId?.toString?.() === userId;
 
-const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
+const isFiniteNumber = (value) =>
+  typeof value === "number" && Number.isFinite(value);
 
 const isSafePoint = (point) => {
   if (!Array.isArray(point) || point.length < 2) return false;
@@ -120,7 +132,10 @@ const sanitizeWhiteboardElement = (element) => {
   newElement.y = isFiniteNumber(element.y) ? element.y : 0;
 
   // Reject element if its base position is out of bounds
-  if (Math.abs(newElement.x) > WHITEBOARD_MAX_COORDINATE || Math.abs(newElement.y) > WHITEBOARD_MAX_COORDINATE) {
+  if (
+    Math.abs(newElement.x) > WHITEBOARD_MAX_COORDINATE ||
+    Math.abs(newElement.y) > WHITEBOARD_MAX_COORDINATE
+  ) {
     console.warn("Element position out of bounds, rejecting:", element);
     return null;
   }
@@ -129,20 +144,25 @@ const sanitizeWhiteboardElement = (element) => {
   if (Array.isArray(element.points)) {
     newElement.points = element.points.filter(isSafePoint);
     if (newElement.points.length === 0 && element.type === "freedraw") {
-        console.warn("Freedraw element with no safe points, rejecting:", element);
-        return null; // Reject freedraw if it has no valid points
+      console.warn("Freedraw element with no safe points, rejecting:", element);
+      return null; // Reject freedraw if it has no valid points
     }
   } else if (element.type === "freedraw") {
-       console.warn("Freedraw element without a points array, rejecting:", element);
-       return null; // Freedraw must have points
+    console.warn(
+      "Freedraw element without a points array, rejecting:",
+      element,
+    );
+    return null; // Freedraw must have points
   }
-
 
   // Keep freedraw geometry untouched. Excalidraw stores points relative to the
   // element origin, so recomputing bounds here can break strokes.
   if (element.type === "freedraw") {
     if (!newElement.points || newElement.points.length === 0) {
-      console.warn("Freedraw element with invalid or empty points array after sanitization, rejecting:", element);
+      console.warn(
+        "Freedraw element with invalid or empty points array after sanitization, rejecting:",
+        element,
+      );
       return null;
     }
     if (!isFiniteNumber(newElement.width)) newElement.width = 0;
@@ -152,8 +172,14 @@ const sanitizeWhiteboardElement = (element) => {
     if (!isFiniteNumber(newElement.width)) newElement.width = 0;
     if (!isFiniteNumber(newElement.height)) newElement.height = 0;
 
-    if (Math.abs(newElement.width) > WHITEBOARD_MAX_COORDINATE || Math.abs(newElement.height) > WHITEBOARD_MAX_COORDINATE) {
-      console.warn("Element width/height out of bounds for non-freedraw type, rejecting:", element);
+    if (
+      Math.abs(newElement.width) > WHITEBOARD_MAX_COORDINATE ||
+      Math.abs(newElement.height) > WHITEBOARD_MAX_COORDINATE
+    ) {
+      console.warn(
+        "Element width/height out of bounds for non-freedraw type, rejecting:",
+        element,
+      );
       return null;
     }
   }
@@ -195,7 +221,10 @@ const isIncomingElementNewer = (incoming, current) => {
   return true;
 };
 
-const mergeWhiteboardElementsByVersion = (currentElements, incomingElements) => {
+const mergeWhiteboardElementsByVersion = (
+  currentElements,
+  incomingElements,
+) => {
   const current = Array.isArray(currentElements) ? currentElements : [];
   const incoming = Array.isArray(incomingElements) ? incomingElements : [];
 
@@ -208,7 +237,10 @@ const mergeWhiteboardElementsByVersion = (currentElements, incomingElements) => 
     if (!incomingElement?.id) continue;
 
     const currentElement = mergedById.get(incomingElement.id);
-    if (!currentElement || isIncomingElementNewer(incomingElement, currentElement)) {
+    if (
+      !currentElement ||
+      isIncomingElementNewer(incomingElement, currentElement)
+    ) {
       mergedById.set(incomingElement.id, incomingElement);
     }
   }
@@ -238,29 +270,37 @@ const mergeWhiteboardElementsByVersion = (currentElements, incomingElements) => 
 };
 
 const normalizeWhiteboardWriteMode = (mode) => {
-  if (mode === "all" || mode === "approved" || mode === "host-only") return mode;
+  if (mode === "all" || mode === "approved" || mode === "host-only")
+    return mode;
   return "host-only";
 };
 
 const normalizeWriterIds = (writerIds = []) =>
   Array.isArray(writerIds)
-    ? writerIds
-        .map((id) => (id == null ? "" : id.toString()))
-        .filter(Boolean)
+    ? writerIds.map((id) => (id == null ? "" : id.toString())).filter(Boolean)
     : [];
 
 const sceneSignature = (elements = []) =>
   (Array.isArray(elements) ? elements : [])
-    .map((el) => `${el.id}:${el.version}:${el.versionNonce}:${el.isDeleted ? 1 : 0}`)
+    .map(
+      (el) =>
+        `${el.id}:${el.version}:${el.versionNonce}:${el.isDeleted ? 1 : 0}`,
+    )
     .join("|");
 
-const buildWhiteboardPermissions = ({ isHost, writeMode, writerIds, socketMongoUserId }) => {
+const buildWhiteboardPermissions = ({
+  isHost,
+  writeMode,
+  writerIds,
+  socketMongoUserId,
+}) => {
   const normalizedMode = normalizeWhiteboardWriteMode(writeMode);
   const normalizedWriterIds = normalizeWriterIds(writerIds);
   const canWrite =
     isHost ||
     normalizedMode === "all" ||
-    (normalizedMode === "approved" && normalizedWriterIds.includes(socketMongoUserId));
+    (normalizedMode === "approved" &&
+      normalizedWriterIds.includes(socketMongoUserId));
 
   return {
     writeMode: normalizedMode,
@@ -290,7 +330,10 @@ const persistWhiteboardStateNow = async (roomId) => {
   });
 };
 
-const scheduleWhiteboardPersistence = (roomId, delay = WHITEBOARD_DB_PERSIST_DEBOUNCE_MS) => {
+const scheduleWhiteboardPersistence = (
+  roomId,
+  delay = WHITEBOARD_DB_PERSIST_DEBOUNCE_MS,
+) => {
   clearWhiteboardPersistTimer(roomId);
   const timer = setTimeout(async () => {
     try {
@@ -331,12 +374,22 @@ const normalizeQuizQuestion = (question, defaultTimeLimitSec = 30) => {
     : [];
 
   if (options.length !== 4 || options.some((option) => !option)) {
-    return { valid: false, error: "Question must contain exactly 4 non-empty options" };
+    return {
+      valid: false,
+      error: "Question must contain exactly 4 non-empty options",
+    };
   }
 
   const correctOptionIndex = Number.parseInt(question.correctOptionIndex, 10);
-  if (!Number.isFinite(correctOptionIndex) || correctOptionIndex < 0 || correctOptionIndex > 3) {
-    return { valid: false, error: "correctOptionIndex must be between 0 and 3" };
+  if (
+    !Number.isFinite(correctOptionIndex) ||
+    correctOptionIndex < 0 ||
+    correctOptionIndex > 3
+  ) {
+    return {
+      valid: false,
+      error: "correctOptionIndex must be between 0 and 3",
+    };
   }
 
   const normalized = {
@@ -345,7 +398,10 @@ const normalizeQuizQuestion = (question, defaultTimeLimitSec = 30) => {
     prompt,
     options,
     correctOptionIndex,
-    timeLimitSec: normalizeTimeLimitSec(question.timeLimitSec, defaultTimeLimitSec),
+    timeLimitSec: normalizeTimeLimitSec(
+      question.timeLimitSec,
+      defaultTimeLimitSec,
+    ),
     explanation: sanitizeQuizText(question.explanation || ""),
   };
 
@@ -357,13 +413,21 @@ const normalizeQuizPayload = (quizPayload) => {
     return { valid: false, error: "Quiz payload must be an object" };
   }
 
-  const defaultTimeLimitSec = normalizeTimeLimitSec(quizPayload.defaultTimeLimitSec, 30);
-  const questions = Array.isArray(quizPayload.questions) ? quizPayload.questions : null;
+  const defaultTimeLimitSec = normalizeTimeLimitSec(
+    quizPayload.defaultTimeLimitSec,
+    30,
+  );
+  const questions = Array.isArray(quizPayload.questions)
+    ? quizPayload.questions
+    : null;
   if (!questions || questions.length === 0) {
     return { valid: false, error: "questions array is required" };
   }
   if (questions.length > QUIZ_MAX_QUESTIONS) {
-    return { valid: false, error: `Maximum ${QUIZ_MAX_QUESTIONS} questions are allowed` };
+    return {
+      valid: false,
+      error: `Maximum ${QUIZ_MAX_QUESTIONS} questions are allowed`,
+    };
   }
 
   const normalizedQuestions = [];
@@ -395,14 +459,17 @@ const computeSubmissionScore = ({ isCorrect, responseMs, durationMs }) => {
   if (!isCorrect) return 0;
   const safeDuration = Math.max(1, durationMs);
   const remainingMs = Math.max(0, safeDuration - responseMs);
-  const speedBonus = Math.floor((remainingMs / safeDuration) * QUIZ_SPEED_BONUS_MAX);
+  const speedBonus = Math.floor(
+    (remainingMs / safeDuration) * QUIZ_SPEED_BONUS_MAX,
+  );
   return QUIZ_BASE_POINTS + speedBonus;
 };
 
 const sortLeaderboard = (leaderboard = []) =>
   [...leaderboard].sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
-    if (b.correctCount !== a.correctCount) return b.correctCount - a.correctCount;
+    if (b.correctCount !== a.correctCount)
+      return b.correctCount - a.correctCount;
     if (a.avgCorrectResponseMs !== b.avgCorrectResponseMs) {
       return a.avgCorrectResponseMs - b.avgCorrectResponseMs;
     }
@@ -411,11 +478,14 @@ const sortLeaderboard = (leaderboard = []) =>
 
 const isApprovedCourseViewer = async (session, userId) => {
   if (!session?.courseId || !userId) return false;
-  const course = await Course.findById(session.courseId).select("teacher enrollments");
+  const course = await Course.findById(session.courseId).select(
+    "teacher enrollments",
+  );
   if (!course) return false;
   if (course.teacher?.toString() === userId) return true;
   return (course.enrollments || []).some(
-    (entry) => entry.status === "approved" && entry.student?.toString() === userId,
+    (entry) =>
+      entry.status === "approved" && entry.student?.toString() === userId,
   );
 };
 
@@ -429,7 +499,12 @@ const buildLivestreamStatePayload = (session) => ({
 });
 
 const upsertLivestreamAttendance = async (session, viewerId, leftAt = null) => {
-  if (normalizeSessionType(session?.sessionType) !== "livestream" || !session?.courseId || !viewerId) return;
+  if (
+    normalizeSessionType(session?.sessionType) !== "livestream" ||
+    !session?.courseId ||
+    !viewerId
+  )
+    return;
   const now = new Date();
   const existing = await LivestreamViewerAttendance.findOne({
     sessionId: session._id,
@@ -438,7 +513,10 @@ const upsertLivestreamAttendance = async (session, viewerId, leftAt = null) => {
 
   const firstJoinedAt = existing?.firstJoinedAt || now;
   const durationSeconds = leftAt
-    ? Math.max(0, Math.floor((now.getTime() - new Date(firstJoinedAt).getTime()) / 1000))
+    ? Math.max(
+        0,
+        Math.floor((now.getTime() - new Date(firstJoinedAt).getTime()) / 1000),
+      )
     : existing?.durationSeconds || 0;
 
   await LivestreamViewerAttendance.findOneAndUpdate(
@@ -478,7 +556,8 @@ const clearLivestreamHostDisconnectTimer = (roomId) => {
 
 const completeLivestreamAfterHostTimeout = async (roomId) => {
   const session = await Session.findById(roomId);
-  if (!session || normalizeSessionType(session.sessionType) !== "livestream") return;
+  if (!session || normalizeSessionType(session.sessionType) !== "livestream")
+    return;
   const deadline = session.livestream?.hostDisconnectDeadline;
   if (!deadline || new Date(deadline).getTime() > Date.now()) return;
   if (session.status === "completed") return;
@@ -497,8 +576,16 @@ const completeLivestreamAfterHostTimeout = async (roomId) => {
 
   if (session.callId) {
     const call = streamClient.video.call("livestream", session.callId);
-    await call.stopLive().catch((error) => console.log("Stream stop live timeout cleanup warning:", error.message));
-    await call.delete({ hard: true }).catch((error) => console.log("Stream livestream cleanup error:", error.message));
+    await call
+      .stopLive()
+      .catch((error) =>
+        console.log("Stream stop live timeout cleanup warning:", error.message),
+      );
+    await call
+      .delete({ hard: true })
+      .catch((error) =>
+        console.log("Stream livestream cleanup error:", error.message),
+      );
   }
 
   io.in(roomId).emit("livestream-state", {
@@ -507,11 +594,17 @@ const completeLivestreamAfterHostTimeout = async (roomId) => {
   });
 };
 
-const scheduleLivestreamHostTimeout = (roomId, delay = LIVESTREAM_HOST_DISCONNECT_TIMEOUT_MS) => {
+const scheduleLivestreamHostTimeout = (
+  roomId,
+  delay = LIVESTREAM_HOST_DISCONNECT_TIMEOUT_MS,
+) => {
   clearLivestreamHostDisconnectTimer(roomId);
   const timer = setTimeout(() => {
     completeLivestreamAfterHostTimeout(roomId).catch((error) => {
-      console.error("Error completing livestream after host timeout:", error.message);
+      console.error(
+        "Error completing livestream after host timeout:",
+        error.message,
+      );
     });
   }, delay);
   livestreamHostDisconnectTimersByRoom.set(roomId, timer);
@@ -556,12 +649,19 @@ io.on("connection", (socket) => {
   console.log("A user connected:", socket.id, "Clerk ID:", socket.clerkId);
   socket.data.sessionAccessByRoom = new Map();
 
-  const getAuthorizedSessionForSocket = async (roomId, { useCache = true } = {}) => {
+  const getAuthorizedSessionForSocket = async (
+    roomId,
+    { useCache = true } = {},
+  ) => {
     if (!roomId) return null;
 
     if (useCache) {
       const cachedAccess = socket.data.sessionAccessByRoom.get(roomId);
-      if (cachedAccess && Date.now() - (cachedAccess.validatedAt || 0) < SOCKET_ACCESS_CACHE_TTL_MS) {
+      if (
+        cachedAccess &&
+        Date.now() - (cachedAccess.validatedAt || 0) <
+          SOCKET_ACCESS_CACHE_TTL_MS
+      ) {
         return cachedAccess;
       }
     }
@@ -571,14 +671,22 @@ io.on("connection", (socket) => {
       .populate("hostId", "clerkId");
     if (!session) return null;
 
-    const currentUser = await User.findOne({ clerkId: socket.clerkId }).select("_id name profileImage");
+    const currentUser = await User.findOne({ clerkId: socket.clerkId }).select(
+      "_id name profileImage",
+    );
     if (!currentUser) return null;
 
     const mongoUserId = currentUser._id.toString();
     const isHost = isSessionHost(session, mongoUserId);
-    const isParticipant = session.participants.some((p) => p.toString() === mongoUserId);
-    const isLivestream = normalizeSessionType(session.sessionType) === "livestream";
-    const isViewer = isLivestream && !isHost ? await isApprovedCourseViewer(session, mongoUserId) : false;
+    const isParticipant = session.participants.some(
+      (p) => p.toString() === mongoUserId,
+    );
+    const isLivestream =
+      normalizeSessionType(session.sessionType) === "livestream";
+    const isViewer =
+      isLivestream && !isHost
+        ? await isApprovedCourseViewer(session, mongoUserId)
+        : false;
 
     if (!isHost && !isParticipant && !isViewer) return null;
 
@@ -596,7 +704,8 @@ io.on("connection", (socket) => {
     return access;
   };
 
-  const getSocketRoomAccess = (roomId) => socket.data.sessionAccessByRoom.get(roomId) || null;
+  const getSocketRoomAccess = (roomId) =>
+    socket.data.sessionAccessByRoom.get(roomId) || null;
 
   const canCurrentSocketWriteWhiteboard = (roomId) => {
     const access = getSocketRoomAccess(roomId);
@@ -646,14 +755,18 @@ io.on("connection", (socket) => {
         session?.quizBankMeta && typeof session.quizBankMeta === "object"
           ? session.quizBankMeta
           : { title: "", version: "1.0", defaultTimeLimitSec: 30 },
-      leaderboard: Array.isArray(session?.quizLeaderboard) ? sortLeaderboard(session.quizLeaderboard) : [],
+      leaderboard: Array.isArray(session?.quizLeaderboard)
+        ? sortLeaderboard(session.quizLeaderboard)
+        : [],
       history: Array.isArray(session?.quizHistory) ? session.quizHistory : [],
       activeRound: null,
       activeTimer: null,
     };
 
     if (session?.activeQuizRound?.status === "live") {
-      const question = state.quizBank.find((q) => q.id === session.activeQuizRound.questionId);
+      const question = state.quizBank.find(
+        (q) => q.id === session.activeQuizRound.questionId,
+      );
       if (question) {
         const now = Date.now();
         const startedAt = Number(session.activeQuizRound.startedAt) || now;
@@ -763,8 +876,9 @@ io.on("connection", (socket) => {
     state.leaderboard = sortLeaderboard(
       Array.from(leaderboardByUser.values()).map((entry) => ({
         ...entry,
-        avgCorrectResponseMs:
-          Number.isFinite(entry.avgCorrectResponseMs) ? entry.avgCorrectResponseMs : 0,
+        avgCorrectResponseMs: Number.isFinite(entry.avgCorrectResponseMs)
+          ? entry.avgCorrectResponseMs
+          : 0,
       })),
     );
 
@@ -801,20 +915,36 @@ io.on("connection", (socket) => {
 
   socket.on("join-session", async (roomId) => {
     try {
-      const access = await getAuthorizedSessionForSocket(roomId, { useCache: false });
+      const access = await getAuthorizedSessionForSocket(roomId, {
+        useCache: false,
+      });
       if (!access?.session) {
-        socket.emit("error", { message: "Not authorized to join this session" });
+        socket.emit("error", {
+          message: "Not authorized to join this session",
+        });
         return;
       }
-      const { session, currentUser, isHost, isLivestream, isViewer, mongoUserId } = access;
+      const {
+        session,
+        currentUser,
+        isHost,
+        isLivestream,
+        isViewer,
+        mongoUserId,
+      } = access;
 
       socket.join(roomId);
-      console.log(`User ${socket.id} (${socket.clerkId}) joined room: ${roomId}`);
+      console.log(
+        `User ${socket.id} (${socket.clerkId}) joined room: ${roomId}`,
+      );
 
       if (isLivestream) {
         if (isHost) {
           clearLivestreamHostDisconnectTimer(roomId);
-          if (session.livestream?.hostDisconnectDeadline || session.livestream?.hostDisconnectedAt) {
+          if (
+            session.livestream?.hostDisconnectDeadline ||
+            session.livestream?.hostDisconnectedAt
+          ) {
             session.livestream = {
               ...(session.livestream || {}),
               hostDisconnectedAt: null,
@@ -828,7 +958,7 @@ io.on("connection", (socket) => {
       }
 
       // Check in-memory cache first
-      let roomWhiteboardState = whiteboardStateByRoom.get(roomId); 
+      let roomWhiteboardState = whiteboardStateByRoom.get(roomId);
 
       if (!roomWhiteboardState) {
         // If not in cache, load from DB
@@ -849,7 +979,7 @@ io.on("connection", (socket) => {
         writerIds: roomWhiteboardState.writerIds,
         socketMongoUserId: mongoUserId,
       });
-      
+
       socket.emit("whiteboard-sync", {
         isOpen: roomWhiteboardState.isOpen,
         elements: roomWhiteboardState.elements || [],
@@ -875,23 +1005,29 @@ io.on("connection", (socket) => {
       });
 
       if (isLivestream) {
-        const chatMessages = await LivestreamChatMessage.find({ sessionId: roomId })
+        const chatMessages = await LivestreamChatMessage.find({
+          sessionId: roomId,
+        })
           .sort({ createdAt: -1 })
           .limit(LIVESTREAM_CHAT_HISTORY_LIMIT)
           .lean();
 
         socket.emit("livestream-state", buildLivestreamStatePayload(session));
-        socket.emit("livestream-chat-history", chatMessages.reverse().map((message) => ({
-          id: message._id.toString(),
-          userId: message.userId?.toString(),
-          userName: message.userName,
-          userImage: message.userImage,
-          message: message.message,
-          createdAt: message.createdAt,
-        })));
+        socket.emit(
+          "livestream-chat-history",
+          chatMessages.reverse().map((message) => ({
+            id: message._id.toString(),
+            userId: message.userId?.toString(),
+            userName: message.userName,
+            userImage: message.userImage,
+            message: message.message,
+            createdAt: message.createdAt,
+          })),
+        );
         socket.emit("host-code-sync", {
           ...(session.livestreamCodeSnapshot || {}),
-          language: session.livestreamCodeSnapshot?.language || session.language,
+          language:
+            session.livestreamCodeSnapshot?.language || session.language,
           code: session.livestreamCodeSnapshot?.code || "",
           version: session.livestreamCodeSnapshot?.version || 0,
         });
@@ -902,7 +1038,10 @@ io.on("connection", (socket) => {
           version: session.livestreamWhiteboardSnapshot?.version || 0,
         });
         io.in(roomId).emit("viewer-count", {
-          count: Math.max(0, (io.sockets.adapter.rooms.get(roomId)?.size || 1) - 1),
+          count: Math.max(
+            0,
+            (io.sockets.adapter.rooms.get(roomId)?.size || 1) - 1,
+          ),
         });
       }
     } catch (error) {
@@ -916,19 +1055,25 @@ io.on("connection", (socket) => {
 
   // 2. Handle Code Changes
   socket.on("code-change", async ({ roomId, code }) => {
-    if (!roomId || !socket.rooms.has(roomId) || typeof code !== "string") return;
+    if (!roomId || !socket.rooms.has(roomId) || typeof code !== "string")
+      return;
     const access = await getAuthorizedSessionForSocket(roomId);
     if (!access) return;
     if (access.isLivestream && !access.isHost) return;
 
     if (access.isLivestream) {
       const nextSnapshot = {
-        language: access.session?.livestreamCodeSnapshot?.language || access.session?.language || "javascript",
+        language:
+          access.session?.livestreamCodeSnapshot?.language ||
+          access.session?.language ||
+          "javascript",
         code: code.slice(0, 200000),
         version: (access.session?.livestreamCodeSnapshot?.version || 0) + 1,
         updatedAt: new Date(),
       };
-      await Session.findByIdAndUpdate(roomId, { livestreamCodeSnapshot: nextSnapshot });
+      await Session.findByIdAndUpdate(roomId, {
+        livestreamCodeSnapshot: nextSnapshot,
+      });
       io.in(roomId).emit("host-code-sync", nextSnapshot);
       return;
     }
@@ -939,7 +1084,8 @@ io.on("connection", (socket) => {
 
   // 3. Handle Language Changes (Optional but recommended)
   socket.on("language-change", async ({ roomId, language }) => {
-    if (!roomId || !socket.rooms.has(roomId) || typeof language !== "string") return;
+    if (!roomId || !socket.rooms.has(roomId) || typeof language !== "string")
+      return;
     const access = await getAuthorizedSessionForSocket(roomId);
     if (!access) return;
     if (access.isLivestream && !access.isHost) return;
@@ -952,12 +1098,17 @@ io.on("connection", (socket) => {
         version: (access.session?.livestreamCodeSnapshot?.version || 0) + 1,
         updatedAt: new Date(),
       };
-      await Session.findByIdAndUpdate(roomId, { livestreamCodeSnapshot: nextSnapshot, language: nextLanguage });
+      await Session.findByIdAndUpdate(roomId, {
+        livestreamCodeSnapshot: nextSnapshot,
+        language: nextLanguage,
+      });
       io.in(roomId).emit("host-code-sync", nextSnapshot);
       return;
     }
 
-    socket.to(roomId).emit("language-update", normalizeSessionLanguage(language));
+    socket
+      .to(roomId)
+      .emit("language-update", normalizeSessionLanguage(language));
   });
 
   socket.on("quiz-upload", async ({ roomId, quizJson }) => {
@@ -973,7 +1124,9 @@ io.on("connection", (socket) => {
 
     const state = await getOrCreateQuizState(roomId, access.session);
     if (state.activeRound?.status === "live") {
-      socket.emit("quiz-error", { message: "Cannot replace quiz bank while a round is live" });
+      socket.emit("quiz-error", {
+        message: "Cannot replace quiz bank while a round is live",
+      });
       return;
     }
 
@@ -994,7 +1147,9 @@ io.on("connection", (socket) => {
 
     const state = await getOrCreateQuizState(roomId, access.session);
     if (state.quizBank.length >= QUIZ_MAX_QUESTIONS) {
-      socket.emit("quiz-error", { message: `Maximum ${QUIZ_MAX_QUESTIONS} questions are allowed` });
+      socket.emit("quiz-error", {
+        message: `Maximum ${QUIZ_MAX_QUESTIONS} questions are allowed`,
+      });
       return;
     }
 
@@ -1071,61 +1226,65 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("quiz-submit-answer", async ({ roomId, roundId, selectedOptionIndex }) => {
-    if (!roomId || !socket.rooms.has(roomId)) return;
-    const access = await getAuthorizedSessionForSocket(roomId);
-    if (!access?.session || access.isHost) return;
+  socket.on(
+    "quiz-submit-answer",
+    async ({ roomId, roundId, selectedOptionIndex }) => {
+      if (!roomId || !socket.rooms.has(roomId)) return;
+      const access = await getAuthorizedSessionForSocket(roomId);
+      if (!access?.session || access.isHost) return;
 
-    const state = await getOrCreateQuizState(roomId, access.session);
-    const round = state.activeRound;
-    if (!round || round.status !== "live") return;
-    if (round.roundId !== roundId) return;
+      const state = await getOrCreateQuizState(roomId, access.session);
+      const round = state.activeRound;
+      if (!round || round.status !== "live") return;
+      if (round.roundId !== roundId) return;
 
-    const now = Date.now();
-    if (now > round.endsAt) return;
+      const now = Date.now();
+      if (now > round.endsAt) return;
 
-    const participantId = access.currentUser?._id?.toString();
-    if (!participantId) return;
-    if (round.submissions.has(participantId)) return;
+      const participantId = access.currentUser?._id?.toString();
+      if (!participantId) return;
+      if (round.submissions.has(participantId)) return;
 
-    const answerIndex = Number.parseInt(selectedOptionIndex, 10);
-    if (!Number.isFinite(answerIndex) || answerIndex < 0 || answerIndex > 3) return;
+      const answerIndex = Number.parseInt(selectedOptionIndex, 10);
+      if (!Number.isFinite(answerIndex) || answerIndex < 0 || answerIndex > 3)
+        return;
 
-    const responseMs = Math.max(0, now - round.startedAt);
-    round.submissions.set(participantId, {
-      selectedOptionIndex: answerIndex,
-      submittedAt: now,
-      responseMs,
-      isCorrect: answerIndex === round.question.correctOptionIndex,
-      name: access.currentUser?.name || "Participant",
-      profileImage: access.currentUser?.profileImage || "",
-      isHost: false,
-    });
+      const responseMs = Math.max(0, now - round.startedAt);
+      round.submissions.set(participantId, {
+        selectedOptionIndex: answerIndex,
+        submittedAt: now,
+        responseMs,
+        isCorrect: answerIndex === round.question.correctOptionIndex,
+        name: access.currentUser?.name || "Participant",
+        profileImage: access.currentUser?.profileImage || "",
+        isHost: false,
+      });
 
-    if (access.isLivestream) {
-      await LivestreamQuizSubmission.findOneAndUpdate(
-        {
-          sessionId: roomId,
-          roundId: round.roundId,
-          viewerId: participantId,
-        },
-        {
-          questionId: round.question.id,
-          selectedOptionIndex: answerIndex,
-          isCorrect: answerIndex === round.question.correctOptionIndex,
-          responseMs,
-          submittedAt: new Date(now),
-        },
-        { upsert: true },
-      );
-    }
+      if (access.isLivestream) {
+        await LivestreamQuizSubmission.findOneAndUpdate(
+          {
+            sessionId: roomId,
+            roundId: round.roundId,
+            viewerId: participantId,
+          },
+          {
+            questionId: round.question.id,
+            selectedOptionIndex: answerIndex,
+            isCorrect: answerIndex === round.question.correctOptionIndex,
+            responseMs,
+            submittedAt: new Date(now),
+          },
+          { upsert: true },
+        );
+      }
 
-    socket.emit("quiz-answer-accepted", {
-      roundId: round.roundId,
-      selectedOptionIndex: answerIndex,
-      responseMs,
-    });
-  });
+      socket.emit("quiz-answer-accepted", {
+        roundId: round.roundId,
+        selectedOptionIndex: answerIndex,
+        responseMs,
+      });
+    },
+  );
 
   socket.on("quiz-end-round", async ({ roomId }) => {
     if (!roomId || !socket.rooms.has(roomId)) return;
@@ -1136,13 +1295,16 @@ io.on("connection", (socket) => {
   });
 
   // 4. Whiteboard Sync (Add this)
-  socket.on("whiteboard-change", async ({ roomId, elements, appState }) => { // Made async
+  socket.on("whiteboard-change", async ({ roomId, elements, appState }) => {
+    // Made async
     if (!roomId || !socket.rooms.has(roomId)) return;
     if (!Array.isArray(elements)) return;
     const access = await getAuthorizedSessionForSocket(roomId);
     if (!access) return;
     if (!canCurrentSocketWriteWhiteboard(roomId)) {
-      socket.emit("whiteboard-write-denied", { message: "You do not have write access to the whiteboard." });
+      socket.emit("whiteboard-write-denied", {
+        message: "You do not have write access to the whiteboard.",
+      });
       return;
     }
 
@@ -1154,7 +1316,9 @@ io.on("connection", (socket) => {
       isOpen: false,
       elements: [],
       appState: {},
-      writeMode: normalizeWhiteboardWriteMode(access.session?.whiteboardWriteMode),
+      writeMode: normalizeWhiteboardWriteMode(
+        access.session?.whiteboardWriteMode,
+      ),
       writerIds: normalizeWriterIds(access.session?.whiteboardWriters),
       signature: "",
     };
@@ -1166,7 +1330,10 @@ io.on("connection", (socket) => {
     const currentSanitizedElements = Array.isArray(currentState.elements)
       ? currentState.elements
       : sanitizeWhiteboardElements(currentState.elements);
-    const mergedElements = mergeWhiteboardElementsByVersion(currentSanitizedElements, sanitizedElements);
+    const mergedElements = mergeWhiteboardElementsByVersion(
+      currentSanitizedElements,
+      sanitizedElements,
+    );
     const mergedSignature = sceneSignature(mergedElements);
     whiteboardStateByRoom.set(roomId, {
       ...currentState,
@@ -1182,7 +1349,9 @@ io.on("connection", (socket) => {
         version: Date.now(),
         updatedAt: new Date(),
       };
-      await Session.findByIdAndUpdate(roomId, { livestreamWhiteboardSnapshot: nextSnapshot });
+      await Session.findByIdAndUpdate(roomId, {
+        livestreamWhiteboardSnapshot: nextSnapshot,
+      });
       io.in(roomId).emit("host-whiteboard-sync", nextSnapshot);
       return;
     }
@@ -1209,7 +1378,9 @@ io.on("connection", (socket) => {
       const currentState = whiteboardStateByRoom.get(roomId) || {
         elements: [],
         appState: {},
-        writeMode: normalizeWhiteboardWriteMode(access.session?.whiteboardWriteMode),
+        writeMode: normalizeWhiteboardWriteMode(
+          access.session?.whiteboardWriteMode,
+        ),
         writerIds: normalizeWriterIds(access.session?.whiteboardWriters),
         signature: sceneSignature(access.session?.whiteboardElements || []),
       };
@@ -1237,7 +1408,9 @@ io.on("connection", (socket) => {
       elements: access.session?.whiteboardElements || [],
       appState: access.session?.whiteboardAppState || {},
       signature: sceneSignature(access.session?.whiteboardElements || []),
-      writeMode: normalizeWhiteboardWriteMode(access.session?.whiteboardWriteMode),
+      writeMode: normalizeWhiteboardWriteMode(
+        access.session?.whiteboardWriteMode,
+      ),
       writerIds: normalizeWriterIds(access.session?.whiteboardWriters),
     };
 
@@ -1264,8 +1437,8 @@ io.on("connection", (socket) => {
     if (!access?.isHost) return;
 
     const nextUserId = userId.toString();
-    const participantIds = (access.session?.participants || []).map((participantId) =>
-      participantId.toString(),
+    const participantIds = (access.session?.participants || []).map(
+      (participantId) => participantId.toString(),
     );
     if (!participantIds.includes(nextUserId)) return;
 
@@ -1274,17 +1447,23 @@ io.on("connection", (socket) => {
       elements: access.session?.whiteboardElements || [],
       appState: access.session?.whiteboardAppState || {},
       signature: sceneSignature(access.session?.whiteboardElements || []),
-      writeMode: normalizeWhiteboardWriteMode(access.session?.whiteboardWriteMode),
+      writeMode: normalizeWhiteboardWriteMode(
+        access.session?.whiteboardWriteMode,
+      ),
       writerIds: normalizeWriterIds(access.session?.whiteboardWriters),
     };
 
-    const nextWriterIds = Array.from(new Set([...normalizeWriterIds(currentState.writerIds), nextUserId]));
+    const nextWriterIds = Array.from(
+      new Set([...normalizeWriterIds(currentState.writerIds), nextUserId]),
+    );
     whiteboardStateByRoom.set(roomId, {
       ...currentState,
       writerIds: nextWriterIds,
     });
 
-    await Session.findByIdAndUpdate(roomId, { whiteboardWriters: nextWriterIds });
+    await Session.findByIdAndUpdate(roomId, {
+      whiteboardWriters: nextWriterIds,
+    });
     io.in(roomId).emit("whiteboard-permissions-updated", {
       writeMode: normalizeWhiteboardWriteMode(currentState.writeMode),
       writerIds: nextWriterIds,
@@ -1297,8 +1476,8 @@ io.on("connection", (socket) => {
     if (!access?.isHost) return;
 
     const targetUserId = userId.toString();
-    const participantIds = (access.session?.participants || []).map((participantId) =>
-      participantId.toString(),
+    const participantIds = (access.session?.participants || []).map(
+      (participantId) => participantId.toString(),
     );
     if (!participantIds.includes(targetUserId)) return;
 
@@ -1307,17 +1486,23 @@ io.on("connection", (socket) => {
       elements: access.session?.whiteboardElements || [],
       appState: access.session?.whiteboardAppState || {},
       signature: sceneSignature(access.session?.whiteboardElements || []),
-      writeMode: normalizeWhiteboardWriteMode(access.session?.whiteboardWriteMode),
+      writeMode: normalizeWhiteboardWriteMode(
+        access.session?.whiteboardWriteMode,
+      ),
       writerIds: normalizeWriterIds(access.session?.whiteboardWriters),
     };
 
-    const nextWriterIds = normalizeWriterIds(currentState.writerIds).filter((id) => id !== targetUserId);
+    const nextWriterIds = normalizeWriterIds(currentState.writerIds).filter(
+      (id) => id !== targetUserId,
+    );
     whiteboardStateByRoom.set(roomId, {
       ...currentState,
       writerIds: nextWriterIds,
     });
 
-    await Session.findByIdAndUpdate(roomId, { whiteboardWriters: nextWriterIds });
+    await Session.findByIdAndUpdate(roomId, {
+      whiteboardWriters: nextWriterIds,
+    });
     io.in(roomId).emit("whiteboard-permissions-updated", {
       writeMode: normalizeWhiteboardWriteMode(currentState.writeMode),
       writerIds: nextWriterIds,
@@ -1325,13 +1510,16 @@ io.on("connection", (socket) => {
   });
 
   socket.on("livestream-chat-send", async ({ roomId, message }) => {
-    if (!roomId || !socket.rooms.has(roomId) || typeof message !== "string") return;
+    if (!roomId || !socket.rooms.has(roomId) || typeof message !== "string")
+      return;
     const text = message.trim().slice(0, 1000);
     if (!text) return;
 
     const lastSentAt = socket.data.lastLivestreamChatAt || 0;
     if (Date.now() - lastSentAt < LIVESTREAM_CHAT_MIN_INTERVAL_MS) {
-      socket.emit("livestream-chat-error", { message: "Slow down before sending another message." });
+      socket.emit("livestream-chat-error", {
+        message: "Slow down before sending another message.",
+      });
       return;
     }
 
@@ -1360,14 +1548,23 @@ io.on("connection", (socket) => {
 
   socket.on("viewer-code-sync-request", async ({ roomId }) => {
     if (!roomId || !socket.rooms.has(roomId)) return;
-    if (Date.now() - (socket.data.lastLivestreamCodeSyncAt || 0) < LIVESTREAM_SYNC_MIN_INTERVAL_MS) return;
+    if (
+      Date.now() - (socket.data.lastLivestreamCodeSyncAt || 0) <
+      LIVESTREAM_SYNC_MIN_INTERVAL_MS
+    )
+      return;
     const access = await getAuthorizedSessionForSocket(roomId);
     if (!access?.isLivestream) return;
     socket.data.lastLivestreamCodeSyncAt = Date.now();
-    const session = await Session.findById(roomId).select("language livestreamCodeSnapshot");
+    const session = await Session.findById(roomId).select(
+      "language livestreamCodeSnapshot",
+    );
     socket.emit("host-code-sync", {
       ...(session?.livestreamCodeSnapshot || {}),
-      language: session?.livestreamCodeSnapshot?.language || session?.language || "javascript",
+      language:
+        session?.livestreamCodeSnapshot?.language ||
+        session?.language ||
+        "javascript",
       code: session?.livestreamCodeSnapshot?.code || "",
       version: session?.livestreamCodeSnapshot?.version || 0,
     });
@@ -1375,11 +1572,17 @@ io.on("connection", (socket) => {
 
   socket.on("viewer-whiteboard-sync-request", async ({ roomId }) => {
     if (!roomId || !socket.rooms.has(roomId)) return;
-    if (Date.now() - (socket.data.lastLivestreamWhiteboardSyncAt || 0) < LIVESTREAM_SYNC_MIN_INTERVAL_MS) return;
+    if (
+      Date.now() - (socket.data.lastLivestreamWhiteboardSyncAt || 0) <
+      LIVESTREAM_SYNC_MIN_INTERVAL_MS
+    )
+      return;
     const access = await getAuthorizedSessionForSocket(roomId);
     if (!access?.isLivestream) return;
     socket.data.lastLivestreamWhiteboardSyncAt = Date.now();
-    const session = await Session.findById(roomId).select("livestreamWhiteboardSnapshot");
+    const session = await Session.findById(roomId).select(
+      "livestreamWhiteboardSnapshot",
+    );
     socket.emit("host-whiteboard-sync", {
       ...(session?.livestreamWhiteboardSnapshot || {}),
       elements: session?.livestreamWhiteboardSnapshot?.elements || [],
@@ -1390,13 +1593,21 @@ io.on("connection", (socket) => {
 
   socket.on("livestream-start", async ({ roomId }) => {
     if (!roomId || !socket.rooms.has(roomId)) return;
-    const access = await getAuthorizedSessionForSocket(roomId, { useCache: false });
+    const access = await getAuthorizedSessionForSocket(roomId, {
+      useCache: false,
+    });
     if (!access?.isLivestream || !access.isHost) return;
-    if (access.session.status === "completed" || access.session.status === "cancelled") return;
+    if (
+      access.session.status === "completed" ||
+      access.session.status === "cancelled"
+    )
+      return;
 
     const call = streamClient.video.call("livestream", access.session.callId);
     const startResult = await call.goLive().catch((error) => {
-      socket.emit("livestream-error", { message: error.message || "Failed to start livestream" });
+      socket.emit("livestream-error", {
+        message: error.message || "Failed to start livestream",
+      });
       return null;
     });
     if (!startResult) return;
@@ -1416,12 +1627,17 @@ io.on("connection", (socket) => {
     );
 
     clearLivestreamHostDisconnectTimer(roomId);
-    io.in(roomId).emit("livestream-state", buildLivestreamStatePayload(session));
+    io.in(roomId).emit(
+      "livestream-state",
+      buildLivestreamStatePayload(session),
+    );
   });
 
   socket.on("livestream-stop", async ({ roomId }) => {
     if (!roomId || !socket.rooms.has(roomId)) return;
-    const access = await getAuthorizedSessionForSocket(roomId, { useCache: false });
+    const access = await getAuthorizedSessionForSocket(roomId, {
+      useCache: false,
+    });
     if (!access?.isLivestream || !access.isHost) return;
 
     const call = streamClient.video.call("livestream", access.session.callId);
@@ -1441,7 +1657,10 @@ io.on("connection", (socket) => {
     );
 
     clearLivestreamHostDisconnectTimer(roomId);
-    io.in(roomId).emit("livestream-state", buildLivestreamStatePayload(session));
+    io.in(roomId).emit(
+      "livestream-state",
+      buildLivestreamStatePayload(session),
+    );
   });
 
   socket.on("disconnecting", async () => {
@@ -1456,14 +1675,24 @@ io.on("connection", (socket) => {
 
       if (access?.isLivestream) {
         if (access.isViewer) {
-          await upsertLivestreamAttendance(access.session, access.currentUser._id, new Date()).catch((error) => {
-            console.error("Error updating livestream attendance:", error.message);
+          await upsertLivestreamAttendance(
+            access.session,
+            access.currentUser._id,
+            new Date(),
+          ).catch((error) => {
+            console.error(
+              "Error updating livestream attendance:",
+              error.message,
+            );
           });
         }
 
         if (access.isHost && access.session?.livestream?.isLive) {
           const hostDisconnectedAt = new Date();
-          const hostDisconnectDeadline = new Date(hostDisconnectedAt.getTime() + LIVESTREAM_HOST_DISCONNECT_TIMEOUT_MS);
+          const hostDisconnectDeadline = new Date(
+            hostDisconnectedAt.getTime() +
+              LIVESTREAM_HOST_DISCONNECT_TIMEOUT_MS,
+          );
           await Session.findByIdAndUpdate(roomId, {
             "livestream.hostDisconnectedAt": hostDisconnectedAt,
             "livestream.hostDisconnectDeadline": hostDisconnectDeadline,
@@ -1491,11 +1720,14 @@ io.on("connection", (socket) => {
 
       // ADJUSTMENT: Only auto-end if the room is becoming completely empty (0 users left)
       // This prevents a group session from ending just because one participant leaves.
-      if (roomSize <= 1) { 
+      if (roomSize <= 1) {
         console.log(`Room ${roomId} is empty. Auto-ending session...`); //
         clearWhiteboardPersistTimer(roomId);
         await persistWhiteboardStateNow(roomId).catch((error) => {
-          console.error("Error flushing whiteboard state on room close:", error.message);
+          console.error(
+            "Error flushing whiteboard state on room close:",
+            error.message,
+          );
         });
         whiteboardStateByRoom.delete(roomId);
         const quizState = quizStateByRoom.get(roomId);
@@ -1503,22 +1735,29 @@ io.on("connection", (socket) => {
         quizStateByRoom.delete(roomId);
         try {
           const session = await Session.findById(roomId);
-          
+
           if (session && session.status === "active") {
             session.status = "completed"; //
             await session.save(); //
 
             if (session.callId) {
-              const call = streamClient.video.call(getStreamCallType(session), session.callId); //
-              await call.delete({ hard: true }).catch((err) => 
-                console.log("Stream call cleanup error:", err.message)
+              const call = streamClient.video.call(
+                getStreamCallType(session),
+                session.callId,
               ); //
+              await call
+                .delete({ hard: true })
+                .catch((err) =>
+                  console.log("Stream call cleanup error:", err.message),
+                ); //
 
               if (normalizeSessionType(session.sessionType) !== "livestream") {
                 const channel = chatClient.channel("messaging", session.callId); //
-                await channel.delete().catch((err) =>
-                  console.log("Stream chat cleanup error:", err.message)
-                ); //
+                await channel
+                  .delete()
+                  .catch((err) =>
+                    console.log("Stream chat cleanup error:", err.message),
+                  ); //
               }
             }
           }
@@ -1539,11 +1778,11 @@ io.on("connection", (socket) => {
       await Session.findByIdAndUpdate(roomId, { isCodeOpen: Boolean(isOpen) });
 
       // 2. Broadcast the new state to EVERYONE in the room (Host + Participant)
-      // We use io.in() instead of socket.to() so the sender (Host) also receives the confirmation event 
+      // We use io.in() instead of socket.to() so the sender (Host) also receives the confirmation event
       // if you want a single source of truth, or just update local state optimistically.
       // Here we broadcast to everyone so all clients stay in sync.
       io.in(roomId).emit("code-space-state", Boolean(isOpen));
-      
+
       console.log(`Room ${roomId} code space toggled to: ${isOpen}`);
     } catch (error) {
       console.error("Error toggling code space:", error);
@@ -1556,7 +1795,9 @@ io.on("connection", (socket) => {
       const access = await getAuthorizedSessionForSocket(roomId);
       if (!access?.isHost) return;
 
-      await Session.findByIdAndUpdate(roomId, { isAntiCheatEnabled: Boolean(isEnabled) });
+      await Session.findByIdAndUpdate(roomId, {
+        isAntiCheatEnabled: Boolean(isEnabled),
+      });
       io.in(roomId).emit("anti-cheat-update", Boolean(isEnabled));
     } catch (error) {
       console.error("Error toggling anti-cheat:", error);
@@ -1573,7 +1814,7 @@ io.on("connection", (socket) => {
     // We send to the room so the host receives it
     socket.to(roomId).emit("cheat-alert", { userId, reason });
   });
-  
+
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
   });
@@ -1603,7 +1844,9 @@ const startServer = async () => {
   try {
     await connectDB();
     await repairLegacyCourseTextIndex();
-    httpServer.listen(ENV.PORT, () => console.log("Server is running on port:", ENV.PORT));
+    httpServer.listen(ENV.PORT, () =>
+      console.log("Server is running on port:", ENV.PORT),
+    );
   } catch (error) {
     console.error("💥 Error starting the server", error);
   }

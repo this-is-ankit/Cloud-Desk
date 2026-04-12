@@ -1,6 +1,7 @@
 import Course from "../models/Course.js";
 
-const hasTextIndex = (index = {}) => Object.values(index.key || {}).includes("text");
+const hasTextIndex = (index = {}) =>
+  Object.values(index.key || {}).includes("text");
 
 export const isLegacyCourseTextIndexError = (error) =>
   /language override unsupported/i.test(error?.message || "");
@@ -8,7 +9,8 @@ export const isLegacyCourseTextIndexError = (error) =>
 export async function repairLegacyCourseTextIndex() {
   const indexes = await Course.collection.indexes();
   const legacyTextIndexes = indexes.filter(
-    (index) => hasTextIndex(index) && index.language_override !== "searchLanguage",
+    (index) =>
+      hasTextIndex(index) && index.language_override !== "searchLanguage",
   );
 
   for (const index of legacyTextIndexes) {

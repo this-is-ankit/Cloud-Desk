@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
-import { BookOpenIcon, LayoutDashboardIcon, SparklesIcon } from "./icons/ModernIcons";
+import {
+  BookOpenIcon,
+  LayoutDashboardIcon,
+  SparklesIcon,
+} from "./icons/ModernIcons";
 import { LibraryBig, UserRound, Menu, X } from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
 import ThemeToggle from "./ThemeToggle";
@@ -26,7 +30,7 @@ export default function Navbar() {
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
-  
+
   const NavLink = ({ to, icon, label }) => {
     const active = isActive(to);
     const IconComponent = icon;
@@ -34,9 +38,10 @@ export default function Navbar() {
       <Link
         to={to}
         className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors duration-200
-          ${active 
-            ? "bg-primary text-primary-content shadow-sm shadow-primary/20" 
-            : "text-base-content/70 hover:bg-base-200/80 hover:text-base-content"
+          ${
+            active
+              ? "bg-primary text-primary-content shadow-sm shadow-primary/20"
+              : "text-base-content/70 hover:bg-base-200/80 hover:text-base-content"
           }`}
       >
         <IconComponent className="w-4 h-4" />
@@ -57,14 +62,23 @@ export default function Navbar() {
               <SparklesIcon className="h-5 w-5" />
             </div>
             <div className="hidden sm:flex flex-col">
-              <span className="text-lg font-bold tracking-tight text-base-content leading-none">Cloud Desk</span>
-              <span className="text-[11px] font-medium text-base-content/50 uppercase tracking-widest mt-1">Platform</span>
+              <span className="text-lg font-bold tracking-tight text-base-content leading-none">
+                Cloud Desk
+              </span>
+              <span className="text-[11px] font-medium text-base-content/50 uppercase tracking-widest mt-1">
+                Platform
+              </span>
             </div>
           </Link>
 
           <div className="hidden items-center gap-1 rounded-2xl border border-base-content/10 bg-base-200/50 p-1 md:flex">
             {navItems.map((item) => (
-              <NavLink key={item.to} to={item.to} icon={item.icon} label={item.label} />
+              <NavLink
+                key={item.to}
+                to={item.to}
+                icon={item.icon}
+                label={item.label}
+              />
             ))}
           </div>
 
@@ -91,7 +105,14 @@ export default function Navbar() {
                 Log out ({user?.firstName || "Dev"})
               </button>
             ) : (
-              <UserButton appearance={{ elements: { avatarBox: "w-10 h-10 rounded-xl border border-base-content/10 shadow-sm" } }} />
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox:
+                      "w-10 h-10 rounded-xl border border-base-content/10 shadow-sm",
+                  },
+                }}
+              />
             )}
 
             <button
@@ -100,7 +121,11 @@ export default function Navbar() {
               onClick={() => setIsMobileMenuOpen((current) => !current)}
               aria-label="Toggle navigation menu"
             >
-              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {isMobileMenuOpen ? (
+                <X className="w-5 h-5" />
+              ) : (
+                <Menu className="w-5 h-5" />
+              )}
             </button>
           </div>
         </div>
@@ -109,7 +134,12 @@ export default function Navbar() {
           <div className="mt-4 rounded-3xl border border-base-content/10 bg-base-100 p-3 shadow-xl md:hidden">
             <div className="space-y-2">
               {navItems.map((item) => (
-                <NavLink key={item.to} to={item.to} icon={item.icon} label={item.label} />
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  icon={item.icon}
+                  label={item.label}
+                />
               ))}
               <Link
                 to="/settings/profile"
@@ -120,7 +150,9 @@ export default function Navbar() {
                 }`}
               >
                 <UserRound className="w-4 h-4" />
-                <span>{role === "teacher" ? "Teacher profile" : "Profile"}</span>
+                <span>
+                  {role === "teacher" ? "Teacher profile" : "Profile"}
+                </span>
               </Link>
             </div>
           </div>

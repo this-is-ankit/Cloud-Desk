@@ -8,6 +8,7 @@ Status: Planning only (no feature code implemented in this step)
 Add a **host-controlled quiz mode** inside live sessions so hosts can check participant understanding with timed multiple-choice questions.
 
 Core requirements from product request:
+
 - Host uploads a question bank file before or during session.
 - If no file is available, host can compose a question manually in UI (question + 4 options + correct answer + timer).
 - Host sees the full question list and starts any question as a round.
@@ -19,6 +20,7 @@ Core requirements from product request:
 - This is **QnA/knowledge check**, not open polling.
 
 Non-goals for v1:
+
 - Open-ended/free-text grading.
 - AI-generated questions.
 - Cross-session global rankings.
@@ -26,6 +28,7 @@ Non-goals for v1:
 ## 2. Proposed Product Workflow (End-to-End)
 
 ### 2.1 Host Flow
+
 1. Host opens `SessionPage`.
 2. Host opens `Quiz` panel (same area style as chat sidebar or bottom-right dock).
 3. Host either:
@@ -47,6 +50,7 @@ Non-goals for v1:
 8. Host starts next question; repeat until session end.
 
 ### 2.2 Participant Flow
+
 1. Participant joins session as usual.
 2. When host starts a round, participant sees quiz card in quiz/chat area:
    - question
@@ -60,6 +64,7 @@ Non-goals for v1:
    - current leaderboard.
 
 ### 2.3 Round Lifecycle
+
 - `draft` (host has question bank loaded)
 - `live` (active timer; participants can answer once)
 - `closed` (no more answers accepted)
@@ -70,6 +75,7 @@ Non-goals for v1:
 ## Chosen v1 format: JSON
 
 Reason:
+
 - Nested structure (question + options + correct + timer + explanation) is easy and explicit.
 - Strong server-side validation with clear errors.
 - Easier to evolve schema versioning.
@@ -97,6 +103,7 @@ Reason:
 ```
 
 ### 3.2 Validation Rules
+
 - `questions.length` between 1 and 200 (configurable).
 - `options.length` between 2 and 6.
 - `correctOptionIndex` within options bounds.
@@ -105,10 +112,12 @@ Reason:
 - Unique question IDs (or server assigns IDs if missing).
 
 ### 3.3 Future Extensions
+
 - Add CSV/XLSX importer adapter that converts to this JSON schema.
 - Optional support for industry formats (for example GIFT/QTI) as import pipelines, not runtime format.
 
 ### 3.4 Manual Authoring Mode (No File)
+
 - Add host-side form in quiz panel:
   - `prompt` (required)
   - `optionA`, `optionB`, `optionC`, `optionD` (required; exactly 4 in v1)
@@ -123,9 +132,11 @@ Reason:
 ## 4.1 Frontend Architecture
 
 Primary page:
+
 - `frontend/src/pages/SessionPage.jsx`
 
 New UI blocks:
+
 - `QuizPanel.jsx` (host + participant views)
 - `QuizHostControls.jsx` (upload, list, start/end)
 - `QuizQuestionComposer.jsx` (manual add question form: prompt + 4 options + correct answer + timer)
@@ -134,6 +145,7 @@ New UI blocks:
 - Optional: tab integration in `VideoCallUI.jsx` area (Chat | Quiz)
 
 State model in SessionPage (React state + socket-driven):
+
 - `quizBank`
 - `activeRound`
 - `mySubmission`
@@ -142,6 +154,7 @@ State model in SessionPage (React state + socket-driven):
 - `quizStatus` (`idle|live|closed|scored`)
 
 Data flow:
+
 - Host actions emit socket events.
 - Server is source of truth for live round timing, submissions, scoring.
 - Clients receive synchronized updates and render accordingly.
@@ -149,9 +162,11 @@ Data flow:
 ## 4.2 Backend Architecture
 
 Primary integration:
+
 - Socket handlers in `backend/src/server.js` (same pattern as code/whiteboard sync)
 
 Suggested persistence:
+
 - Extend `Session` model (`backend/src/models/Session.js`) with quiz state fields:
   - `quizLeaderboard` (array of participant score objects)
   - `quizBankMeta` (title/version/count)
@@ -159,25 +174,30 @@ Suggested persistence:
   - `activeQuizRound` (if a round is live)
 
 In-memory cache for active rounds (like whiteboard map):
+
 - `quizStateByRoom` map
 - store active timer, accepted submissions, scoring interim state
 
 Why hybrid (memory + DB):
+
 - Low-latency round operations via memory.
 - Crash/rejoin resilience via periodic DB snapshots.
 
 ## 4.3 Event Contract (Socket.IO)
 
 Host -> Server:
+
 - `quiz-upload` `{ roomId, quizJson }`
 - `quiz-add-question` `{ roomId, question }`
 - `quiz-start-round` `{ roomId, questionId }`
 - `quiz-end-round` `{ roomId }` (manual end)
 
 Participant -> Server:
+
 - `quiz-submit-answer` `{ roomId, roundId, selectedOptionIndex, submittedAt }`
 
 Server -> Clients:
+
 - `quiz-bank-loaded` (host-targeted ack + validation summary)
 - `quiz-round-started` `{ roundId, question, startedAt, endsAt }`
 - `quiz-round-sync` (for late joiners/reconnect)
@@ -200,15 +220,18 @@ Server -> Clients:
 Requirement: prioritize fast responses while still being QnA-focused.
 
 Recommended scoring formula per round:
+
 - incorrect/no answer: `0`
 - correct answer: `basePoints + speedBonus`
 
 Example:
+
 - `basePoints = 100`
 - `speedBonus = floor( max(0, (remainingMs / totalMs) * 100 ) )`
 - round max = 200
 
 Alternative (rank-based):
+
 - among correct answers only:
   - 1st fastest = 150
   - 2nd = 130
@@ -216,6 +239,7 @@ Alternative (rank-based):
   - others = 100
 
 Leaderboard:
+
 - cumulative score across rounds in current session
 - tie-breakers in order:
   1. higher total correct count
@@ -223,26 +247,31 @@ Leaderboard:
   3. earlier last correct submission timestamp
 
 Display:
+
 - show top 3 podium after each round
 - optionally expandable full ranking list.
 
 ## 4.6 Rejoin and Recovery
 
 On reconnect or refresh:
+
 - server emits current round status and remaining time (if live),
 - participant sees if already submitted,
 - current cumulative leaderboard restored from server.
 
 On server restart:
+
 - restore latest quiz snapshot from DB session document.
 
 ## 5. UX Recommendations
 
 Placement options (both valid):
+
 1. Reuse right sidebar with tabs: `Chat | Quiz` (recommended).
 2. Dedicated bottom-right floating quiz drawer.
 
 Host controls:
+
 - Upload/replace question bank.
 - Add question manually (without file).
 - Start next question.
@@ -250,11 +279,13 @@ Host controls:
 - Toggle showing explanation after round.
 
 Participant experience:
+
 - Very clear timer and submission state.
 - Locked UI after answer.
 - Brief feedback after round close.
 
 Accessibility:
+
 - high contrast timer state,
 - keyboard option selection,
 - no forced animations.
@@ -282,6 +313,7 @@ The following patterns are seen in major tools and should inform Cloud Desk desi
    - Teachers monitor who is struggling and class accuracy in real time.
 
 ### Source Links
+
 - Kahoot points/scoring: https://support.kahoot.com/hc/en-us/articles/115002303908-How-points-work
 - Kahoot accuracy mode: https://support.kahoot.com/hc/en-us/articles/39818967108627-How-to-host-kahoots-in-Accuracy-game-mode-NEW
 - Kahoot spreadsheet import: https://support.kahoot.com/hc/en-us/articles/115002812547-How-to-import-questions-from-a-spreadsheet-to-your-kahoot
@@ -294,32 +326,38 @@ The following patterns are seen in major tools and should inform Cloud Desk desi
 ## 7. Implementation Blueprint (No Code Yet)
 
 Phase 1: Contracts + data model
+
 - Define quiz JSON schema and server validation.
 - Add session-level quiz state structures.
 - Define socket event payload contracts.
 
 Phase 2: Host upload + round orchestration
+
 - Build host quiz upload panel and question list.
 - Build manual question composer form.
 - Implement `quiz-upload`, `quiz-add-question`, `quiz-start-round`.
 - Broadcast active round to participants.
 
 Phase 3: Participant answering + timing
+
 - Implement answer submission with one-attempt rule.
 - Timer close logic on server.
 - Round result payload and correct-answer reveal.
 
 Phase 4: Scoring + leaderboard
+
 - Implement scoring function.
 - Maintain cumulative session leaderboard.
 - Show top 3 after each round and update all clients.
 
 Phase 5: Reliability + security hardening
+
 - Reconnect sync and late join handling.
 - Persist quiz snapshots to DB.
 - Add authz checks, payload bounds, anti-spam/rate limiting.
 
 Phase 6: QA and acceptance
+
 - Unit test scoring and tie-breakers.
 - Integration test socket round lifecycle.
 - Manual tests: host flow, participant flow, reconnect, full-room behavior.

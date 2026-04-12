@@ -45,7 +45,10 @@ const livestreamViewerAttendanceSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-livestreamViewerAttendanceSchema.index({ sessionId: 1, viewerId: 1 }, { unique: true });
+livestreamViewerAttendanceSchema.index(
+  { sessionId: 1, viewerId: 1 },
+  { unique: true },
+);
 
 const livestreamChatMessageSchema = new mongoose.Schema(
   {
@@ -125,7 +128,10 @@ const livestreamQuizSubmissionSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-livestreamQuizSubmissionSchema.index({ sessionId: 1, roundId: 1, viewerId: 1 }, { unique: true });
+livestreamQuizSubmissionSchema.index(
+  { sessionId: 1, roundId: 1, viewerId: 1 },
+  { unique: true },
+);
 
 export const LivestreamViewerAttendance = mongoose.model(
   "LivestreamViewerAttendance",

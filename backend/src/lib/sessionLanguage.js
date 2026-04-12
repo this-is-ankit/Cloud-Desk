@@ -31,15 +31,23 @@ const LANGUAGE_ALIASES = {
 };
 
 const normalizeLanguageToken = (value) =>
-  typeof value === "string" ? value.trim().toLowerCase().replace(/[.\s_-]+/g, "") : "";
+  typeof value === "string"
+    ? value
+        .trim()
+        .toLowerCase()
+        .replace(/[.\s_-]+/g, "")
+    : "";
 
 export const getNormalizedSessionLanguage = (value) => {
   const token = normalizeLanguageToken(value);
   return LANGUAGE_ALIASES[token] || null;
 };
 
-export const normalizeSessionLanguage = (value, fallback = DEFAULT_SESSION_LANGUAGE) =>
-  getNormalizedSessionLanguage(value) || fallback;
+export const normalizeSessionLanguage = (
+  value,
+  fallback = DEFAULT_SESSION_LANGUAGE,
+) => getNormalizedSessionLanguage(value) || fallback;
 
 export const getSessionLanguageLabel = (value) =>
-  SESSION_LANGUAGE_LABELS[normalizeSessionLanguage(value)] || SESSION_LANGUAGE_LABELS[DEFAULT_SESSION_LANGUAGE];
+  SESSION_LANGUAGE_LABELS[normalizeSessionLanguage(value)] ||
+  SESSION_LANGUAGE_LABELS[DEFAULT_SESSION_LANGUAGE];

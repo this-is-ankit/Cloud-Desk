@@ -21,7 +21,9 @@ export const sessionApi = {
   },
 
   joinSessionByCode: async (code) => {
-    const response = await axiosInstance.post("/sessions/join-by-code", { code });
+    const response = await axiosInstance.post("/sessions/join-by-code", {
+      code,
+    });
     return response.data;
   },
 
@@ -32,7 +34,9 @@ export const sessionApi = {
   },
 
   kickParticipant: async ({ sessionId, participantId }) => {
-    const response = await axiosInstance.post(`/sessions/${sessionId}/kick`, { participantId });
+    const response = await axiosInstance.post(`/sessions/${sessionId}/kick`, {
+      participantId,
+    });
     return response.data;
   },
 
@@ -41,11 +45,15 @@ export const sessionApi = {
     return response.data;
   },
   startLivestream: async (id) => {
-    const response = await axiosInstance.post(`/sessions/${id}/livestream/start`);
+    const response = await axiosInstance.post(
+      `/sessions/${id}/livestream/start`,
+    );
     return response.data;
   },
   stopLivestream: async (id) => {
-    const response = await axiosInstance.post(`/sessions/${id}/livestream/stop`);
+    const response = await axiosInstance.post(
+      `/sessions/${id}/livestream/stop`,
+    );
     return response.data;
   },
   getStreamToken: async () => {

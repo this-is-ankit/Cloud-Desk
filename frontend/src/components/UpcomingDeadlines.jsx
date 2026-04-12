@@ -1,7 +1,17 @@
 import { format, formatDistanceToNowStrict } from "date-fns";
-import { AlertCircleIcon, CalendarIcon, RadioTowerIcon } from "./icons/ModernIcons";
+import {
+  AlertCircleIcon,
+  CalendarIcon,
+  RadioTowerIcon,
+} from "./icons/ModernIcons";
 
-function UpcomingDeadlines({ title, subtitle, items = [], emptyLabel, emptyHint }) {
+function UpcomingDeadlines({
+  title,
+  subtitle,
+  items = [],
+  emptyLabel,
+  emptyHint,
+}) {
   return (
     <div className="h-full rounded-[2rem] border border-base-content/10 bg-base-100 p-6 shadow-sm">
       <div className="mb-6 flex items-center justify-between">
@@ -15,7 +25,9 @@ function UpcomingDeadlines({ title, subtitle, items = [], emptyLabel, emptyHint 
         {items.length > 0 ? (
           items.map((item) => {
             const date = item.date ? new Date(item.date) : null;
-            const urgent = date ? date.getTime() - Date.now() <= 1000 * 60 * 60 * 48 : false;
+            const urgent = date
+              ? date.getTime() - Date.now() <= 1000 * 60 * 60 * 48
+              : false;
 
             return (
               <div
@@ -23,7 +35,9 @@ function UpcomingDeadlines({ title, subtitle, items = [], emptyLabel, emptyHint 
                 className={`rounded-[1.4rem] border p-4 ${urgent ? "border-error/20 bg-error/10" : "border-base-content/10 bg-base-200/35"}`}
               >
                 <div className="flex items-start gap-3">
-                  <div className={`mt-0.5 ${urgent ? "text-error" : "text-base-content/50"}`}>
+                  <div
+                    className={`mt-0.5 ${urgent ? "text-error" : "text-base-content/50"}`}
+                  >
                     {item.kind === "live" ? (
                       <RadioTowerIcon className="w-5 h-5" />
                     ) : urgent ? (
@@ -33,10 +47,16 @@ function UpcomingDeadlines({ title, subtitle, items = [], emptyLabel, emptyHint 
                     )}
                   </div>
                   <div>
-                    <h4 className="font-semibold text-base-content">{item.title}</h4>
-                    <p className="text-xs font-medium opacity-70 mt-0.5">{item.courseTitle}</p>
+                    <h4 className="font-semibold text-base-content">
+                      {item.title}
+                    </h4>
+                    <p className="text-xs font-medium opacity-70 mt-0.5">
+                      {item.courseTitle}
+                    </p>
                     {date && (
-                      <div className={`mt-2 text-sm font-medium ${urgent ? "text-error" : "text-base-content/60"}`}>
+                      <div
+                        className={`mt-2 text-sm font-medium ${urgent ? "text-error" : "text-base-content/60"}`}
+                      >
                         {item.kind === "live"
                           ? `${format(date, "MMM d, p")} • starts in ${formatDistanceToNowStrict(date)}`
                           : `Due in ${formatDistanceToNowStrict(date)}`}

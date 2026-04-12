@@ -185,4 +185,3 @@ Purpose: Concrete engineering tasks required to build the session quiz feature s
 - Leaderboard is updated and preserved through session.
 - Reconnect restores active round state and rankings.
 - Feature passes defined tests and manual QA scenarios.
-

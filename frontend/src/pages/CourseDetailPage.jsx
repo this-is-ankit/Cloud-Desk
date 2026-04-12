@@ -91,7 +91,10 @@ function CourseDetailPage() {
 
   const canManage = Boolean(course?.canManage && isTeacher);
   const approvedClasses = useMemo(
-    () => (course?.classSessions || []).filter((entry) => entry.status !== "cancelled"),
+    () =>
+      (course?.classSessions || []).filter(
+        (entry) => entry.status !== "cancelled",
+      ),
     [course?.classSessions],
   );
 
@@ -163,7 +166,10 @@ function CourseDetailPage() {
         <div className="mx-auto w-full max-w-[1180px] px-4 py-10 md:px-6">
           <div className="rounded-[2rem] border border-dashed border-base-content/15 bg-base-100/70 px-6 py-20 text-center">
             <h1 className="text-3xl font-black">Course not found</h1>
-            <button className="btn btn-primary mt-6 rounded-2xl" onClick={() => navigate("/courses")}>
+            <button
+              className="btn btn-primary mt-6 rounded-2xl"
+              onClick={() => navigate("/courses")}
+            >
               <ArrowLeftIcon className="size-4" />
               Courses
             </button>
@@ -179,7 +185,10 @@ function CourseDetailPage() {
       <Navbar />
 
       <PageContainer className="py-10">
-        <button className="btn btn-ghost mb-6 rounded-2xl" onClick={() => navigate("/courses")}>
+        <button
+          className="btn btn-ghost mb-6 rounded-2xl"
+          onClick={() => navigate("/courses")}
+        >
           <ArrowLeftIcon className="size-4" />
           Courses
         </button>
@@ -188,17 +197,25 @@ function CourseDetailPage() {
           <section className="rounded-[2rem] border border-base-content/10 bg-gradient-to-br from-base-100 via-base-100 to-primary/5 p-7 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">{course.code}</p>
-                <h1 className="mt-3 text-4xl font-black tracking-tight">{course.title}</h1>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+                  {course.code}
+                </p>
+                <h1 className="mt-3 text-4xl font-black tracking-tight">
+                  {course.title}
+                </h1>
               </div>
               <span className="badge badge-outline">{course.status}</span>
             </div>
 
-            <p className="mt-5 text-base leading-7 text-base-content/75">{course.shortDescription}</p>
+            <p className="mt-5 text-base leading-7 text-base-content/75">
+              {course.shortDescription}
+            </p>
 
             <div className="mt-8 flex flex-wrap gap-2">
               <span className="badge badge-ghost">{course.category}</span>
-              <span className="badge badge-ghost">{getSessionLanguageLabel(course.language)}</span>
+              <span className="badge badge-ghost">
+                {getSessionLanguageLabel(course.language)}
+              </span>
               {course.tags.map((tag) => (
                 <span key={tag} className="badge badge-outline">
                   {tag}
@@ -209,21 +226,35 @@ function CourseDetailPage() {
             {course.description && (
               <div className="mt-8">
                 <h2 className="text-xl font-bold">About this course</h2>
-                <p className="mt-3 whitespace-pre-wrap text-base-content/72">{course.description}</p>
+                <p className="mt-3 whitespace-pre-wrap text-base-content/72">
+                  {course.description}
+                </p>
               </div>
             )}
           </section>
 
           <aside className="space-y-6">
             <div className="rounded-[2rem] border border-base-content/10 bg-base-100/90 p-6 shadow-sm">
-              <h2 className="text-xl font-bold">{canManage ? "Teacher controls" : "Course access"}</h2>
+              <h2 className="text-xl font-bold">
+                {canManage ? "Teacher controls" : "Course access"}
+              </h2>
               <div className="mt-5 space-y-3 text-sm text-base-content/70">
                 <p>Teacher: {course.teacher?.name || "Unknown"}</p>
                 <p>Approved students: {course.approvedStudentCount}</p>
                 <p>Enrollment mode: {course.enrollmentMode}</p>
-                <p>Persistent room: {course.persistentRoomEnabled ? "enabled" : "disabled"}</p>
-                {!canManage && <p>Your enrollment: {course.myEnrollment?.status || "not requested"}</p>}
-                {canManage && course.inviteCode && <p>Invite code: {course.inviteCode}</p>}
+                <p>
+                  Persistent room:{" "}
+                  {course.persistentRoomEnabled ? "enabled" : "disabled"}
+                </p>
+                {!canManage && (
+                  <p>
+                    Your enrollment:{" "}
+                    {course.myEnrollment?.status || "not requested"}
+                  </p>
+                )}
+                {canManage && course.inviteCode && (
+                  <p>Invite code: {course.inviteCode}</p>
+                )}
               </div>
 
               <div className="mt-6 flex flex-wrap gap-3">
@@ -233,7 +264,8 @@ function CourseDetailPage() {
                       className="btn btn-primary rounded-2xl"
                       onClick={() =>
                         startPersistentRoomMutation.mutate(course._id, {
-                          onSuccess: (data) => navigate(`/session/${data.sessionId}`),
+                          onSuccess: (data) =>
+                            navigate(`/session/${data.sessionId}`),
                         })
                       }
                       disabled={startPersistentRoomMutation.isPending}
@@ -264,17 +296,25 @@ function CourseDetailPage() {
                   </>
                 ) : (
                   <>
-                    {course.enrollmentMode === "invite" && !course.myEnrollment ? (
+                    {course.enrollmentMode === "invite" &&
+                    !course.myEnrollment ? (
                       <>
                         <input
                           className="input input-bordered rounded-2xl w-full uppercase"
                           value={inviteCode}
-                          onChange={(event) => setInviteCode(event.target.value)}
+                          onChange={(event) =>
+                            setInviteCode(event.target.value)
+                          }
                           placeholder="Enter invite code"
                         />
                         <button
                           className="btn btn-primary rounded-2xl"
-                          onClick={() => joinCourseWithInviteMutation.mutate({ courseId: course._id, inviteCode })}
+                          onClick={() =>
+                            joinCourseWithInviteMutation.mutate({
+                              courseId: course._id,
+                              inviteCode,
+                            })
+                          }
                           disabled={joinCourseWithInviteMutation.isPending}
                         >
                           <KeyIcon className="size-4" />
@@ -284,8 +324,13 @@ function CourseDetailPage() {
                     ) : (
                       <button
                         className="btn btn-primary rounded-2xl"
-                        onClick={() => requestEnrollmentMutation.mutate(course._id)}
-                        disabled={Boolean(course.myEnrollment) || requestEnrollmentMutation.isPending}
+                        onClick={() =>
+                          requestEnrollmentMutation.mutate(course._id)
+                        }
+                        disabled={
+                          Boolean(course.myEnrollment) ||
+                          requestEnrollmentMutation.isPending
+                        }
                       >
                         {course.myEnrollment ? (
                           <UserCheckIcon className="size-4" />
@@ -311,16 +356,35 @@ function CourseDetailPage() {
               <div className="mt-5 space-y-4">
                 {approvedClasses.length > 0 ? (
                   approvedClasses.map((entry) => (
-                    <div key={entry._id} className="rounded-2xl border border-base-content/10 bg-base-200/30 p-4">
+                    <div
+                      key={entry._id}
+                      className="rounded-2xl border border-base-content/10 bg-base-200/30 p-4"
+                    >
                       <h3 className="font-semibold">{entry.title}</h3>
                       <p className="mt-1 text-xs text-base-content/60">
-                        {format(new Date(entry.scheduledStart), "MMM d, yyyy p")} to {format(new Date(entry.scheduledEnd), "p")}
+                        {format(
+                          new Date(entry.scheduledStart),
+                          "MMM d, yyyy p",
+                        )}{" "}
+                        to {format(new Date(entry.scheduledEnd), "p")}
                       </p>
-                      {entry.description && <p className="mt-2 text-sm text-base-content/70">{entry.description}</p>}
+                      {entry.description && (
+                        <p className="mt-2 text-sm text-base-content/70">
+                          {entry.description}
+                        </p>
+                      )}
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="badge badge-outline">{entry.status}</span>
-                        <span className="badge badge-primary">{entry.sessionType === "livestream" ? "Live Stream" : "Interactive Meeting"}</span>
-                        <span className="badge badge-ghost">{entry.attendanceCount} attendance records</span>
+                        <span className="badge badge-outline">
+                          {entry.status}
+                        </span>
+                        <span className="badge badge-primary">
+                          {entry.sessionType === "livestream"
+                            ? "Live Stream"
+                            : "Interactive Meeting"}
+                        </span>
+                        <span className="badge badge-ghost">
+                          {entry.attendanceCount} attendance records
+                        </span>
                       </div>
                       <div className="mt-4 flex flex-wrap gap-3">
                         {canManage && (
@@ -330,7 +394,8 @@ function CourseDetailPage() {
                               startClassSessionMutation.mutate(
                                 { courseId: course._id, classId: entry._id },
                                 {
-                                  onSuccess: (data) => navigate(`/session/${data.sessionId}`),
+                                  onSuccess: (data) =>
+                                    navigate(`/session/${data.sessionId}`),
                                 },
                               )
                             }
@@ -340,17 +405,26 @@ function CourseDetailPage() {
                             {entry.status === "live" ? "Reopen" : "Start"}
                           </button>
                         )}
-                        {!canManage && entry.status === "live" && entry.sessionId && (
-                          <button className="btn btn-primary btn-sm rounded-xl" onClick={() => navigate(`/session/${entry.sessionId}`)}>
-                            <DoorOpenIcon className="size-4" />
-                            Join
-                          </button>
-                        )}
+                        {!canManage &&
+                          entry.status === "live" &&
+                          entry.sessionId && (
+                            <button
+                              className="btn btn-primary btn-sm rounded-xl"
+                              onClick={() =>
+                                navigate(`/session/${entry.sessionId}`)
+                              }
+                            >
+                              <DoorOpenIcon className="size-4" />
+                              Join
+                            </button>
+                          )}
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-base-content/60">No live classes scheduled yet.</p>
+                  <p className="text-sm text-base-content/60">
+                    No live classes scheduled yet.
+                  </p>
                 )}
               </div>
             </div>
@@ -394,7 +468,12 @@ function CourseDetailPage() {
                 </label>
                 <label className="form-control">
                   <span className="mb-2 text-sm font-medium">Level</span>
-                  <select name="level" defaultValue={course.level} onChange={handleCourseFieldChange} className="select select-bordered rounded-2xl">
+                  <select
+                    name="level"
+                    defaultValue={course.level}
+                    onChange={handleCourseFieldChange}
+                    className="select select-bordered rounded-2xl"
+                  >
                     <option>All Levels</option>
                     <option>Beginner</option>
                     <option>Intermediate</option>
@@ -402,7 +481,9 @@ function CourseDetailPage() {
                   </select>
                 </label>
                 <label className="form-control">
-                  <span className="mb-2 text-sm font-medium">Short description</span>
+                  <span className="mb-2 text-sm font-medium">
+                    Short description
+                  </span>
                   <textarea
                     name="shortDescription"
                     defaultValue={course.shortDescription}
@@ -439,7 +520,9 @@ function CourseDetailPage() {
                   <span className="text-sm">Enable persistent course room</span>
                 </label>
                 <label className="form-control">
-                  <span className="mb-2 text-sm font-medium">Enrollment mode</span>
+                  <span className="mb-2 text-sm font-medium">
+                    Enrollment mode
+                  </span>
                   <select
                     name="enrollmentMode"
                     defaultValue={course.enrollmentMode}
@@ -460,7 +543,11 @@ function CourseDetailPage() {
                     className="input input-bordered rounded-2xl uppercase"
                   />
                 </label>
-                <button className="btn btn-primary rounded-2xl" onClick={handleSaveCourse} disabled={updateCourseMutation.isPending}>
+                <button
+                  className="btn btn-primary rounded-2xl"
+                  onClick={handleSaveCourse}
+                  disabled={updateCourseMutation.isPending}
+                >
                   <SaveIcon className="size-4" />
                   Save Settings
                 </button>
@@ -472,26 +559,45 @@ function CourseDetailPage() {
               <div className="mt-5 space-y-4">
                 {(course.enrollments || []).length > 0 ? (
                   course.enrollments.map((entry) => (
-                    <div key={entry._id} className="rounded-2xl border border-base-content/10 bg-base-200/30 p-4">
+                    <div
+                      key={entry._id}
+                      className="rounded-2xl border border-base-content/10 bg-base-200/30 p-4"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-semibold">{entry.student?.name || "Student"}</p>
-                          <p className="text-xs text-base-content/60">{entry.student?.email}</p>
+                          <p className="font-semibold">
+                            {entry.student?.name || "Student"}
+                          </p>
+                          <p className="text-xs text-base-content/60">
+                            {entry.student?.email}
+                          </p>
                         </div>
-                        <span className="badge badge-outline">{entry.status}</span>
+                        <span className="badge badge-outline">
+                          {entry.status}
+                        </span>
                       </div>
                       {entry.status === "pending" && (
                         <div className="mt-4 flex gap-3">
                           <button
                             className="btn btn-primary btn-sm rounded-xl"
-                            onClick={() => approveEnrollmentMutation.mutate({ courseId: course._id, enrollmentId: entry._id })}
+                            onClick={() =>
+                              approveEnrollmentMutation.mutate({
+                                courseId: course._id,
+                                enrollmentId: entry._id,
+                              })
+                            }
                           >
                             <CheckCircleIcon className="size-4" />
                             Approve
                           </button>
                           <button
                             className="btn btn-outline btn-sm rounded-xl"
-                            onClick={() => rejectEnrollmentMutation.mutate({ courseId: course._id, enrollmentId: entry._id })}
+                            onClick={() =>
+                              rejectEnrollmentMutation.mutate({
+                                courseId: course._id,
+                                enrollmentId: entry._id,
+                              })
+                            }
                           >
                             <XCircleIcon className="size-4" />
                             Reject
@@ -501,7 +607,9 @@ function CourseDetailPage() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-base-content/60">No enrollment requests yet.</p>
+                  <p className="text-sm text-base-content/60">
+                    No enrollment requests yet.
+                  </p>
                 )}
               </div>
             </section>
@@ -513,28 +621,48 @@ function CourseDetailPage() {
                   className="input input-bordered rounded-2xl w-full"
                   placeholder="Class title"
                   value={classForm.title}
-                  onChange={(event) => setClassForm((current) => ({ ...current, title: event.target.value }))}
+                  onChange={(event) =>
+                    setClassForm((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
+                  }
                   required
                 />
                 <textarea
                   className="textarea textarea-bordered rounded-2xl w-full min-h-24"
                   placeholder="Class description"
                   value={classForm.description}
-                  onChange={(event) => setClassForm((current) => ({ ...current, description: event.target.value }))}
+                  onChange={(event) =>
+                    setClassForm((current) => ({
+                      ...current,
+                      description: event.target.value,
+                    }))
+                  }
                 />
                 <div className="grid gap-4 md:grid-cols-2">
                   <input
                     type="datetime-local"
                     className="input input-bordered rounded-2xl w-full"
                     value={classForm.scheduledStart}
-                    onChange={(event) => setClassForm((current) => ({ ...current, scheduledStart: event.target.value }))}
+                    onChange={(event) =>
+                      setClassForm((current) => ({
+                        ...current,
+                        scheduledStart: event.target.value,
+                      }))
+                    }
                     required
                   />
                   <input
                     type="datetime-local"
                     className="input input-bordered rounded-2xl w-full"
                     value={classForm.scheduledEnd}
-                    onChange={(event) => setClassForm((current) => ({ ...current, scheduledEnd: event.target.value }))}
+                    onChange={(event) =>
+                      setClassForm((current) => ({
+                        ...current,
+                        scheduledEnd: event.target.value,
+                      }))
+                    }
                     required
                   />
                 </div>
@@ -543,7 +671,12 @@ function CourseDetailPage() {
                     type="checkbox"
                     checked={classForm.usePersistentRoom}
                     disabled={classForm.sessionType === "livestream"}
-                    onChange={(event) => setClassForm((current) => ({ ...current, usePersistentRoom: event.target.checked }))}
+                    onChange={(event) =>
+                      setClassForm((current) => ({
+                        ...current,
+                        usePersistentRoom: event.target.checked,
+                      }))
+                    }
                     className="checkbox checkbox-primary"
                   />
                   <span className="text-sm">
@@ -553,33 +686,57 @@ function CourseDetailPage() {
                   </span>
                 </label>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-base-content">Class format</label>
+                  <label className="text-sm font-semibold text-base-content">
+                    Class format
+                  </label>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <button
                       type="button"
                       className={`btn h-auto min-h-20 rounded-2xl justify-start text-left ${classForm.sessionType === "interactive" ? "btn-primary" : "btn-outline border-base-content/15"}`}
-                      onClick={() => setClassForm((current) => ({ ...current, sessionType: "interactive" }))}
+                      onClick={() =>
+                        setClassForm((current) => ({
+                          ...current,
+                          sessionType: "interactive",
+                        }))
+                      }
                     >
                       <UsersIcon className="size-5" />
                       <span>
-                        <span className="block font-bold">Interactive Meeting</span>
-                        <span className="block text-xs font-normal opacity-80">Small group audio, video, and shared tools.</span>
+                        <span className="block font-bold">
+                          Interactive Meeting
+                        </span>
+                        <span className="block text-xs font-normal opacity-80">
+                          Small group audio, video, and shared tools.
+                        </span>
                       </span>
                     </button>
                     <button
                       type="button"
                       className={`btn h-auto min-h-20 rounded-2xl justify-start text-left ${classForm.sessionType === "livestream" ? "btn-primary" : "btn-outline border-base-content/15"}`}
-                      onClick={() => setClassForm((current) => ({ ...current, sessionType: "livestream", usePersistentRoom: false }))}
+                      onClick={() =>
+                        setClassForm((current) => ({
+                          ...current,
+                          sessionType: "livestream",
+                          usePersistentRoom: false,
+                        }))
+                      }
                     >
                       <RadioTowerIcon className="size-5" />
                       <span>
                         <span className="block font-bold">Live Stream</span>
-                        <span className="block text-xs font-normal opacity-80">Teacher broadcasts; students chat, answer quizzes, and keep local tool sandboxes.</span>
+                        <span className="block text-xs font-normal opacity-80">
+                          Teacher broadcasts; students chat, answer quizzes, and
+                          keep local tool sandboxes.
+                        </span>
                       </span>
                     </button>
                   </div>
                 </div>
-                <button type="submit" className="btn btn-primary rounded-2xl" disabled={createClassSessionMutation.isPending}>
+                <button
+                  type="submit"
+                  className="btn btn-primary rounded-2xl"
+                  disabled={createClassSessionMutation.isPending}
+                >
                   <CalendarPlusIcon className="size-4" />
                   Schedule
                 </button>
@@ -588,28 +745,50 @@ function CourseDetailPage() {
 
             <section className="rounded-[2rem] border border-base-content/10 bg-base-100/90 p-6 shadow-sm">
               <h2 className="text-xl font-bold">Assignments</h2>
-              <form onSubmit={handleCreateAssignment} className="mt-5 space-y-4">
+              <form
+                onSubmit={handleCreateAssignment}
+                className="mt-5 space-y-4"
+              >
                 <input
                   className="input input-bordered rounded-2xl w-full"
                   placeholder="Assignment title"
                   value={assignmentForm.title}
-                  onChange={(event) => setAssignmentForm((current) => ({ ...current, title: event.target.value }))}
+                  onChange={(event) =>
+                    setAssignmentForm((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
+                  }
                   required
                 />
                 <textarea
                   className="textarea textarea-bordered rounded-2xl w-full min-h-24"
                   placeholder="Instructions"
                   value={assignmentForm.description}
-                  onChange={(event) => setAssignmentForm((current) => ({ ...current, description: event.target.value }))}
+                  onChange={(event) =>
+                    setAssignmentForm((current) => ({
+                      ...current,
+                      description: event.target.value,
+                    }))
+                  }
                 />
                 <input
                   type="datetime-local"
                   className="input input-bordered rounded-2xl w-full"
                   value={assignmentForm.dueDate}
-                  onChange={(event) => setAssignmentForm((current) => ({ ...current, dueDate: event.target.value }))}
+                  onChange={(event) =>
+                    setAssignmentForm((current) => ({
+                      ...current,
+                      dueDate: event.target.value,
+                    }))
+                  }
                   required
                 />
-                <button type="submit" className="btn btn-primary rounded-2xl" disabled={createAssignmentMutation.isPending}>
+                <button
+                  type="submit"
+                  className="btn btn-primary rounded-2xl"
+                  disabled={createAssignmentMutation.isPending}
+                >
                   <ClipboardTextIcon className="size-4" />
                   Create
                 </button>
@@ -617,22 +796,46 @@ function CourseDetailPage() {
 
               <div className="mt-6 space-y-4">
                 {(course.assignments || []).map((assignment) => (
-                  <div key={assignment._id} className="rounded-2xl border border-base-content/10 bg-base-200/30 p-4">
+                  <div
+                    key={assignment._id}
+                    className="rounded-2xl border border-base-content/10 bg-base-200/30 p-4"
+                  >
                     <h3 className="font-semibold">{assignment.title}</h3>
-                    <p className="mt-1 text-xs text-base-content/60">Due {format(new Date(assignment.dueDate), "MMM d, yyyy p")}</p>
-                    <p className="mt-2 text-sm text-base-content/70">{assignment.description}</p>
-                    <p className="mt-3 text-xs text-base-content/60">{assignment.submissionCount} submissions</p>
+                    <p className="mt-1 text-xs text-base-content/60">
+                      Due{" "}
+                      {format(new Date(assignment.dueDate), "MMM d, yyyy p")}
+                    </p>
+                    <p className="mt-2 text-sm text-base-content/70">
+                      {assignment.description}
+                    </p>
+                    <p className="mt-3 text-xs text-base-content/60">
+                      {assignment.submissionCount} submissions
+                    </p>
                     <div className="mt-4 space-y-3">
                       {(assignment.submissions || []).map((submission) => (
-                        <div key={submission._id} className="rounded-xl border border-base-content/10 bg-base-100/60 p-3">
-                          <p className="font-medium">{submission.student?.name || "Student"}</p>
-                          <p className="mt-1 text-sm text-base-content/70 whitespace-pre-wrap">{submission.content}</p>
+                        <div
+                          key={submission._id}
+                          className="rounded-xl border border-base-content/10 bg-base-100/60 p-3"
+                        >
+                          <p className="font-medium">
+                            {submission.student?.name || "Student"}
+                          </p>
+                          <p className="mt-1 text-sm text-base-content/70 whitespace-pre-wrap">
+                            {submission.content}
+                          </p>
                           <textarea
                             className="textarea textarea-bordered rounded-xl w-full mt-3 min-h-20"
                             placeholder="Feedback"
-                            value={feedbackDrafts[submission._id] ?? submission.feedback ?? ""}
+                            value={
+                              feedbackDrafts[submission._id] ??
+                              submission.feedback ??
+                              ""
+                            }
                             onChange={(event) =>
-                              setFeedbackDrafts((current) => ({ ...current, [submission._id]: event.target.value }))
+                              setFeedbackDrafts((current) => ({
+                                ...current,
+                                [submission._id]: event.target.value,
+                              }))
                             }
                           />
                           <button
@@ -642,7 +845,10 @@ function CourseDetailPage() {
                                 courseId: course._id,
                                 assignmentId: assignment._id,
                                 submissionId: submission._id,
-                                feedback: feedbackDrafts[submission._id] ?? submission.feedback ?? "",
+                                feedback:
+                                  feedbackDrafts[submission._id] ??
+                                  submission.feedback ??
+                                  "",
                               })
                             }
                           >
@@ -665,16 +871,30 @@ function CourseDetailPage() {
             <div className="mt-5 space-y-4">
               {(course.assignments || []).length > 0 ? (
                 course.assignments.map((assignment) => (
-                  <div key={assignment._id} className="rounded-2xl border border-base-content/10 bg-base-200/30 p-4">
+                  <div
+                    key={assignment._id}
+                    className="rounded-2xl border border-base-content/10 bg-base-200/30 p-4"
+                  >
                     <h3 className="font-semibold">{assignment.title}</h3>
-                    <p className="mt-1 text-xs text-base-content/60">Due {format(new Date(assignment.dueDate), "MMM d, yyyy p")}</p>
-                    <p className="mt-2 text-sm text-base-content/70">{assignment.description}</p>
+                    <p className="mt-1 text-xs text-base-content/60">
+                      Due{" "}
+                      {format(new Date(assignment.dueDate), "MMM d, yyyy p")}
+                    </p>
+                    <p className="mt-2 text-sm text-base-content/70">
+                      {assignment.description}
+                    </p>
                     {assignment.mySubmission ? (
                       <div className="mt-3 rounded-xl border border-base-content/10 bg-base-100/60 p-3">
-                        <p className="text-xs uppercase tracking-wide text-base-content/50">Your submission</p>
-                        <p className="mt-2 whitespace-pre-wrap text-sm text-base-content/80">{assignment.mySubmission.content}</p>
+                        <p className="text-xs uppercase tracking-wide text-base-content/50">
+                          Your submission
+                        </p>
+                        <p className="mt-2 whitespace-pre-wrap text-sm text-base-content/80">
+                          {assignment.mySubmission.content}
+                        </p>
                         {assignment.mySubmission.feedback && (
-                          <p className="mt-3 text-sm text-primary">Feedback: {assignment.mySubmission.feedback}</p>
+                          <p className="mt-3 text-sm text-primary">
+                            Feedback: {assignment.mySubmission.feedback}
+                          </p>
                         )}
                       </div>
                     ) : (
@@ -684,7 +904,10 @@ function CourseDetailPage() {
                           placeholder="Write your submission here"
                           value={submissionDrafts[assignment._id] || ""}
                           onChange={(event) =>
-                            setSubmissionDrafts((current) => ({ ...current, [assignment._id]: event.target.value }))
+                            setSubmissionDrafts((current) => ({
+                              ...current,
+                              [assignment._id]: event.target.value,
+                            }))
                           }
                         />
                         <button
@@ -705,7 +928,9 @@ function CourseDetailPage() {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-base-content/60">No assignments yet.</p>
+                <p className="text-sm text-base-content/60">
+                  No assignments yet.
+                </p>
               )}
             </div>
           </section>

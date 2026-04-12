@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { SESSION_LANGUAGE_OPTIONS } from "../lib/sessionLanguage";
-import { Loader2Icon, PlusCircleIcon, RadioTowerIcon, XIcon } from "./icons/ModernIcons";
+import {
+  Loader2Icon,
+  PlusCircleIcon,
+  RadioTowerIcon,
+  XIcon,
+} from "./icons/ModernIcons";
 
 const INITIAL_FORM = {
   title: "",
@@ -39,13 +44,24 @@ function CreateCourseModal({ isOpen, onClose, onSubmit, isSubmitting }) {
       <div className="mx-auto my-8 w-full max-w-3xl rounded-[2rem] border border-base-content/10 bg-base-100 p-6 shadow-2xl md:p-8">
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Teacher Workspace</p>
-            <h2 className="mt-2 text-3xl font-black text-base-content">Create a live teaching course</h2>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+              Teacher Workspace
+            </p>
+            <h2 className="mt-2 text-3xl font-black text-base-content">
+              Create a live teaching course
+            </h2>
             <p className="mt-2 max-w-2xl text-sm text-base-content/65">
-              This creates a draft course for live teaching only. You can publish it after setting up classes, enrollment, and the persistent room.
+              This creates a draft course for live teaching only. You can
+              publish it after setting up classes, enrollment, and the
+              persistent room.
             </p>
           </div>
-          <button type="button" className="btn btn-ghost btn-sm btn-square rounded-xl" onClick={onClose} aria-label="Close create course modal">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm btn-square rounded-xl"
+            onClick={onClose}
+            aria-label="Close create course modal"
+          >
             <XIcon className="size-4" />
           </button>
         </div>
@@ -75,7 +91,9 @@ function CreateCourseModal({ isOpen, onClose, onSubmit, isSubmitting }) {
               />
             </label>
             <label className="form-control">
-              <span className="mb-2 text-sm font-medium">Subject / category</span>
+              <span className="mb-2 text-sm font-medium">
+                Subject / category
+              </span>
               <input
                 name="category"
                 value={form.category}
@@ -161,11 +179,15 @@ function CreateCourseModal({ isOpen, onClose, onSubmit, isSubmitting }) {
               maxLength={220}
               required
             />
-            <span className="mt-2 text-xs text-base-content/55">{form.shortDescription.length}/220 characters</span>
+            <span className="mt-2 text-xs text-base-content/55">
+              {form.shortDescription.length}/220 characters
+            </span>
           </label>
 
           <label className="form-control">
-            <span className="mb-2 text-sm font-medium">Detailed description</span>
+            <span className="mb-2 text-sm font-medium">
+              Detailed description
+            </span>
             <textarea
               name="description"
               value={form.description}
@@ -186,14 +208,23 @@ function CreateCourseModal({ isOpen, onClose, onSubmit, isSubmitting }) {
             <div>
               <p className="font-semibold">Enable a persistent course room</p>
               <p className="text-sm text-base-content/60">
-                Recommended for office hours and ad hoc live teaching outside scheduled classes.
+                Recommended for office hours and ad hoc live teaching outside
+                scheduled classes.
               </p>
             </div>
             <RadioTowerIcon className="ml-auto size-5 text-primary" />
           </label>
 
-          <button type="submit" className="btn btn-primary rounded-2xl px-6" disabled={isSubmitting}>
-            {isSubmitting ? <Loader2Icon className="size-4 animate-spin" /> : <PlusCircleIcon className="size-4" />}
+          <button
+            type="submit"
+            className="btn btn-primary rounded-2xl px-6"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <Loader2Icon className="size-4 animate-spin" />
+            ) : (
+              <PlusCircleIcon className="size-4" />
+            )}
             <span>{isSubmitting ? "Creating..." : "Create Draft Course"}</span>
           </button>
         </form>

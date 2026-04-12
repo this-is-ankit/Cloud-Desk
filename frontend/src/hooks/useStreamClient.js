@@ -4,7 +4,13 @@ import toast from "react-hot-toast";
 import { initializeStreamClient, disconnectStreamClient } from "../lib/stream";
 import { sessionApi } from "../api/sessions";
 
-function useStreamClient(session, loadingSession, isHost, isParticipant, isViewer = false) {
+function useStreamClient(
+  session,
+  loadingSession,
+  isHost,
+  isParticipant,
+  isViewer = false,
+) {
   const [streamClient, setStreamClient] = useState(null);
   const [call, setCall] = useState(null);
   const [chatClient, setChatClient] = useState(null);
@@ -12,7 +18,8 @@ function useStreamClient(session, loadingSession, isHost, isParticipant, isViewe
   const [isInitializingCall, setIsInitializingCall] = useState(true);
   const callId = session?.callId;
   const sessionStatus = session?.status;
-  const sessionType = session?.sessionType === "livestream" ? "livestream" : "interactive";
+  const sessionType =
+    session?.sessionType === "livestream" ? "livestream" : "interactive";
   const isLivestreamLive = Boolean(session?.livestream?.isLive);
 
   useEffect(() => {
@@ -21,7 +28,11 @@ function useStreamClient(session, loadingSession, isHost, isParticipant, isViewe
     let chatClientInstance = null;
 
     const initCall = async () => {
-      if (!callId || (!isHost && !isParticipant && !isViewer) || sessionStatus === "completed") {
+      if (
+        !callId ||
+        (!isHost && !isParticipant && !isViewer) ||
+        sessionStatus === "completed"
+      ) {
         setIsInitializingCall(false);
         return;
       }
@@ -29,7 +40,8 @@ function useStreamClient(session, loadingSession, isHost, isParticipant, isViewe
       setIsInitializingCall(true);
 
       try {
-        const { token, userId, userName, userImage } = await sessionApi.getStreamToken();
+        const { token, userId, userName, userImage } =
+          await sessionApi.getStreamToken();
 
         const client = await initializeStreamClient(
           {
@@ -37,15 +49,17 @@ function useStreamClient(session, loadingSession, isHost, isParticipant, isViewe
             name: userName,
             image: userImage,
           },
-          token
+          token,
         );
         if (!isMounted) return;
 
         setStreamClient(client);
 
-        const callType = sessionType === "livestream" ? "livestream" : "default";
+        const callType =
+          sessionType === "livestream" ? "livestream" : "default";
         videoCall = client.call(callType, callId);
-        const shouldJoinVideo = sessionType !== "livestream" || isHost || isLivestreamLive;
+        const shouldJoinVideo =
+          sessionType !== "livestream" || isHost || isLivestreamLive;
         if (shouldJoinVideo) {
           await videoCall.join({ create: sessionType !== "livestream" });
         }
@@ -67,7 +81,7 @@ function useStreamClient(session, loadingSession, isHost, isParticipant, isViewe
             name: userName,
             image: userImage,
           },
-          token
+          token,
         );
         if (!isMounted) return;
         setChatClient(chatClientInstance);
@@ -102,7 +116,16 @@ function useStreamClient(session, loadingSession, isHost, isParticipant, isViewe
         }
       })();
     };
-  }, [callId, sessionStatus, loadingSession, isHost, isParticipant, isViewer, sessionType, isLivestreamLive]);
+  }, [
+    callId,
+    sessionStatus,
+    loadingSession,
+    isHost,
+    isParticipant,
+    isViewer,
+    sessionType,
+    isLivestreamLive,
+  ]);
 
   return {
     streamClient,

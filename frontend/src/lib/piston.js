@@ -26,7 +26,10 @@ export async function executeCode(language, code) {
       };
     }
 
-    const response = await axiosInstance.post("/code/execute", { language, code });
+    const response = await axiosInstance.post("/code/execute", {
+      language,
+      code,
+    });
     const data = response.data;
 
     const output = data.run.output || "";
@@ -46,8 +49,7 @@ export async function executeCode(language, code) {
     };
   } catch (error) {
     const serverError =
-      error?.response?.data?.details ||
-      error?.response?.data?.message;
+      error?.response?.data?.details || error?.response?.data?.message;
 
     return {
       success: false,

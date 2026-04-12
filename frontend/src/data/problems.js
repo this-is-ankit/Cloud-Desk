@@ -171,7 +171,9 @@ func main() {
     category: "String • Two Pointers",
     description: {
       text: "Write a function that reverses a string. The input string is given as an array of characters s.",
-      notes: ["You must do this by modifying the input array in-place with O(1) extra memory."],
+      notes: [
+        "You must do this by modifying the input array in-place with O(1) extra memory.",
+      ],
     },
     examples: [
       {
@@ -350,7 +352,9 @@ func printSlice(s []byte) {
     category: "String • Two Pointers",
     description: {
       text: "A phrase is a palindrome if, after converting all uppercase letters into lowercase letters and removing all non-alphanumeric characters, it reads the same forward and backward. Alphanumeric characters include letters and numbers.",
-      notes: ["Given a string s, return true if it is a palindrome, or false otherwise."],
+      notes: [
+        "Given a string s, return true if it is a palindrome, or false otherwise.",
+      ],
     },
     examples: [
       {
@@ -370,7 +374,10 @@ func printSlice(s []byte) {
           's is an empty string "" after removing non-alphanumeric characters. Since an empty string reads the same forward and backward, it is a palindrome.',
       },
     ],
-    constraints: ["1 ≤ s.length ≤ 2 * 10⁵", "s consists only of printable ASCII characters"],
+    constraints: [
+      "1 ≤ s.length ≤ 2 * 10⁵",
+      "s consists only of printable ASCII characters",
+    ],
     starterCode: {
       javascript: `function isPalindrome(s) {
   // Write your solution here

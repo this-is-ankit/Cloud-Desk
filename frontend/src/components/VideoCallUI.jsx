@@ -7,7 +7,12 @@ import {
   ToggleVideoPublishingButton,
   useCallStateHooks,
 } from "@stream-io/video-react-sdk";
-import { Loader2Icon, RadioTowerIcon, UsersIcon, XCircleIcon } from "./icons/ModernIcons";
+import {
+  Loader2Icon,
+  RadioTowerIcon,
+  UsersIcon,
+  XCircleIcon,
+} from "./icons/ModernIcons";
 import { useNavigate } from "react-router";
 
 import "@stream-io/video-react-sdk/dist/css/styles.css";
@@ -28,13 +33,22 @@ function VideoCallUI({
   onLeave,
 }) {
   const navigate = useNavigate();
-  const { useCallCallingState, useParticipantCount, useIsCallLive, useParticipants } = useCallStateHooks();
+  const {
+    useCallCallingState,
+    useParticipantCount,
+    useIsCallLive,
+    useParticipants,
+  } = useCallStateHooks();
   const callingState = useCallCallingState();
   const participantCount = useParticipantCount();
   const streamIsLive = useIsCallLive?.();
   const participants = useParticipants?.() || [];
   const handleLeave = onLeave || (() => navigate("/dashboard"));
-  const hostPresent = Boolean(isHost || (hostUserId && participants.some((participant) => participant.userId === hostUserId)));
+  const hostPresent = Boolean(
+    isHost ||
+    (hostUserId &&
+      participants.some((participant) => participant.userId === hostUserId)),
+  );
 
   if (callingState === CallingState.JOINING) {
     return (
@@ -54,7 +68,12 @@ function VideoCallUI({
       return (
         <div className="h-full min-h-0 overflow-hidden rounded-lg bg-base-300 str-video">
           {live || isHost ? (
-            <LivestreamLayout muted={!isHost} enableFullScreen={false} showDuration={false} showSpeakerName={false} />
+            <LivestreamLayout
+              muted={!isHost}
+              enableFullScreen={false}
+              showDuration={false}
+              showSpeakerName={false}
+            />
           ) : (
             <div className="flex h-full items-center justify-center p-3 text-center text-xs font-semibold">
               Waiting for host
@@ -69,7 +88,9 @@ function VideoCallUI({
         {showHeader && (
           <div className="shrink-0 flex items-center justify-between gap-3 rounded-lg bg-base-100 p-2 shadow">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Live stream</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                Live stream
+              </p>
               <p className="text-sm text-base-content/60">
                 {live ? "Live now" : isHost ? "Backstage" : "Waiting for host"}
               </p>
@@ -82,11 +103,21 @@ function VideoCallUI({
                 </div>
                 {showLivestreamActions && (
                   <>
-                    <button type="button" className="btn btn-primary btn-sm gap-2 rounded-lg" onClick={onStartLivestream} disabled={live}>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm gap-2 rounded-lg"
+                      onClick={onStartLivestream}
+                      disabled={live}
+                    >
                       <RadioTowerIcon className="size-4" />
                       Go Live
                     </button>
-                    <button type="button" className="btn btn-outline btn-sm gap-2 rounded-lg" onClick={onStopLivestream} disabled={!live}>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm gap-2 rounded-lg"
+                      onClick={onStopLivestream}
+                      disabled={!live}
+                    >
                       <XCircleIcon className="size-4" />
                       Stop Live
                     </button>
@@ -104,7 +135,10 @@ function VideoCallUI({
             <div className="flex h-full items-center justify-center p-6 text-center">
               <div>
                 <p className="text-lg font-bold">Waiting for host to go live</p>
-                <p className="mt-2 text-sm text-base-content/60">The stream will appear here when the teacher starts broadcasting.</p>
+                <p className="mt-2 text-sm text-base-content/60">
+                  The stream will appear here when the teacher starts
+                  broadcasting.
+                </p>
               </div>
             </div>
           )}
@@ -120,7 +154,8 @@ function VideoCallUI({
           <div className="flex items-center gap-2">
             <UsersIcon className="w-5 h-5 text-primary" />
             <span className="font-semibold">
-              {participantCount} {participantCount === 1 ? "participant" : "participants"}
+              {participantCount}{" "}
+              {participantCount === 1 ? "participant" : "participants"}
             </span>
           </div>
         </div>
@@ -131,7 +166,9 @@ function VideoCallUI({
           <div className="flex h-full items-center justify-center p-6 text-center">
             <div>
               <p className="text-lg font-bold">Waiting for Host</p>
-              <p className="mt-2 text-sm text-base-content/60">The class will begin when the teacher joins.</p>
+              <p className="mt-2 text-sm text-base-content/60">
+                The class will begin when the teacher joins.
+              </p>
             </div>
           </div>
         ) : (

@@ -30,14 +30,30 @@ router.post("/:id/publish", protectRoute, publishCourse);
 router.post("/:id/archive", protectRoute, archiveCourse);
 router.post("/:id/enrollment-request", protectRoute, requestEnrollment);
 router.post("/:id/join-invite", protectRoute, joinCourseWithInvite);
-router.post("/:id/enrollments/:enrollmentId/approve", protectRoute, approveEnrollment);
-router.post("/:id/enrollments/:enrollmentId/reject", protectRoute, rejectEnrollment);
+router.post(
+  "/:id/enrollments/:enrollmentId/approve",
+  protectRoute,
+  approveEnrollment,
+);
+router.post(
+  "/:id/enrollments/:enrollmentId/reject",
+  protectRoute,
+  rejectEnrollment,
+);
 router.post("/:id/classes", protectRoute, createClassSession);
 router.patch("/:id/classes/:classId", protectRoute, updateClassSession);
 router.post("/:id/classes/:classId/start", protectRoute, startClassSession);
 router.post("/:id/persistent-room/start", protectRoute, startPersistentRoom);
 router.post("/:id/assignments", protectRoute, createAssignment);
-router.post("/:id/assignments/:assignmentId/submissions", protectRoute, submitAssignment);
-router.post("/:id/assignments/:assignmentId/submissions/:submissionId/review", protectRoute, reviewAssignmentSubmission);
+router.post(
+  "/:id/assignments/:assignmentId/submissions",
+  protectRoute,
+  submitAssignment,
+);
+router.post(
+  "/:id/assignments/:assignmentId/submissions/:submissionId/review",
+  protectRoute,
+  reviewAssignmentSubmission,
+);
 
 export default router;

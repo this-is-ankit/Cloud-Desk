@@ -1,8 +1,21 @@
 import { format } from "date-fns";
 import { useNavigate } from "react-router";
-import { ArrowRightIcon, BookOpenIcon, SparklesIcon, UsersIcon } from "./icons/ModernIcons";
+import {
+  ArrowRightIcon,
+  BookOpenIcon,
+  SparklesIcon,
+  UsersIcon,
+} from "./icons/ModernIcons";
 
-function CoursesGrid({ title, subtitle, courses = [], totalCourses = 0, onViewAll, emptyLabel, emptyHint }) {
+function CoursesGrid({
+  title,
+  subtitle,
+  courses = [],
+  totalCourses = 0,
+  onViewAll,
+  emptyLabel,
+  emptyHint,
+}) {
   const navigate = useNavigate();
 
   return (
@@ -12,7 +25,10 @@ function CoursesGrid({ title, subtitle, courses = [], totalCourses = 0, onViewAl
           <h2 className="text-xl font-bold">{title}</h2>
           <p className="mt-1 text-sm text-base-content/60">{subtitle}</p>
         </div>
-        <button className="btn btn-ghost btn-sm gap-2 rounded-xl" onClick={onViewAll}>
+        <button
+          className="btn btn-ghost btn-sm gap-2 rounded-xl"
+          onClick={onViewAll}
+        >
           View all
           <ArrowRightIcon className="size-4" />
         </button>
@@ -29,11 +45,15 @@ function CoursesGrid({ title, subtitle, courses = [], totalCourses = 0, onViewAl
                 <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                   <BookOpenIcon className="w-5 h-5" />
                 </div>
-                <h3 className="font-semibold text-lg leading-tight line-clamp-2">{course.title}</h3>
+                <h3 className="font-semibold text-lg leading-tight line-clamp-2">
+                  {course.title}
+                </h3>
                 <p className="mt-1 text-sm text-base-content/60">
                   {course.code} • {course.teacher?.name || "Teacher"}
                 </p>
-                <p className="mt-4 text-sm leading-6 text-base-content/70 line-clamp-3">{course.shortDescription}</p>
+                <p className="mt-4 text-sm leading-6 text-base-content/70 line-clamp-3">
+                  {course.shortDescription}
+                </p>
               </div>
 
               <div className="mt-5 flex items-end justify-between gap-4">
@@ -50,7 +70,10 @@ function CoursesGrid({ title, subtitle, courses = [], totalCourses = 0, onViewAl
                         : `Status: ${course.status}`}
                   </div>
                 </div>
-                <button className="btn btn-sm btn-outline gap-2 rounded-xl border-base-content/15" onClick={() => navigate(`/courses/${course._id}`)}>
+                <button
+                  className="btn btn-sm btn-outline gap-2 rounded-xl border-base-content/15"
+                  onClick={() => navigate(`/courses/${course._id}`)}
+                >
                   Open
                   <ArrowRightIcon className="size-4" />
                 </button>
@@ -74,7 +97,9 @@ function CoursesGrid({ title, subtitle, courses = [], totalCourses = 0, onViewAl
           </div>
           <span className="font-medium">Open course workspace</span>
           <span className="mt-2 text-xs">
-            {totalCourses > 0 ? `${totalCourses} course${totalCourses === 1 ? "" : "s"} in this view` : "Manage or discover live courses"}
+            {totalCourses > 0
+              ? `${totalCourses} course${totalCourses === 1 ? "" : "s"} in this view`
+              : "Manage or discover live courses"}
           </span>
           <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold">
             Open courses

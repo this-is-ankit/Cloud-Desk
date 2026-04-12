@@ -1,6 +1,7 @@
 const AUTH_INTENT_STORAGE_KEY = "cloud-desk-auth-intent";
 
-const normalizeRole = (value) => (value === "teacher" ? "teacher" : value === "student" ? "student" : null);
+const normalizeRole = (value) =>
+  value === "teacher" ? "teacher" : value === "student" ? "student" : null;
 
 export const setAuthIntent = (role) => {
   if (typeof window === "undefined") return;

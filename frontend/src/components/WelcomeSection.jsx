@@ -2,7 +2,12 @@ import { ArrowRightIcon, ZapIcon } from "./icons/ModernIcons";
 import { useRuntimeAuth } from "../hooks/useRuntimeAuth";
 import PageContainer from "./PageContainer";
 
-function WelcomeSection({ role = "student", primaryAction, secondaryAction, tertiaryAction }) {
+function WelcomeSection({
+  role = "student",
+  primaryAction,
+  secondaryAction,
+  tertiaryAction,
+}) {
   const { user } = useRuntimeAuth();
   const isTeacher = role === "teacher";
   const PrimaryIcon = primaryAction?.icon || ZapIcon;
@@ -20,7 +25,8 @@ function WelcomeSection({ role = "student", primaryAction, secondaryAction, tert
               </span>
             </div>
             <h1 className="mt-2 text-4xl font-black tracking-tight text-base-content md:text-5xl">
-              Welcome back, <span className="text-primary">{user?.firstName || "there"}</span>
+              Welcome back,{" "}
+              <span className="text-primary">{user?.firstName || "there"}</span>
             </h1>
             <p className="mt-4 max-w-2xl text-lg leading-8 text-base-content/62">
               {isTeacher
@@ -31,13 +37,19 @@ function WelcomeSection({ role = "student", primaryAction, secondaryAction, tert
 
           <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[420px]">
             {secondaryAction && (
-              <button className="btn btn-outline h-12 rounded-xl border-base-content/15 bg-base-100/80 px-5" onClick={secondaryAction.onClick}>
+              <button
+                className="btn btn-outline h-12 rounded-xl border-base-content/15 bg-base-100/80 px-5"
+                onClick={secondaryAction.onClick}
+              >
                 {SecondaryIcon && <SecondaryIcon className="size-4" />}
                 {secondaryAction.label}
               </button>
             )}
             {tertiaryAction && (
-              <button className="btn btn-outline h-12 rounded-xl border-base-content/15 bg-base-100/80 px-5" onClick={tertiaryAction.onClick}>
+              <button
+                className="btn btn-outline h-12 rounded-xl border-base-content/15 bg-base-100/80 px-5"
+                onClick={tertiaryAction.onClick}
+              >
                 {TertiaryIcon && <TertiaryIcon className="size-4" />}
                 {tertiaryAction.label}
               </button>

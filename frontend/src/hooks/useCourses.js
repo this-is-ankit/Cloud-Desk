@@ -24,22 +24,23 @@ const invalidateCourses = (queryClient, courseId) => {
   }
 };
 
-const createCourseMutation = (mutationKey, mutationFn, successMessage, errorMessage) => () => {
-  const queryClient = useQueryClient();
+const createCourseMutation =
+  (mutationKey, mutationFn, successMessage, errorMessage) => () => {
+    const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationKey: [mutationKey],
-    mutationFn,
-    onSuccess: (data, variables) => {
-      toast.success(data?.message || successMessage);
-      const courseId = data?.course?._id || variables?.courseId || variables;
-      invalidateCourses(queryClient, courseId);
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || errorMessage);
-    },
-  });
-};
+    return useMutation({
+      mutationKey: [mutationKey],
+      mutationFn,
+      onSuccess: (data, variables) => {
+        toast.success(data?.message || successMessage);
+        const courseId = data?.course?._id || variables?.courseId || variables;
+        invalidateCourses(queryClient, courseId);
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.message || errorMessage);
+      },
+    });
+  };
 
 export const useCreateCourse = createCourseMutation(
   "createCourse",
