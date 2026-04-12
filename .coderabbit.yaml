@@ -1,0 +1,14 @@
+# .coderabbit.yaml
+version: 2
+language: "en-US"
+reviews:
+  profile: "standard"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: true
+  review_status: true
+  collapse_walkthrough: false
+  tools:
+    opengrep:
+      # Explicitly pointing CodeRabbit to our custom OpenGrep configuration file
+      config_file: "opengrep.yml"

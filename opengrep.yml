@@ -1,0 +1,38 @@
+# opengrep.yml
+rules:
+  - id: no-eval
+    patterns:
+      - pattern: eval(...)
+    message: "Security risk: Avoid using eval() as it can lead to code injection vulnerabilities."
+    languages: [javascript, typescript]
+    severity: ERROR
+
+  - id: react-dangerouslysetinnerhtml
+    patterns:
+      - pattern: dangerouslySetInnerHTML={...}
+    message: "Security risk: Using dangerouslySetInnerHTML can expose the application to Cross-Site Scripting (XSS) attacks. Ensure the input is properly sanitized."
+    languages: [javascript, typescript]
+    severity: WARNING
+
+  - id: express-hardcoded-secret
+    patterns:
+      - pattern-either:
+          - pattern: jwt.sign(..., "...", ...)
+          - pattern: jwt.verify(..., "...", ...)
+    message: "Security risk: Hardcoded JWT secrets detected. Use environment variables (e.g., process.env.JWT_SECRET) instead."
+    languages: [javascript, typescript]
+    severity: ERROR
+
+  - id: insecure-cookie
+    patterns:
+      - pattern: res.cookie($NAME, $VAL, { ..., secure: false, ... })
+    message: "Security risk: Cookies should have the 'secure' flag set to true in production to prevent them from being transmitted over unencrypted HTTP connections."
+    languages: [javascript, typescript]
+    severity: WARNING
+
+  - id: console-log-leak
+    patterns:
+      - pattern: console.log(...)
+    message: "Best practice: Ensure that console.log statements do not leak sensitive information in production environments."
+    languages: [javascript, typescript]
+    severity: INFO
