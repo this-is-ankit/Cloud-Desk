@@ -1,7 +1,7 @@
 import {
   CheckIcon,
-  CodeIcon,
   EyeOffIcon,
+  LaptopIcon,
   ListChecksIcon,
   LogOutIcon,
   PencilOffIcon,
@@ -18,13 +18,13 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 function HostToolsPopover({
   session,
   isAntiCheatEnabled,
-  isCodeOpen,
+  isWorkspaceOpen,
   isWhiteboardOpen,
   isCircuitOpen,
   whiteboardWriteMode,
   whiteboardWriterIds,
   onToggleAntiCheat,
-  onToggleCodeSpace,
+  onToggleWorkspaceStage,
   onToggleWhiteboard,
   onToggleCircuit,
   onWhiteboardWriteModeChange,
@@ -112,15 +112,15 @@ function HostToolsPopover({
               </button>
 
               <button
-                onClick={onToggleCodeSpace}
-                className={`btn btn-sm w-full justify-start gap-2 ${isCodeOpen ? "btn-secondary" : "btn-ghost"}`}
+                onClick={onToggleWorkspaceStage}
+                className={`btn btn-sm w-full justify-start gap-2 ${isWorkspaceOpen ? "btn-secondary" : "btn-ghost"}`}
               >
-                {isCodeOpen ? (
+                {isWorkspaceOpen ? (
                   <EyeOffIcon className="w-4 h-4" />
                 ) : (
-                  <CodeIcon className="w-4 h-4" />
+                  <LaptopIcon className="w-4 h-4" />
                 )}
-                {isCodeOpen ? "Close Code Space" : "Open Code Space"}
+                {isWorkspaceOpen ? "Close IDE" : "Open IDE"}
               </button>
 
               <button

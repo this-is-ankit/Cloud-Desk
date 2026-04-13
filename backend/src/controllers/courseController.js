@@ -389,6 +389,7 @@ const createRealtimeSession = async ({
     hostId: hostUser._id,
     callId,
     code,
+    ideMode: "workspace",
     sessionType: normalizedSessionType,
     maxParticipants,
     participants: [],
@@ -396,6 +397,11 @@ const createRealtimeSession = async ({
     courseId,
     classSessionId,
     sessionKind,
+    isWorkspaceOpen: true,
+    workspaceTemplateId: sessionLanguage,
+    workspaceStrategy: courseId ? "persistent" : "fresh-per-class",
+    workspaceGeneration: 1,
+    currentLessonVersion: 0,
     livestream:
       normalizedSessionType === "livestream"
         ? {

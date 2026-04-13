@@ -18,6 +18,7 @@ import sessionRoutes from "./routes/sessionRoute.js";
 import codeExecutionRoutes from "./routes/codeExecutionRoute.js";
 import courseRoutes from "./routes/courseRoute.js";
 import userRoutes from "./routes/userRoute.js";
+import workspaceRoutes from "./routes/workspaceRoute.js";
 
 import Session from "./models/Session.js";
 import User from "./models/User.js";
@@ -35,6 +36,7 @@ import {
 } from "./lib/coursePersistence.js";
 import { normalizeSessionLanguage } from "./lib/sessionLanguage.js";
 import { getRedisClient, getRedisEmitter } from "./lib/redis.js";
+import { setSocketServer } from "./lib/socketServer.js";
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -52,6 +54,8 @@ const io = new Server(httpServer, {
     methods: ["GET", "POST"],
   },
 });
+
+setSocketServer(io);
 
 const setupSocketRedisAdapter = async () => {
   if (!ENV.REDIS_URL) return;
@@ -1005,6 +1009,13 @@ io.on("connection", (socket) => {
         isOpen: Boolean(session.isCodeOpen),
       });
 
+      socket.emit("workspace-stage-state", {
+        isOpen: session.isWorkspaceOpen !== false,
+        ideMode: session.ideMode || "workspace",
+        generation: session.workspaceGeneration || 1,
+        lessonVersion: session.currentLessonVersion || 0,
+      });
+
       io.in(roomId).emit("whiteboard-permissions-updated", {
         writeMode: permissions.writeMode,
         writerIds: permissions.writerIds,
@@ -1845,6 +1856,27 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("toggle-workspace-stage", async ({ roomId, isOpen }) => {
+    try {
+      if (!roomId) return;
+      const access = await getAuthorizedSessionForSocket(roomId);
+      if (!access?.isHost) return;
+
+      await Session.findByIdAndUpdate(roomId, {
+        isWorkspaceOpen: Boolean(isOpen),
+      });
+
+      io.in(roomId).emit("workspace-stage-state", {
+        isOpen: Boolean(isOpen),
+        ideMode: access.session?.ideMode || "workspace",
+        generation: access.session?.workspaceGeneration || 1,
+        lessonVersion: access.session?.currentLessonVersion || 0,
+      });
+    } catch (error) {
+      console.error("Error toggling workspace stage:", error.message);
+    }
+  });
+
   socket.on("toggle-anti-cheat", async ({ roomId, isEnabled }) => {
     try {
       if (!roomId) return;
@@ -1882,6 +1914,7 @@ app.use("/api/sessions", sessionRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/code", codeExecutionRoutes);
+app.use("/api/workspaces", workspaceRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({ msg: "api is up and running" });

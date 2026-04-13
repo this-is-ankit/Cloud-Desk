@@ -139,6 +139,7 @@ export async function createSession(req, res) {
       hostId: userId,
       callId,
       code,
+      ideMode: "workspace",
       sessionType: "interactive",
       maxParticipants: participantLimit,
       participants: [],
@@ -146,6 +147,11 @@ export async function createSession(req, res) {
       courseId,
       classSessionId,
       sessionKind,
+      isWorkspaceOpen: true,
+      workspaceTemplateId: normalizedLanguage,
+      workspaceStrategy: "persistent",
+      workspaceGeneration: 1,
+      currentLessonVersion: 0,
     });
 
     await streamClient.video.call("default", callId).getOrCreate({

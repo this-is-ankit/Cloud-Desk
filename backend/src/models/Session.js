@@ -50,6 +50,11 @@ const sessionSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    ideMode: {
+      type: String,
+      enum: ["workspace", "legacy-editor"],
+      default: "workspace",
+    },
     courseId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Course",
@@ -67,6 +72,27 @@ const sessionSchema = new mongoose.Schema(
     isCodeOpen: {
       type: Boolean,
       default: false, // Starts hidden by default (Interviewer focuses on intro first)
+    },
+    isWorkspaceOpen: {
+      type: Boolean,
+      default: true,
+    },
+    workspaceTemplateId: {
+      type: String,
+      default: "",
+    },
+    workspaceStrategy: {
+      type: String,
+      enum: ["persistent", "fresh-per-class"],
+      default: "persistent",
+    },
+    workspaceGeneration: {
+      type: Number,
+      default: 1,
+    },
+    currentLessonVersion: {
+      type: Number,
+      default: 0,
     },
     isAntiCheatEnabled: {
       type: Boolean,
@@ -209,6 +235,10 @@ sessionSchema.pre("validate", function normalizeLegacySessionFields(next) {
 
   if (this.status === "live") {
     this.status = "active";
+  }
+
+  if (!this.workspaceTemplateId && this.language) {
+    this.workspaceTemplateId = this.language;
   }
 
   next();

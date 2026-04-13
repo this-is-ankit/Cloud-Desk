@@ -11,42 +11,34 @@ import {
   useStartLivestream,
   useStopLivestream,
 } from "../hooks/useSessions";
-import { executeCode } from "../lib/piston";
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
-  CodeIcon,
   DoorOpenIcon,
   Loader2Icon,
   KeyIcon,
+  LaptopIcon,
   ListChecksIcon,
   LogOutIcon,
   MenuIcon,
   MessageSquareIcon,
   PencilOffIcon,
   PresentationIcon,
-  RadioTowerIcon,
   SendIcon,
   UserMinusIcon,
   UsersIcon,
-  XCircleIcon,
   XIcon,
   CpuIcon,
 } from "../components/icons/ModernIcons";
 import toast from "react-hot-toast";
-import CodeEditorPanel from "../components/CodeEditorPanel";
-import OutputPanel from "../components/OutputPanel";
 import QuizPanel from "../components/QuizPanel";
 import CircuitSimulatorPanel from "../components/CircuitSimulatorPanel";
 import HostToolsPopover from "../components/HostToolsPopover";
+import WorkspacePanel from "../components/WorkspacePanel";
 
 import useStreamClient from "../hooks/useStreamClient";
 import { StreamCall, StreamVideo } from "@stream-io/video-react-sdk";
 import VideoCallUI from "../components/VideoCallUI";
 import { useRuntimeAuth } from "../hooks/useRuntimeAuth";
-import {
-  getSessionLanguageLabel,
-  normalizeSessionLanguage,
-} from "../lib/sessionLanguage";
+import { getSessionLanguageLabel } from "../lib/sessionLanguage";
 import {
   Channel,
   Chat,
@@ -55,6 +47,7 @@ import {
   Thread,
   Window,
 } from "stream-chat-react";
+import { useMyWorkspace } from "../hooks/useWorkspaces";
 
 function EmptySidebarState({ children }) {
   return (
@@ -185,11 +178,9 @@ function SessionPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user, getToken, authMode, devAuth } = useRuntimeAuth();
-  const [output, setOutput] = useState(null);
-  const [isRunning, setIsRunning] = useState(false);
   const [accessCode, setAccessCode] = useState("");
 
-  const [isCodeOpen, setIsCodeOpen] = useState(false);
+  const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(true);
   const [isAntiCheatEnabled, setIsAntiCheatEnabled] = useState(false);
   const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
   const [isCircuitOpen, setIsCircuitOpen] = useState(false);
@@ -206,8 +197,6 @@ function SessionPage() {
   const [livestreamState, setLivestreamState] = useState(null);
   const [livestreamChatMessages, setLivestreamChatMessages] = useState([]);
   const [livestreamChatDraft, setLivestreamChatDraft] = useState("");
-  const [hostCodeSnapshot, setHostCodeSnapshot] = useState(null);
-  const [isCodeDirtyFromHost, setIsCodeDirtyFromHost] = useState(false);
   const [activeTool, setActiveTool] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSidebarTab, setActiveSidebarTab] = useState("chat");
@@ -216,13 +205,8 @@ function SessionPage() {
   const socketRef = useRef(null);
   const sessionMenuRef = useRef(null);
   const wasParticipantRef = useRef(false);
-  const initializedSessionRef = useRef(null);
-  const isCodeDirtyFromHostRef = useRef(false);
-  const livestreamJoinedCallIdRef = useRef(null);
   const activeToolRef = useRef(activeTool);
   const pendingHostWhiteboardSnapshotRef = useRef(null);
-  const lastLocalCodeRef = useRef("");
-  const lastLocalChangeAtRef = useRef(0);
   const isInitialLoadRef = useRef(true);
 
   const {
@@ -252,6 +236,13 @@ function SessionPage() {
   const hasSessionAccess = Boolean(
     isHost || isParticipant || isLivestreamViewer,
   );
+  const workspaceQuery = useMyWorkspace(id, {
+    enabled: hasSessionAccess,
+    refetchInterval: 4000,
+  });
+  const workspace = workspaceQuery.data?.workspace || null;
+  const workspaceLessonState = workspaceQuery.data?.lessonState || null;
+  const refetchWorkspace = workspaceQuery.refetch;
   const currentMongoUserId = isHost
     ? session?.host?._id
     : session?.participants?.find((p) => p.clerkId === user?.id)?._id;
@@ -265,21 +256,11 @@ function SessionPage() {
 
   // --- FIX: Live Reference for Host Status ---
   const isHostRef = useRef(isHost);
-  const isParticipantRef = useRef(isParticipant);
-  const hasSessionAccessRef = useRef(hasSessionAccess);
 
   // Keep the ref updated whenever isHost changes (e.g. after session loads)
   useEffect(() => {
     isHostRef.current = isHost;
   }, [isHost]);
-
-  useEffect(() => {
-    isParticipantRef.current = isParticipant;
-  }, [isParticipant]);
-
-  useEffect(() => {
-    hasSessionAccessRef.current = hasSessionAccess;
-  }, [hasSessionAccess]);
 
   useEffect(() => {
     if (!session?.courseAccess?.canJoinWithoutCode) return;
@@ -316,13 +297,6 @@ function SessionPage() {
     isParticipant,
     isLivestreamViewer,
   );
-
-  const [selectedLanguage, setSelectedLanguage] = useState("javascript");
-  const [code, setCode] = useState("");
-
-  useEffect(() => {
-    isCodeDirtyFromHostRef.current = isCodeDirtyFromHost;
-  }, [isCodeDirtyFromHost]);
 
   useEffect(() => {
     activeToolRef.current = activeTool;
@@ -366,14 +340,11 @@ function SessionPage() {
     setLivestreamState(null);
     setLivestreamChatMessages([]);
     setLivestreamChatDraft("");
-    setHostCodeSnapshot(null);
-    setIsCodeDirtyFromHost(false);
     setActiveTool(null);
     setSidebarOpen(true);
     setActiveSidebarTab("chat");
     setIsSessionMenuOpen(false);
     wasParticipantRef.current = false;
-    initializedSessionRef.current = null;
     pendingHostWhiteboardSnapshotRef.current = null;
   }, [id]);
 
@@ -436,25 +407,10 @@ function SessionPage() {
         }
       });
 
-      socket.on("code-update", (newCode) => {
-        // Ignore remote updates for a short window after local typing to avoid echos and flickering
-        const now = Date.now();
-        if (now - lastLocalChangeAtRef.current < 1500) return;
-
-        if (newCode === lastLocalCodeRef.current) return;
-        setCode((prevCode) => {
-          if (prevCode !== newCode) return newCode;
-          return prevCode;
-        });
-      });
-
-      socket.on("language-update", (newLang) => {
-        setSelectedLanguage(normalizeSessionLanguage(newLang));
-      });
-
-      socket.on("code-space-state", (isOpen) => {
-        setIsCodeOpen(Boolean(isOpen));
-        if (isOpen) setActiveTool("code");
+      socket.on("workspace-stage-state", ({ isOpen }) => {
+        const nextState = Boolean(isOpen);
+        setIsWorkspaceOpen(nextState);
+        if (nextState) setActiveTool("workspace");
       });
 
       socket.on("whiteboard-state", (isOpen) => {
@@ -499,12 +455,6 @@ function SessionPage() {
         const isActuallyOpen = Boolean(isOpen);
         setIsCircuitOpen(isActuallyOpen);
         if (isActuallyOpen) setActiveTool("circuit");
-      });
-
-      socket.on("room/code-sync", ({ isOpen }) => {
-        const isActuallyOpen = Boolean(isOpen);
-        setIsCodeOpen(isActuallyOpen);
-        if (isActuallyOpen) setActiveTool("code");
       });
 
       socket.on("whiteboard-write-denied", ({ message }) => {
@@ -566,25 +516,6 @@ function SessionPage() {
         toast.error(message || "Quiz action failed");
       });
 
-      socket.on("code/execute.result", ({ userId: resultUserId, result }) => {
-        if (resultUserId === user?.id || resultUserId === currentMongoUserId) {
-          const run = result?.run || result;
-          // Map Piston-like structure to OutputPanel structure
-          const mappedResult = {
-            success: !run?.stderr,
-            output: run?.stdout || run?.output || "",
-            error: run?.stderr || "",
-          };
-          setOutput(mappedResult);
-          setIsRunning(false);
-          if (mappedResult.error) {
-            toast.error("Execution failed");
-          } else {
-            toast.success("Execution completed");
-          }
-        }
-      });
-
       socket.on("livestream-state", (nextState) => {
         setLivestreamState(nextState || null);
       });
@@ -608,20 +539,16 @@ function SessionPage() {
         toast.error(message || "Livestream action failed");
       });
 
-      socket.on("host-code-sync", (snapshot) => {
-        setHostCodeSnapshot(snapshot || null);
+      const refetchWorkspaceState = () => {
+        refetchWorkspace();
+      };
 
-        // Host should ignore sync echos of their own typing
-        const now = Date.now();
-        if (isHostRef.current && now - lastLocalChangeAtRef.current < 2000) return;
-        if (isHostRef.current && snapshot?.code === lastLocalCodeRef.current) return;
-
-        if (isHostRef.current || !isCodeDirtyFromHostRef.current) {
-          setSelectedLanguage(normalizeSessionLanguage(snapshot?.language));
-          setCode(snapshot?.code || "");
-          setIsCodeDirtyFromHost(false);
-        }
-      });
+      socket.on("lesson-version-published", refetchWorkspaceState);
+      socket.on("workspace-generation-updated", refetchWorkspaceState);
+      socket.on("workspace-follow-state-changed", refetchWorkspaceState);
+      socket.on("workspace-resynced", refetchWorkspaceState);
+      socket.on("lesson-force-resynced", refetchWorkspaceState);
+      socket.on("workspace-roster-updated", refetchWorkspaceState);
 
       socket.on("host-whiteboard-sync", (snapshot) => {
         const nextScene = {
@@ -669,7 +596,16 @@ function SessionPage() {
       }
       socketRef.current = null;
     };
-  }, [id, getToken, user?.id, applyWhiteboardPermissions, authMode, devAuth, hasSessionAccess]);
+  }, [
+    id,
+    getToken,
+    user?.id,
+    applyWhiteboardPermissions,
+    authMode,
+    devAuth,
+    hasSessionAccess,
+    refetchWorkspace,
+  ]);
 
   useEffect(() => {
     if (!id || !socketRef.current) return;
@@ -680,7 +616,8 @@ function SessionPage() {
   useEffect(() => {
     if (!session) return;
 
-    if (session.isCodeOpen !== undefined) setIsCodeOpen(session.isCodeOpen);
+    if (session.isWorkspaceOpen !== undefined)
+      setIsWorkspaceOpen(session.isWorkspaceOpen);
     if (session.isAntiCheatEnabled !== undefined)
       setIsAntiCheatEnabled(session.isAntiCheatEnabled);
     if (typeof session.whiteboardWriteMode === "string") {
@@ -701,7 +638,7 @@ function SessionPage() {
     // Only auto-set activeTool on initial load from DB
     // Subsequent changes should come from Socket.IO events for real-time responsiveness
     if (isInitialLoadRef.current) {
-      if (session.isCodeOpen) setActiveTool("code");
+      if (session.isWorkspaceOpen !== false) setActiveTool("workspace");
       if (session.isCircuitOpen) setActiveTool("circuit");
       if (session.whiteboardIsOpen) setActiveTool("whiteboard");
       isInitialLoadRef.current = false;
@@ -741,43 +678,6 @@ function SessionPage() {
       window.removeEventListener("blur", handleBlur);
     };
   }, [isParticipant, isAntiCheatEnabled, id, user?.id]);
-
-  const handleCodeChange = useCallback((newCode = "") => {
-    lastLocalCodeRef.current = newCode;
-    lastLocalChangeAtRef.current = Date.now();
-    setCode(newCode);
-    if (isLivestream && !isHost) {
-      setIsCodeDirtyFromHost(true);
-      return;
-    }
-    if (!socketRef.current) return;
-    socketRef.current.emit("code-change", { roomId: id, code: newCode });
-  }, [id, isLivestream, isHost]);
-
-  const handleLanguageChangeWrapper = useCallback((e) => {
-    const newLang = normalizeSessionLanguage(e.target.value);
-    setSelectedLanguage(newLang);
-    setOutput(null);
-    if (isLivestream && !isHost) {
-      setIsCodeDirtyFromHost(true);
-      return;
-    }
-    if (!socketRef.current) return;
-    socketRef.current.emit("language-change", {
-      roomId: id,
-      language: newLang,
-    });
-  }, [id, isLivestream, isHost]);
-
-  const syncCodeFromHost = () => {
-    if (hostCodeSnapshot) {
-      setSelectedLanguage(normalizeSessionLanguage(hostCodeSnapshot.language));
-      setCode(hostCodeSnapshot.code || "");
-      setIsCodeDirtyFromHost(false);
-      return;
-    }
-    socketRef.current?.emit("viewer-code-sync-request", { roomId: id });
-  };
 
   const handleSendLivestreamChat = (event) => {
     event.preventDefault();
@@ -827,12 +727,20 @@ function SessionPage() {
     stopLivestreamMutation.mutate(id);
   };
 
-  const toggleCodeSpace = () => {
-    const newState = !isCodeOpen;
-    setIsCodeOpen(newState);
-    setActiveTool(newState ? "code" : isWhiteboardOpen ? "whiteboard" : null);
+  const toggleWorkspaceStage = () => {
+    const newState = !isWorkspaceOpen;
+    setIsWorkspaceOpen(newState);
+    setActiveTool(
+      newState
+        ? "workspace"
+        : isWhiteboardOpen
+          ? "whiteboard"
+          : isCircuitOpen
+            ? "circuit"
+            : null,
+    );
     if (!socketRef.current) return;
-    socketRef.current.emit("toggle-code-space", {
+    socketRef.current.emit("toggle-workspace-stage", {
       roomId: id,
       isOpen: newState,
     });
@@ -841,7 +749,15 @@ function SessionPage() {
   const toggleWhiteboard = () => {
     const newState = !isWhiteboardOpen;
     setIsWhiteboardOpen(newState);
-    setActiveTool(newState ? "whiteboard" : isCodeOpen ? "code" : isCircuitOpen ? "circuit" : null);
+    setActiveTool(
+      newState
+        ? "whiteboard"
+        : isWorkspaceOpen
+          ? "workspace"
+          : isCircuitOpen
+            ? "circuit"
+            : null,
+    );
     if (isHost && socketRef.current) {
       socketRef.current.emit("toggle-whiteboard", {
         roomId: id,
@@ -853,7 +769,15 @@ function SessionPage() {
   const toggleCircuit = () => {
     const newState = !isCircuitOpen;
     setIsCircuitOpen(newState);
-    setActiveTool(newState ? "circuit" : isCodeOpen ? "code" : isWhiteboardOpen ? "whiteboard" : null);
+    setActiveTool(
+      newState
+        ? "circuit"
+        : isWorkspaceOpen
+          ? "workspace"
+          : isWhiteboardOpen
+            ? "whiteboard"
+            : null,
+    );
     if (isHost && socketRef.current) {
       socketRef.current.emit("toggle-circuit", {
         roomId: id,
@@ -969,40 +893,20 @@ function SessionPage() {
   }, [session, loadingSession, navigate]);
 
   useEffect(() => {
-    if (!id || !session?.language) return;
-    if (initializedSessionRef.current === id) return;
-
-    initializedSessionRef.current = id;
-    const normalizedLanguage = normalizeSessionLanguage(session.language);
-    setSelectedLanguage(normalizedLanguage);
-    setCode(
-      `// Start coding in ${getSessionLanguageLabel(normalizedLanguage)}...`,
-    );
-  }, [id, session?.language]);
-
-  useEffect(() => {
-    if (activeTool === "code" && !isCodeOpen) {
+    if (activeTool === "workspace" && !isWorkspaceOpen) {
       setActiveTool(
         isWhiteboardOpen ? "whiteboard" : isCircuitOpen ? "circuit" : null,
       );
     } else if (activeTool === "whiteboard" && !isWhiteboardOpen) {
-      setActiveTool(isCodeOpen ? "code" : isCircuitOpen ? "circuit" : null);
+      setActiveTool(
+        isWorkspaceOpen ? "workspace" : isCircuitOpen ? "circuit" : null,
+      );
     } else if (activeTool === "circuit" && !isCircuitOpen) {
-      setActiveTool(isCodeOpen ? "code" : isWhiteboardOpen ? "whiteboard" : null);
+      setActiveTool(
+        isWorkspaceOpen ? "workspace" : isWhiteboardOpen ? "whiteboard" : null,
+      );
     }
-  }, [activeTool, isCodeOpen, isWhiteboardOpen, isCircuitOpen]);
-
-  const handleRunCode = async () => {
-    setIsRunning(true);
-    setOutput(null);
-    const result = await executeCode(selectedLanguage, code, id);
-    if (!result.async) {
-      setOutput(result);
-      setIsRunning(false);
-    } else {
-      toast.success("Code running in background...");
-    }
-  };
+  }, [activeTool, isWorkspaceOpen, isWhiteboardOpen, isCircuitOpen]);
 
   const handleEndSession = () => {
     if (confirm("Are you sure you want to end this session?")) {
@@ -1029,7 +933,7 @@ function SessionPage() {
   };
 
   const availableStageTools = [
-    isCodeOpen ? { id: "code", label: "Code", icon: CodeIcon } : null,
+    isWorkspaceOpen ? { id: "workspace", label: "IDE", icon: LaptopIcon } : null,
     isWhiteboardOpen
       ? { id: "whiteboard", label: "Whiteboard", icon: PresentationIcon }
       : null,
@@ -1125,35 +1029,14 @@ function SessionPage() {
     );
   };
 
-  const renderCodeStage = () => (
-    <div className="relative h-full min-h-0 overflow-hidden rounded-xl border border-base-content/10 bg-base-100">
-      {isLivestream && !isHost && isCodeDirtyFromHost && (
-        <button
-          type="button"
-          className="btn btn-primary btn-xs absolute right-3 top-3 z-20 gap-2 rounded-lg"
-          onClick={syncCodeFromHost}
-        >
-          <CodeIcon className="size-4" />
-          Sync code
-        </button>
-      )}
-      <PanelGroup direction="vertical">
-        <Panel defaultSize={70} minSize={30}>
-          <CodeEditorPanel
-            selectedLanguage={selectedLanguage}
-            code={code}
-            isRunning={isRunning}
-            onLanguageChange={handleLanguageChangeWrapper}
-            onCodeChange={handleCodeChange}
-            onRunCode={handleRunCode}
-          />
-        </Panel>
-        <PanelResizeHandle className="h-1.5 bg-base-200 hover:bg-primary/20 transition-colors cursor-row-resize z-10" />
-        <Panel defaultSize={30} minSize={15}>
-          <OutputPanel output={output} />
-        </Panel>
-      </PanelGroup>
-    </div>
+  const renderWorkspaceStage = () => (
+    <WorkspacePanel
+      sessionId={id}
+      sessionLanguage={session?.language}
+      workspace={workspace}
+      lessonState={workspaceLessonState}
+      isHost={isHost}
+    />
   );
 
   const renderWhiteboardStage = () => (
@@ -1200,7 +1083,7 @@ function SessionPage() {
         </div>
 
         <div className="h-full min-h-0">
-          {activeTool === "code" && renderCodeStage()}
+          {activeTool === "workspace" && renderWorkspaceStage()}
           {activeTool === "whiteboard" && renderWhiteboardStage()}
           {activeTool === "circuit" && (
             <CircuitSimulatorPanel
@@ -1373,7 +1256,7 @@ function SessionPage() {
         <div className="flex min-h-12 flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
             <h1 className="truncate text-lg font-bold text-base-content md:text-xl">
-              {getSessionLanguageLabel(selectedLanguage)}
+              {getSessionLanguageLabel(session?.language)}
             </h1>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-base-content/60 md:text-sm">
               <span>Host: {session?.host?.name}</span>
@@ -1462,13 +1345,13 @@ function SessionPage() {
               <HostToolsPopover
                 session={session}
                 isAntiCheatEnabled={isAntiCheatEnabled}
-                isCodeOpen={isCodeOpen}
+                isWorkspaceOpen={isWorkspaceOpen}
                 isWhiteboardOpen={isWhiteboardOpen}
                 isCircuitOpen={isCircuitOpen}
                 whiteboardWriteMode={whiteboardWriteMode}
                 whiteboardWriterIds={whiteboardWriterIds}
                 onToggleAntiCheat={toggleAntiCheat}
-                onToggleCodeSpace={toggleCodeSpace}
+                onToggleWorkspaceStage={toggleWorkspaceStage}
                 onToggleWhiteboard={toggleWhiteboard}
                 onToggleCircuit={toggleCircuit}
                 onWhiteboardWriteModeChange={handleWhiteboardWriteModeChange}
