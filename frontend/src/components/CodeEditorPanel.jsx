@@ -1,3 +1,4 @@
+import { useRef, useEffect, memo } from "react";
 import Editor from "@monaco-editor/react";
 import { Loader2Icon, PlayIcon } from "./icons/ModernIcons";
 import { useTheme } from "../context/ThemeProvider";
@@ -7,17 +8,37 @@ import {
   normalizeSessionLanguage,
 } from "../lib/sessionLanguage";
 
-function CodeEditorPanel({
+const CodeEditorPanel = memo(({
   selectedLanguage,
   code,
   isRunning,
   onLanguageChange,
   onCodeChange,
   onRunCode,
-}) {
+}) => {
   const { isDark } = useTheme();
-  const activeLanguage = normalizeSessionLanguage(selectedLanguage);
+  const editorRef = useRef(null);
   const activeLanguageConfig = getSessionLanguageConfig(selectedLanguage);
+  const activeLanguage = normalizeSessionLanguage(selectedLanguage);
+
+  const handleEditorDidMount = (editor) => {
+    editorRef.current = editor;
+  };
+
+  useEffect(() => {
+    if (editorRef.current) {
+      const currentModelValue = editorRef.current.getValue();
+      
+      if (code !== currentModelValue) {
+        // We only want to force-set value if the editor isn't focused 
+        // OR if the change is significant (not just a single character from our own echo)
+        const isFocused = editorRef.current.hasTextFocus();
+        if (!isFocused || Math.abs((code?.length || 0) - (currentModelValue?.length || 0)) > 10) {
+          editorRef.current.setValue(code || "");
+        }
+      }
+    }
+  }, [code]);
 
   return (
     <div className="h-full bg-base-100 flex flex-col">
@@ -64,7 +85,8 @@ function CodeEditorPanel({
         <Editor
           height={"100%"}
           language={activeLanguageConfig.monacoLang}
-          value={code}
+          defaultValue={code}
+          onMount={handleEditorDidMount}
           onChange={onCodeChange}
           theme={isDark ? "vs-dark" : "vs"}
           options={{
@@ -80,5 +102,8 @@ function CodeEditorPanel({
       </div>
     </div>
   );
-}
+});
+
+CodeEditorPanel.displayName = "CodeEditorPanel";
+
 export default CodeEditorPanel;

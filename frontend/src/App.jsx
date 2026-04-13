@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router";
+import { useEffect } from "react";
 import HomePage from "./pages/HomePage";
 
 import { Toaster } from "react-hot-toast";
@@ -16,6 +17,7 @@ import ProfileSettingsPage from "./pages/ProfileSettingsPage";
 import TeachersPage from "./pages/TeachersPage";
 import TeacherDetailPage from "./pages/TeacherDetailPage";
 import { Loader2 } from "lucide-react";
+import { setGetTokenHook } from "./lib/axios";
 
 function ProtectedAppRoute({ children }) {
   const { isSignedIn, isLoaded } = useRuntimeAuth();
@@ -35,9 +37,15 @@ function ProtectedAppRoute({ children }) {
 }
 
 function App() {
-  const { isSignedIn, isLoaded } = useRuntimeAuth();
+  const { isSignedIn, isLoaded, getToken, authMode } = useRuntimeAuth();
   const { isDark } = useTheme();
   const { onboardingCompleted, isLoading } = useAppUser();
+
+  useEffect(() => {
+    if (authMode === "clerk") {
+      setGetTokenHook(getToken);
+    }
+  }, [getToken, authMode]);
 
   // this will get rid of the flickering effect
   if (!isLoaded || (isSignedIn && isLoading)) return null;

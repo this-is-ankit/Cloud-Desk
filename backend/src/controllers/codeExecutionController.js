@@ -1,20 +1,20 @@
 import { inngest } from "../lib/inngest.js";
 import { getNormalizedSessionLanguage } from "../lib/sessionLanguage.js";
-
-const LANGUAGE_CONFIG = {
-  javascript: { language: "javascript", version: "18.15.0" },
-  python: { language: "python", version: "3.10.0" },
-  java: { language: "java", version: "15.0.2" },
-  cpp: { language: "c++", version: "10.2.0" },
-  c: { language: "c", version: "10.2.0" },
-  rust: { language: "rust", version: "1.68.2" },
-  go: { language: "go", version: "1.16.2" },
-};
+import { runCode } from "../lib/codeRunner.js";
+import { ENV } from "../lib/env.js";
 
 export async function executeCode(req, res) {
   try {
     const { language, code, roomId } = req.body;
-    const userId = req.auth?.userId || req.userId; // Handle both clerk and custom auth
+    
+    let clerkId = null;
+    if (typeof req.auth === "function") {
+      clerkId = req.auth().userId;
+    } else if (req.auth) {
+      clerkId = req.auth.userId;
+    }
+    
+    const userId = clerkId || req.userId; 
 
     if (!language || typeof code !== "string" || !roomId) {
       return res
@@ -27,15 +27,20 @@ export async function executeCode(req, res) {
     }
 
     const normalizedLanguage = getNormalizedSessionLanguage(language);
-    const config = normalizedLanguage ? LANGUAGE_CONFIG[normalizedLanguage] : null;
-    
-    if (!config) {
+    if (!normalizedLanguage) {
       return res
         .status(400)
         .json({ message: `Unsupported language: ${language}` });
     }
 
-    // Trigger asynchronous execution
+    // HYBRID MODE: If Redis is missing, run synchronously to ensure results reach the UI
+    if (!ENV.REDIS_URL) {
+      console.log("REDIS_URL missing: Running code execution synchronously.");
+      const result = await runCode({ language: normalizedLanguage, code });
+      return res.status(200).json(result);
+    }
+
+    // Trigger asynchronous execution via Inngest (Production Mode)
     await inngest.send({
       name: "code/execute.requested",
       data: {

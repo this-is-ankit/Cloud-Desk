@@ -12,7 +12,13 @@ export const protectRoute = async (req, res, next) => {
       return next();
     }
 
-    const clerkId = req.auth?.().userId;
+    let clerkId = null;
+    if (typeof req.auth === "function") {
+      clerkId = req.auth().userId;
+    } else if (req.auth) {
+      clerkId = req.auth.userId;
+    }
+
     if (!clerkId) {
       return res.status(401).json({ message: "Unauthorized - invalid token" });
     }

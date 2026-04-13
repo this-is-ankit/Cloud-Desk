@@ -4,10 +4,18 @@ const DEV_AUTH_STORAGE_KEY = "cloud-desk-dev-auth";
 
 const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
-  withCredentials: true, // by adding this field browser will send the cookies to server automatically, on every single req
+  withCredentials: true,
 });
 
-axiosInstance.interceptors.request.use((config) => {
+// To be set by AuthProvider
+let getTokenFn = null;
+
+export const setGetTokenHook = (fn) => {
+  getTokenFn = fn;
+};
+
+axiosInstance.interceptors.request.use(async (config) => {
+  // 1. Handle Dev Auth
   if (
     import.meta.env.VITE_ENABLE_DEV_AUTH === "true" &&
     typeof window !== "undefined"
@@ -24,9 +32,22 @@ axiosInstance.interceptors.request.use((config) => {
         if (session.imageUrl) {
           config.headers["x-dev-auth-image"] = session.imageUrl;
         }
+        return config; // Return early for dev auth
       }
     } catch {
-      // Ignore malformed local dev auth state and continue with the request.
+      // Ignore
+    }
+  }
+
+  // 2. Handle Clerk Auth via Dynamic Token Retrieval
+  if (getTokenFn) {
+    try {
+      const token = await getTokenFn();
+      if (token) {
+        config.headers["Authorization"] = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.error("Axios interceptor: Failed to get token", error);
     }
   }
 

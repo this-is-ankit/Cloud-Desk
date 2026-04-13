@@ -221,6 +221,8 @@ function SessionPage() {
   const livestreamJoinedCallIdRef = useRef(null);
   const activeToolRef = useRef(activeTool);
   const pendingHostWhiteboardSnapshotRef = useRef(null);
+  const lastLocalCodeRef = useRef("");
+  const lastLocalChangeAtRef = useRef(0);
   const isInitialLoadRef = useRef(true);
 
   const {
@@ -435,6 +437,11 @@ function SessionPage() {
       });
 
       socket.on("code-update", (newCode) => {
+        // Ignore remote updates for a short window after local typing to avoid echos and flickering
+        const now = Date.now();
+        if (now - lastLocalChangeAtRef.current < 1500) return;
+
+        if (newCode === lastLocalCodeRef.current) return;
         setCode((prevCode) => {
           if (prevCode !== newCode) return newCode;
           return prevCode;
@@ -561,9 +568,20 @@ function SessionPage() {
 
       socket.on("code/execute.result", ({ userId: resultUserId, result }) => {
         if (resultUserId === user?.id || resultUserId === currentMongoUserId) {
-          setOutput(result);
+          const run = result?.run || result;
+          // Map Piston-like structure to OutputPanel structure
+          const mappedResult = {
+            success: !run?.stderr,
+            output: run?.stdout || run?.output || "",
+            error: run?.stderr || "",
+          };
+          setOutput(mappedResult);
           setIsRunning(false);
-          toast.success("Execution completed");
+          if (mappedResult.error) {
+            toast.error("Execution failed");
+          } else {
+            toast.success("Execution completed");
+          }
         }
       });
 
@@ -592,6 +610,12 @@ function SessionPage() {
 
       socket.on("host-code-sync", (snapshot) => {
         setHostCodeSnapshot(snapshot || null);
+
+        // Host should ignore sync echos of their own typing
+        const now = Date.now();
+        if (isHostRef.current && now - lastLocalChangeAtRef.current < 2000) return;
+        if (isHostRef.current && snapshot?.code === lastLocalCodeRef.current) return;
+
         if (isHostRef.current || !isCodeDirtyFromHostRef.current) {
           setSelectedLanguage(normalizeSessionLanguage(snapshot?.language));
           setCode(snapshot?.code || "");
@@ -718,7 +742,9 @@ function SessionPage() {
     };
   }, [isParticipant, isAntiCheatEnabled, id, user?.id]);
 
-  const handleCodeChange = (newCode = "") => {
+  const handleCodeChange = useCallback((newCode = "") => {
+    lastLocalCodeRef.current = newCode;
+    lastLocalChangeAtRef.current = Date.now();
     setCode(newCode);
     if (isLivestream && !isHost) {
       setIsCodeDirtyFromHost(true);
@@ -726,9 +752,9 @@ function SessionPage() {
     }
     if (!socketRef.current) return;
     socketRef.current.emit("code-change", { roomId: id, code: newCode });
-  };
+  }, [id, isLivestream, isHost]);
 
-  const handleLanguageChangeWrapper = (e) => {
+  const handleLanguageChangeWrapper = useCallback((e) => {
     const newLang = normalizeSessionLanguage(e.target.value);
     setSelectedLanguage(newLang);
     setOutput(null);
@@ -741,7 +767,7 @@ function SessionPage() {
       roomId: id,
       language: newLang,
     });
-  };
+  }, [id, isLivestream, isHost]);
 
   const syncCodeFromHost = () => {
     if (hostCodeSnapshot) {
