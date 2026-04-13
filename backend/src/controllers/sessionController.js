@@ -1,4 +1,4 @@
-import { chatClient, streamClient } from "../lib/stream.js";
+import { chatClient, streamClient, upsertStreamUser } from "../lib/stream.js";
 import Course from "../models/Course.js";
 import Session from "../models/Session.js";
 import { getRedisClient } from "../lib/redis.js";
@@ -162,6 +162,12 @@ export async function createSession(req, res) {
       },
     });
 
+    await upsertStreamUser({
+      id: clerkId,
+      name: req.user.name,
+      image: req.user.profileImage,
+    });
+
     const channel = chatClient.channel("messaging", callId, {
       name: title || `${getSessionLanguageLabel(normalizedLanguage)} Session`,
       created_by_id: clerkId,
@@ -314,20 +320,28 @@ export async function joinSession(req, res) {
     const isAlreadyJoined = session.participants.some(
       (p) => p.toString() === userId.toString(),
     );
-    if (isAlreadyJoined) {
-      return res.status(200).json({ session });
+    
+    if (!isAlreadyJoined) {
+      if (session.participants.length >= session.maxParticipants) {
+        return res.status(409).json({ message: "Session is full" });
+      }
+      session.participants.push(userId);
+      await session.save();
+      await markCourseAttendanceJoin(session, userId);
     }
 
-    if (session.participants.length >= session.maxParticipants) {
-      return res.status(409).json({ message: "Session is full" });
+    await upsertStreamUser({
+      id: clerkId,
+      name: req.user.name,
+      image: req.user.profileImage,
+    });
+
+    try {
+      const channel = chatClient.channel("messaging", session.callId);
+      await channel.addMembers([clerkId]);
+    } catch (streamError) {
+      console.log("Error adding member to Stream channel:", streamError.message);
     }
-
-    session.participants.push(userId);
-    await session.save();
-    await markCourseAttendanceJoin(session, userId);
-
-    const channel = chatClient.channel("messaging", session.callId);
-    await channel.addMembers([clerkId]);
 
     res.status(200).json({ session });
   } catch (error) {
@@ -395,9 +409,19 @@ export async function joinSessionByCode(req, res) {
       session.participants.push(userId);
       await session.save();
       await markCourseAttendanceJoin(session, userId);
+    }
 
+    await upsertStreamUser({
+      id: clerkId,
+      name: req.user.name,
+      image: req.user.profileImage,
+    });
+
+    try {
       const channel = chatClient.channel("messaging", session.callId);
       await channel.addMembers([clerkId]);
+    } catch (streamError) {
+      console.log("Error adding member to Stream channel:", streamError.message);
     }
 
     res.status(200).json({ sessionId: session._id, session });

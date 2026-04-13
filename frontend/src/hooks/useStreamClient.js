@@ -67,24 +67,32 @@ function useStreamClient(
         if (!isMounted) return;
         setCall(videoCall);
 
-        const apiKey = import.meta.env.VITE_STREAM_API_KEY;
-        chatClientInstance = StreamChat.getInstance(apiKey);
+        // Only initialize Stream Chat for interactive sessions
+        if (sessionType !== "livestream") {
+          try {
+            const apiKey = import.meta.env.VITE_STREAM_API_KEY;
+            chatClientInstance = StreamChat.getInstance(apiKey);
 
-        await chatClientInstance.connectUser(
-          {
-            id: userId,
-            name: userName,
-            image: userImage,
-          },
-          token,
-        );
-        if (!isMounted) return;
-        setChatClient(chatClientInstance);
+            await chatClientInstance.connectUser(
+              {
+                id: userId,
+                name: userName,
+                image: userImage,
+              },
+              token,
+            );
+            if (!isMounted) return;
+            setChatClient(chatClientInstance);
 
-        const chatChannel = chatClientInstance.channel("messaging", callId);
-        await chatChannel.watch();
-        if (!isMounted) return;
-        setChannel(chatChannel);
+            const chatChannel = chatClientInstance.channel("messaging", callId);
+            await chatChannel.watch();
+            if (!isMounted) return;
+            setChannel(chatChannel);
+          } catch (chatError) {
+            console.error("Error initializing Stream Chat:", chatError);
+            // We don't toast here to avoid confusing the user if video is working
+          }
+        }
       } catch (error) {
         toast.error("Failed to join video call");
         console.error("Error init call", error);
