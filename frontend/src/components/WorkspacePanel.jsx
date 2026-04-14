@@ -77,12 +77,29 @@ function WorkspacePanel({
   const [showSideBar, setShowSideBar] = useState(true);
   const [activePanel, setActivePanel] = useState("output"); // 'output' | 'problems' | 'terminal' | 'none'
 
+  // Refactored state for new features
+  const [activityData, setActivityData] = useState({}); // { userId: timestamp }
+  const [successCount, setSuccessCount] = useState(0);
+  const [spotlightWorkspace, setSpotlightWorkspace] = useState(null); // { workspaceId, files, activeFilePath, ownerUserId }
+  const [showDetachPrompt, setShowDetachPrompt] = useState(false);
+  const [detachIntent, setDetachIntent] = useState("");
+  const [freshCountdown, setFreshCountdown] = useState(0);
+
   useEffect(() => {
     if (!socket) return;
 
-    const handleCodeUpdate = ({ path, code }) => {
-      if (isHost) return; // Host doesn't receive updates from others in this mode
-      if (!workspace?.followMode && !isLivestream) return; // Only update if following or livestream
+    const handleCodeUpdate = ({ path, code, userId }) => {
+      if (isHost) return; 
+      
+      // If we are spotlighting this user, update the spotlight view
+      if (spotlightWorkspace && spotlightWorkspace.ownerUserId === userId) {
+        setSpotlightWorkspace(curr => ({
+          ...curr,
+          files: curr.files.map(f => f.path === path ? { ...f, content: code } : f)
+        }));
+      }
+
+      if (!workspace?.followMode && !isLivestream) return;
 
       if (isLivestream) {
         setLivestreamCode(code);
@@ -104,18 +121,79 @@ function WorkspacePanel({
     const handleExecuteResult = ({ userId, result }) => {
       setIsRunning(false);
       setOutput(result);
+      if (result.success && !isHost) {
+        // Successful execution - progress aggregation handled by backend but we could trigger something local too
+      }
+    };
+
+    const handleActivitySync = ({ activity }) => {
+      setActivityData(activity || {});
+    };
+
+    const handleProgressUpdate = ({ successCount }) => {
+      setSuccessCount(successCount);
+    };
+
+    const handleSpotlightUpdate = (data) => {
+      if (isHost) return;
+      setSpotlightWorkspace(data.workspaceId ? data : null);
+      if (data.workspaceId) {
+        toast(`Spotlight: Viewing Rahul's solution`, { icon: '🔦' });
+      }
+    };
+
+    const handleForceResync = () => {
+      if (!isHost) {
+        toast.success("Your work was saved to your personal archive. Resyncing...", { duration: 4000 });
+      }
+    };
+
+    const handleWorkspaceGenerationUpdated = () => {
+      if (!isHost) {
+        setFreshCountdown(0);
+      }
     };
 
     socket.on("code-update", handleCodeUpdate);
     socket.on("host-code-sync", handleHostCodeSync);
     socket.on("code/execute.result", handleExecuteResult);
+    socket.on("workspace-activity-sync", handleActivitySync);
+    socket.on("workspace-progress-update", handleProgressUpdate);
+    socket.on("workspace-spotlight-updated", handleSpotlightUpdate);
+    socket.on("lesson-force-resynced", handleForceResync);
+    socket.on("workspace-generation-updated", handleWorkspaceGenerationUpdated);
 
     return () => {
       socket.off("code-update", handleCodeUpdate);
       socket.off("host-code-sync", handleHostCodeSync);
       socket.off("code/execute.result", handleExecuteResult);
+      socket.off("workspace-activity-sync", handleActivitySync);
+      socket.off("workspace-progress-update", handleProgressUpdate);
+      socket.off("workspace-spotlight-updated", handleSpotlightUpdate);
+      socket.off("lesson-force-resynced", handleForceResync);
+      socket.off("workspace-generation-updated", handleWorkspaceGenerationUpdated);
     };
-  }, [socket, isHost, workspace?.followMode, isLivestream]);
+  }, [socket, isHost, workspace?.followMode, isLivestream, spotlightWorkspace]);
+
+  // Activity telemetry
+  useEffect(() => {
+    if (isHost || workspace?.followMode || !socket) return;
+
+    const interval = setInterval(() => {
+      socket.emit("workspace-activity", { roomId: sessionId });
+    }, 10000); // Send activity every 10s if detached
+
+    return () => clearInterval(interval);
+  }, [socket, isHost, workspace?.followMode, sessionId]);
+
+  // Fresh Set Countdown logic
+  useEffect(() => {
+    if (freshCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setFreshCountdown(c => c - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [freshCountdown]);
 
   const togglePanel = (panel) => {
     if (activePanel === panel) {
@@ -185,13 +263,18 @@ function WorkspacePanel({
     }
   }, [workspace?.followMode, isHost]);
 
-  const activeFile = activePath ? fileMap[activePath] : null;
+  const activeFile = spotlightWorkspace 
+    ? spotlightWorkspace.files.find(f => f.path === activePath) || spotlightWorkspace.files[0]
+    : activePath ? fileMap[activePath] : null;
+  
   const activeDraft =
-    !isHost && isLivestream && workspace?.followMode
-      ? livestreamCode
-      : (activePath && drafts[activePath] !== undefined
-        ? drafts[activePath]
-        : activeFile?.content) || "";
+    spotlightWorkspace 
+      ? activeFile?.content || ""
+      : !isHost && isLivestream && workspace?.followMode
+        ? livestreamCode
+        : (activePath && drafts[activePath] !== undefined
+          ? drafts[activePath]
+          : activeFile?.content) || "";
   const activeLanguage = inferWorkspaceFileLanguage(
     activePath,
     sessionLanguage || "javascript",
@@ -199,6 +282,18 @@ function WorkspacePanel({
 
   const roster = rosterQuery.data?.workspaces || [];
   const followerCount = roster.filter((item) => item.followMode).length;
+
+  const handleDetachWithIntent = async () => {
+    if (!workspace?._id) return;
+    await detachMutation.mutateAsync({ 
+      workspaceId: workspace._id, 
+      sessionId,
+      intent: detachIntent 
+    });
+    setShowDetachPrompt(false);
+    setDetachIntent("");
+    toast.success("Detached from teacher. Good luck experimenting!");
+  };
 
   const markDirty = (path, isDirty) => {
     setDirtyPaths((current) => {
@@ -345,9 +440,9 @@ function WorkspacePanel({
               </button>
               <button
                 className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] hover:bg-white/10 transition"
-                onClick={() => freshMutation.mutate(sessionId)}
+                onClick={() => setFreshCountdown(10)}
                 disabled={freshMutation.isPending}
-                title="Create Fresh Workspace Set"
+                title="Create Fresh Workspace Set (10s Countdown)"
               >
                 <SparklesIcon className="size-3" />
                 <span>Fresh Set</span>
@@ -363,7 +458,11 @@ function WorkspacePanel({
               </button>
               <button
                 className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] hover:bg-white/10 transition text-amber-400"
-                onClick={() => forceResyncMutation.mutate(sessionId)}
+                onClick={() => {
+                  if (confirm("This will overwrite all students' work. It will be archived. Continue?")) {
+                    forceResyncMutation.mutate(sessionId);
+                  }
+                }}
                 disabled={forceResyncMutation.isPending}
                 title="Force Resync Followers"
               >
@@ -545,9 +644,15 @@ function WorkspacePanel({
                     <h4 className="text-[11px] font-bold uppercase text-[#858585] mb-2">Sync State</h4>
                     <div className="bg-[#1e1e1e] border border-[#454545] rounded p-3 space-y-3">
                       {isHost ? (
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-[#858585]">Followers</span>
-                          <span className="bg-[#007acc] text-white px-2 py-0.5 rounded-full text-[10px]">{followerCount} active</span>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-[#858585]">Followers</span>
+                            <span className="bg-[#007acc] text-white px-2 py-0.5 rounded-full text-[10px]">{followerCount} active</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs pt-2 border-t border-[#454545]">
+                            <span className="text-[#858585]">Progress</span>
+                            <span className="text-emerald-400 font-bold">{successCount} / {roster.length} passed</span>
+                          </div>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 text-xs">
@@ -577,19 +682,25 @@ function WorkspacePanel({
                             </button>
                             <button
                               className="w-full btn btn-xs border-[#454545] bg-[#333333] hover:bg-[#454545] text-white rounded text-[11px]"
-                              onClick={() => forceResyncMutation.mutate(sessionId)}
+                              onClick={() => {
+                                if (confirm("This will overwrite all students' work with your current state. Their work will be archived. Continue?")) {
+                                  forceResyncMutation.mutate(sessionId);
+                                }
+                              }}
                               disabled={forceResyncMutation.isPending}
                             >
                               <ArchiveIcon className="size-3 mr-1.5" />
                               Force Sync All
                             </button>
                             <button
-                              className="w-full btn btn-xs border-[#454545] bg-[#333333] hover:bg-[#454545] text-white rounded text-[11px]"
-                              onClick={() => forceDetachMutation.mutate(sessionId)}
-                              disabled={forceDetachMutation.isPending}
+                              className="w-full btn btn-xs border-[#454545] bg-rose-900/30 hover:bg-rose-900/50 text-rose-200 border-rose-800 rounded text-[11px]"
+                              onClick={() => {
+                                setFreshCountdown(10);
+                              }}
+                              disabled={freshMutation.isPending}
                             >
-                              <ArchiveIcon className="size-3 mr-1.5" />
-                              Force Detach All
+                              <SparklesIcon className="size-3 mr-1.5" />
+                              Fresh Set (10s Warn)
                             </button>
                           </>
                         ) : (
@@ -604,7 +715,7 @@ function WorkspacePanel({
                                   return;
                                 }
                                 if (workspace.followMode) {
-                                  detachMutation.mutate({ workspaceId: workspace._id, sessionId });
+                                  setShowDetachPrompt(true);
                                 } else {
                                   followMutation.mutate({ workspaceId: workspace._id, sessionId });
                                 }
@@ -634,6 +745,47 @@ function WorkspacePanel({
                       </div>
                     </div>
                   </section>
+
+                  {isHost && (
+                    <section>
+                      <h4 className="text-[11px] font-bold uppercase text-[#858585] mb-2">Student Roster</h4>
+                      <div className="bg-[#1e1e1e] border border-[#454545] rounded overflow-hidden">
+                        {roster.length === 0 ? (
+                          <div className="p-3 text-center text-xs text-[#858585] italic">No students joined yet</div>
+                        ) : (
+                          <div className="max-h-[300px] overflow-y-auto">
+                            {roster.map((studentWs) => {
+                              const lastSeen = parseInt(activityData[studentWs.ownerUserId] || "0");
+                              const isFollowing = studentWs.followMode;
+                              const isActive = !isFollowing && (Date.now() - lastSeen < 120000); // Active if typed in last 2 mins
+                              const isIdle = !isFollowing && !isActive;
+
+                              let statusColor = "bg-emerald-500"; // Following
+                              let statusText = "Following";
+                              if (isActive) { statusColor = "bg-amber-500"; statusText = "Active"; }
+                              if (isIdle) { statusColor = "bg-[#454545]"; statusText = "Idle"; }
+
+                              return (
+                                <div key={studentWs._id} className="flex items-center gap-2 p-2 border-b border-[#333333] hover:bg-white/5 group">
+                                  <div className={`size-2 rounded-full ${statusColor}`} title={statusText} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[11px] truncate font-medium text-[#cccccc]">{studentWs.ownerUserId}</p>
+                                  </div>
+                                  <button
+                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-sky-500/20 text-sky-400 rounded transition"
+                                    onClick={() => socket.emit("spotlight-workspace", { roomId: sessionId, workspaceId: studentWs._id })}
+                                    title="Spotlight Solution"
+                                  >
+                                    <RadioTowerIcon className="size-3" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
                 </div>
               </div>
             )}
@@ -748,7 +900,7 @@ function WorkspacePanel({
                     theme="vs-dark"
                     height="100%"
                     options={{
-                      readOnly: (!isHost && isLivestream) || (!isHost && workspace?.followMode),
+                      readOnly: spotlightWorkspace || (!isHost && isLivestream) || (!isHost && workspace?.followMode),
                       fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                       fontSize: 13,
                       minimap: { enabled: false },
@@ -845,6 +997,72 @@ function WorkspacePanel({
           )}
         </div>
       </div>
+
+      {/* Detach Intent Modal */}
+      {showDetachPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-[400px] bg-[#252526] border border-[#454545] rounded-lg shadow-2xl p-6">
+            <h3 className="text-lg font-bold text-white mb-2">Intentional Detach</h3>
+            <p className="text-sm text-[#858585] mb-4">
+              Taking a moment to articulate your goal helps learning. What are you going to try?
+            </p>
+            <input
+              autoFocus
+              className="w-full bg-[#1e1e1e] border border-[#454545] rounded px-3 py-2 text-sm text-white outline-none focus:border-[#007acc] mb-6"
+              placeholder="e.g. Try a different loop structure"
+              value={detachIntent}
+              onChange={(e) => setDetachIntent(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && detachIntent.trim() && handleDetachWithIntent()}
+            />
+            <div className="flex justify-end gap-3">
+              <button 
+                className="px-4 py-2 text-sm text-[#858585] hover:text-white transition"
+                onClick={() => { setShowDetachPrompt(false); setDetachIntent(""); }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="px-4 py-2 text-sm bg-[#007acc] text-white rounded hover:bg-[#0062a3] transition disabled:opacity-50"
+                disabled={!detachIntent.trim()}
+                onClick={handleDetachWithIntent}
+              >
+                Confirm Detach
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fresh Set Countdown Overlay */}
+      {freshCountdown > 0 && (
+        <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-rose-950/90 text-white p-12 text-center">
+          <SparklesIcon className="size-24 mb-6 animate-pulse text-rose-400" />
+          <h2 className="text-4xl font-bold mb-4">New Topic Starting</h2>
+          <p className="text-xl text-rose-200 mb-8 max-w-lg">
+            The professor is starting a fresh set in <span className="text-5xl font-black">{freshCountdown}</span> seconds. 
+            Your current work is being safely archived.
+          </p>
+          {isHost && (
+            <div className="flex gap-4">
+              <button 
+                className="btn btn-outline border-white text-white hover:bg-white/10"
+                onClick={() => setFreshCountdown(0)}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn bg-white text-rose-900 border-0 hover:bg-rose-100"
+                onClick={() => {
+                  freshMutation.mutate(sessionId);
+                  setFreshCountdown(0);
+                }}
+              >
+                Start Now
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Status Bar */}
       <div

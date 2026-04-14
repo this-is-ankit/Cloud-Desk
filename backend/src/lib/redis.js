@@ -12,6 +12,24 @@ class MemoryRedis {
   async get(key) { return this.data.get(key) || null; }
   async set(key, value) { this.data.set(key, value); return "OK"; }
   async del(key) { this.data.delete(key); return 1; }
+  async sAdd(key, value) {
+    if (!this.data.has(key)) this.data.set(key, new Set());
+    const set = this.data.get(key);
+    set.add(value);
+    return 1;
+  }
+  async sCard(key) {
+    if (!this.data.has(key)) return 0;
+    return this.data.get(key).size;
+  }
+  async hSet(key, field, value) {
+    if (!this.data.has(key)) this.data.set(key, {});
+    this.data.get(key)[field] = value;
+    return 1;
+  }
+  async hGetAll(key) {
+    return this.data.get(key) || {};
+  }
 }
 
 let redisClient;

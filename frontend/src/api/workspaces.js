@@ -66,8 +66,8 @@ export const workspaceApi = {
     return { ...response.data, sessionId };
   },
 
-  detachWorkspace: async ({ workspaceId, sessionId }) => {
-    const response = await axiosInstance.post(`/workspaces/${workspaceId}/detach`, {});
+  detachWorkspace: async ({ workspaceId, sessionId, intent }) => {
+    const response = await axiosInstance.post(`/workspaces/${workspaceId}/detach`, { intent });
     return { ...response.data, sessionId };
   },
 

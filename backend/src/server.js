@@ -23,6 +23,7 @@ import workspaceRoutes from "./routes/workspaceRoute.js";
 import Session from "./models/Session.js";
 import User from "./models/User.js";
 import Course from "./models/Course.js";
+import Workspace from "./models/Workspace.js";
 import {
   LivestreamChatMessage,
   LivestreamQuizSubmission,
@@ -1071,6 +1072,47 @@ io.on("connection", (socket) => {
   });
 
   // 2. Handle Code Changes
+  socket.on("workspace-activity", async ({ roomId }) => {
+    if (!roomId) return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access || access.isHost) return;
+    
+    const redis = await getRedisClient();
+    const now = Date.now();
+    await redis.hSet(`room:${roomId}:activity`, access.mongoUserId, now.toString());
+    
+    // Throttle broadcast of activity state to host
+    const lastBroadcastKey = `room:${roomId}:last-activity-broadcast`;
+    const lastBroadcast = await redis.get(lastBroadcastKey);
+    if (!lastBroadcast || now - parseInt(lastBroadcast) > 5000) {
+      await redis.set(lastBroadcastKey, now.toString());
+      const allActivity = await redis.hGetAll(`room:${roomId}:activity`);
+      io.in(roomId).emit("workspace-activity-sync", { activity: allActivity });
+    }
+  });
+
+  socket.on("spotlight-workspace", async ({ roomId, workspaceId }) => {
+    if (!roomId) return;
+    const access = await getAuthorizedSessionForSocket(roomId);
+    if (!access?.isHost) return;
+
+    // If workspaceId is null, clear spotlight
+    if (!workspaceId) {
+      io.in(roomId).emit("workspace-spotlight-updated", { workspaceId: null });
+      return;
+    }
+
+    const targetWorkspace = await Workspace.findById(workspaceId);
+    if (!targetWorkspace) return;
+
+    io.in(roomId).emit("workspace-spotlight-updated", {
+      workspaceId: targetWorkspace._id,
+      ownerUserId: targetWorkspace.ownerUserId,
+      files: targetWorkspace.files,
+      activeFilePath: targetWorkspace.activeFilePath
+    });
+  });
+
   socket.on("code-change", async ({ roomId, path, code }) => {
     if (!roomId || !socket.rooms.has(roomId) || typeof code !== "string")
       return;
@@ -1096,7 +1138,7 @@ io.on("connection", (socket) => {
     }
 
     // Broadcast to everyone in the room EXCEPT the sender
-    socket.to(roomId).emit("code-update", { path, code });
+    socket.to(roomId).emit("code-update", { path, code, userId: access.mongoUserId });
   });
 
   // 3. Handle Language Changes (Optional but recommended)

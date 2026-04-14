@@ -1,5 +1,6 @@
 import Course from "../models/Course.js";
 import LessonSnapshot from "../models/LessonSnapshot.js";
+import StudentSnapshot from "../models/StudentSnapshot.js";
 import Session from "../models/Session.js";
 import User from "../models/User.js";
 import Workspace from "../models/Workspace.js";
@@ -319,6 +320,28 @@ export async function bootstrapSessionWorkspaces(req, res) {
   }
 }
 
+const snapshotWorkspaces = async (sessionId, generation, reason = "manual") => {
+  const workspaces = await Workspace.find({ sessionId, generation, role: "student" });
+  if (!workspaces.length) return 0;
+
+  const snapshots = workspaces.map((ws) => ({
+    userId: ws.ownerUserId,
+    sessionId: ws.sessionId,
+    workspaceId: ws._id,
+    generation: ws.generation,
+    reason,
+    activeFilePath: ws.activeFilePath,
+    files: ws.files.map((f) => ({
+      path: f.path,
+      content: f.content,
+      language: f.language,
+    })),
+  }));
+
+  await StudentSnapshot.insertMany(snapshots);
+  return snapshots.length;
+};
+
 export async function createFreshWorkspaceSet(req, res) {
   try {
     const { sessionId } = req.params;
@@ -329,6 +352,13 @@ export async function createFreshWorkspaceSet(req, res) {
     if (!isSessionHost(session, req.user._id)) {
       return res.status(403).json({ message: "Only the host can create fresh workspaces" });
     }
+
+    // Auto-snapshot before erasing current generation
+    const snapshotCount = await snapshotWorkspaces(
+      sessionId,
+      session.workspaceGeneration,
+      "fresh-set",
+    );
 
     session.workspaceGeneration += 1;
     session.currentLessonVersion = 0;
@@ -561,8 +591,27 @@ export async function setWorkspaceFollowMode(req, res) {
       });
     }
 
+    const previousMode = workspace.followMode;
     workspace.followMode = nextMode;
     await workspace.save();
+
+    // If detaching (Transition from Following -> Detached), save a snapshot if intent is provided
+    if (previousMode && !nextMode && req.body.intent) {
+      await StudentSnapshot.create({
+        userId: workspace.ownerUserId,
+        sessionId: workspace.sessionId,
+        workspaceId: workspace._id,
+        generation: workspace.generation,
+        reason: "detach",
+        intent: req.body.intent,
+        activeFilePath: workspace.activeFilePath,
+        files: workspace.files.map((f) => ({
+          path: f.path,
+          content: f.content,
+          language: f.language,
+        })),
+      });
+    }
 
     if (nextMode) {
       const snapshot = await getLatestSnapshot(
@@ -652,6 +701,9 @@ export async function forceResyncFollowers(req, res) {
       updatedAt: new Date(),
     }));
 
+    // Snapshot before overwriting
+    await snapshotWorkspaces(sessionId, session.workspaceGeneration, "sync-all");
+
     const result = await Workspace.updateMany(
       {
         sessionId,
@@ -713,6 +765,34 @@ export async function forceDetachFollowers(req, res) {
     });
   } catch (error) {
     console.error("Error in forceDetachFollowers controller:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function listStudentSnapshots(req, res) {
+  try {
+    const { id } = req.params; // workspaceId
+    const workspace = await Workspace.findById(id);
+    if (!workspace) return res.status(404).json({ message: "Workspace not found" });
+
+    // Permissions: Host or Owner
+    const session = await Session.findById(workspace.sessionId);
+    const userIdStr = String(req.user._id);
+    const ownerIdStr = String(workspace.ownerUserId?._id || workspace.ownerUserId);
+    const isOwner = ownerIdStr === userIdStr;
+    const isHost = session && isSessionHost(session, userIdStr);
+
+    if (!isOwner && !isHost) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const snapshots = await StudentSnapshot.find({ workspaceId: id })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    res.status(200).json({ snapshots });
+  } catch (error) {
+    console.error("Error in listStudentSnapshots controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }

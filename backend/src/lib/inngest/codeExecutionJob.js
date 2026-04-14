@@ -1,5 +1,5 @@
 import { inngest } from "./client.js";
-import { getRedisEmitter } from "../redis.js";
+import { getRedisEmitter, getRedisClient } from "../redis.js";
 import { runCode } from "../codeRunner.js";
 
 export const executeCodeJob = inngest.createFunction(
@@ -12,9 +12,19 @@ export const executeCodeJob = inngest.createFunction(
       return await runCode({ language, code });
     });
 
-    await step.run("broadcast-result", async () => {
+    await step.run("broadcast-and-aggregate", async () => {
       const emitter = await getRedisEmitter();
       emitter.to(roomId).emit("code/execute.result", { userId, result });
+
+      if (result.success) {
+        const redis = await getRedisClient();
+        const successSetKey = `room:${roomId}:success-students`;
+        await redis.sAdd(successSetKey, userId);
+        const successCount = await redis.sCard(successSetKey);
+        
+        // Broadcast success count to host
+        emitter.to(roomId).emit("workspace-progress-update", { successCount });
+      }
     });
   }
 );

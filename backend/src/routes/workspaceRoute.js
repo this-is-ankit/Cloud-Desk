@@ -14,6 +14,7 @@ import {
   setWorkspaceFollowMode,
   updateWorkspaceFile,
   forceDetachFollowers,
+  listStudentSnapshots,
 } from "../controllers/workspaceController.js";
 
 const router = express.Router();
@@ -57,5 +58,6 @@ router.post("/:id/detach", protectRoute, (req, res, next) => {
   next();
 }, setWorkspaceFollowMode);
 router.post("/:id/resync", protectRoute, resyncWorkspace);
+router.get("/:id/snapshots", protectRoute, listStudentSnapshots);
 
 export default router;
