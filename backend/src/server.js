@@ -1071,7 +1071,7 @@ io.on("connection", (socket) => {
   });
 
   // 2. Handle Code Changes
-  socket.on("code-change", async ({ roomId, code }) => {
+  socket.on("code-change", async ({ roomId, path, code }) => {
     if (!roomId || !socket.rooms.has(roomId) || typeof code !== "string")
       return;
     const access = await getAuthorizedSessionForSocket(roomId);
@@ -1096,7 +1096,7 @@ io.on("connection", (socket) => {
     }
 
     // Broadcast to everyone in the room EXCEPT the sender
-    socket.to(roomId).emit("code-update", code);
+    socket.to(roomId).emit("code-update", { path, code });
   });
 
   // 3. Handle Language Changes (Optional but recommended)
@@ -1107,8 +1107,9 @@ io.on("connection", (socket) => {
     if (!access) return;
     if (access.isLivestream && !access.isHost) return;
 
+    const nextLanguage = normalizeSessionLanguage(language);
+
     if (access.isLivestream) {
-      const nextLanguage = normalizeSessionLanguage(language);
       const nextSnapshot = {
         language: nextLanguage,
         code: access.session?.livestreamCodeSnapshot?.code || "",
@@ -1123,9 +1124,8 @@ io.on("connection", (socket) => {
       return;
     }
 
-    socket
-      .to(roomId)
-      .emit("language-update", normalizeSessionLanguage(language));
+    await Session.findByIdAndUpdate(roomId, { language: nextLanguage });
+    socket.to(roomId).emit("language-update", nextLanguage);
   });
 
   socket.on("quiz-upload", async ({ roomId, quizJson }) => {

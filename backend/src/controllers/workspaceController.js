@@ -18,17 +18,24 @@ const sanitizePath = (value) =>
 const sanitizeContent = (value) =>
   typeof value === "string" ? value.slice(0, 200_000) : "";
 
-const isSessionHost = (session, userId) =>
-  session?.host?.toString?.() === userId.toString() ||
-  session?.hostId?.toString?.() === userId.toString();
+const isSessionHost = (session, userId) => {
+  if (!session || !userId) return false;
+  const uId = userId.toString();
+  const hId = session.host?._id?.toString() || session.host?.toString();
+  const hId2 = session.hostId?._id?.toString() || session.hostId?.toString();
+  return hId === uId || hId2 === uId;
+};
 
-const findApprovedEnrollment = (course, userId) =>
-  (course?.enrollments || []).find(
+const findApprovedEnrollment = (course, userId) => {
+  if (!course || !userId) return null;
+  const uId = userId.toString();
+  return (course?.enrollments || []).find(
     (entry) =>
       entry.status === "approved" &&
-      (entry.student?._id?.toString?.() === userId ||
-        entry.student?.toString?.() === userId),
+      (entry.student?._id?.toString() === uId ||
+        entry.student?.toString() === uId),
   );
+};
 
 const canAccessSession = async (session, user) => {
   if (!session || !user) return false;
@@ -486,27 +493,40 @@ export async function publishLessonSnapshot(req, res) {
     session.currentLessonVersion = lessonVersion;
     await session.save();
 
-    const followerWorkspaces = await Workspace.find({
-      sessionId,
-      generation: session.workspaceGeneration,
-      role: "student",
-      followMode: true,
-    });
+    const snapshotFiles = snapshot.files.map((file) => ({
+      path: file.path,
+      content: file.content,
+      language: file.language,
+      updatedAt: new Date(),
+    }));
 
-    for (const workspace of followerWorkspaces) {
-      await applySnapshotToWorkspace(workspace, snapshot);
-    }
+    const result = await Workspace.updateMany(
+      {
+        sessionId,
+        generation: session.workspaceGeneration,
+        role: "student",
+        followMode: true,
+      },
+      {
+        $set: {
+          files: snapshotFiles,
+          activeFilePath: snapshot.activeFilePath,
+          baseSnapshotVersion: lessonVersion,
+          lastAppliedLessonVersion: lessonVersion,
+        },
+      },
+    );
 
     emitSessionEvent(sessionId, "lesson-version-published", {
       generation: session.workspaceGeneration,
       lessonVersion,
-      autoAppliedCount: followerWorkspaces.length,
+      autoAppliedCount: result.modifiedCount,
     });
 
     res.status(201).json({
       lessonVersion,
       snapshotId: snapshot._id,
-      autoAppliedCount: followerWorkspaces.length,
+      autoAppliedCount: result.modifiedCount,
       message: "Lesson snapshot published",
     });
   } catch (error) {
@@ -517,12 +537,28 @@ export async function publishLessonSnapshot(req, res) {
 
 export async function setWorkspaceFollowMode(req, res) {
   try {
-    const { id } = req.params;
+    const workspaceId = req.params.id || req.params.workspaceId;
     const nextMode = req.body.followMode === true;
-    const workspace = await Workspace.findById(id);
-    if (!workspace) return res.status(404).json({ message: "Workspace not found" });
-    if (workspace.ownerUserId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "You can only update your own workspace" });
+
+    if (!workspaceId || workspaceId === "undefined" || workspaceId === "null") {
+      return res.status(400).json({ message: "Workspace ID is invalid" });
+    }
+
+    const workspace = await Workspace.findById(workspaceId);
+    if (!workspace) {
+      return res.status(404).json({ message: "Workspace not found" });
+    }
+
+    const session = await Session.findById(workspace.sessionId);
+    const userIdStr = String(req.user._id);
+    const ownerIdStr = String(workspace.ownerUserId?._id || workspace.ownerUserId);
+    const isOwner = ownerIdStr === userIdStr;
+    const isHost = session && isSessionHost(session, userIdStr);
+
+    if (!isOwner && !isHost) {
+      return res.status(403).json({
+        message: "You can only update follow mode for your own workspace or if you are the host",
+      });
     }
 
     workspace.followMode = nextMode;
@@ -553,13 +589,20 @@ export async function setWorkspaceFollowMode(req, res) {
 
 export async function resyncWorkspace(req, res) {
   try {
-    const { id } = req.params;
-    const workspace = await Workspace.findById(id);
+    const workspaceId = req.params.id || req.params.workspaceId;
+    if (!workspaceId || workspaceId === "undefined" || workspaceId === "null") {
+      return res.status(400).json({ message: "Workspace ID is invalid" });
+    }
+
+    const workspace = await Workspace.findById(workspaceId);
     if (!workspace) return res.status(404).json({ message: "Workspace not found" });
 
     const session = await Session.findById(workspace.sessionId);
-    const isOwner = workspace.ownerUserId.toString() === req.user._id.toString();
-    const isHost = session && isSessionHost(session, req.user._id);
+    const userIdStr = String(req.user._id);
+    const ownerIdStr = String(workspace.ownerUserId?._id || workspace.ownerUserId);
+    const isOwner = ownerIdStr === userIdStr;
+    const isHost = session && isSessionHost(session, userIdStr);
+
     if (!isOwner && !isHost) {
       return res.status(403).json({ message: "Not allowed to resync this workspace" });
     }
@@ -602,28 +645,74 @@ export async function forceResyncFollowers(req, res) {
       return res.status(404).json({ message: "No lesson snapshot is available yet" });
     }
 
-    const workspaces = await Workspace.find({
-      sessionId,
-      generation: session.workspaceGeneration,
-      role: "student",
-    });
+    const snapshotFiles = snapshot.files.map((file) => ({
+      path: file.path,
+      content: file.content,
+      language: file.language,
+      updatedAt: new Date(),
+    }));
 
-    for (const workspace of workspaces) {
-      await applySnapshotToWorkspace(workspace, snapshot);
-    }
+    const result = await Workspace.updateMany(
+      {
+        sessionId,
+        generation: session.workspaceGeneration,
+        role: "student",
+      },
+      {
+        $set: {
+          files: snapshotFiles,
+          activeFilePath: snapshot.activeFilePath,
+          baseSnapshotVersion: snapshot.lessonVersion,
+          lastAppliedLessonVersion: snapshot.lessonVersion,
+          followMode: true,
+        },
+      },
+    );
 
     emitSessionEvent(sessionId, "lesson-force-resynced", {
       lessonVersion: snapshot.lessonVersion,
-      count: workspaces.length,
+      count: result.modifiedCount,
     });
 
     res.status(200).json({
       lessonVersion: snapshot.lessonVersion,
-      resyncedCount: workspaces.length,
-      message: "Followers resynced",
+      resyncedCount: result.modifiedCount,
+      message: "All participants resynced and attached to teacher sync",
     });
   } catch (error) {
     console.error("Error in forceResyncFollowers controller:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+}
+
+export async function forceDetachFollowers(req, res) {
+  try {
+    const { sessionId } = req.params;
+    const session = await Session.findById(sessionId);
+    if (!session) return res.status(404).json({ message: "Session not found" });
+    if (!isSessionHost(session, req.user._id)) {
+      return res.status(403).json({ message: "Only the host can force detach" });
+    }
+
+    const result = await Workspace.updateMany(
+      {
+        sessionId,
+        generation: session.workspaceGeneration,
+        role: "student",
+      },
+      { $set: { followMode: false } },
+    );
+
+    emitSessionEvent(sessionId, "lesson-force-detached", {
+      count: result.modifiedCount,
+    });
+
+    res.status(200).json({
+      detachedCount: result.modifiedCount,
+      message: "All participants detached",
+    });
+  } catch (error) {
+    console.error("Error in forceDetachFollowers controller:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 }

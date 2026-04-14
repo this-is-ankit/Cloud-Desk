@@ -78,6 +78,13 @@ export const useForceResyncFollowers = createWorkspaceMutation(
   "Failed to resync followers",
 );
 
+export const useForceDetachFollowers = createWorkspaceMutation(
+  "force-detach-followers",
+  workspaceApi.forceDetachFollowers,
+  "All participants detached",
+  "Failed to detach followers",
+);
+
 export const useUpdateWorkspaceFile = () => {
   const queryClient = useQueryClient();
 
@@ -126,53 +133,23 @@ export const useDeleteWorkspaceFile = () => {
   });
 };
 
-export const useFollowWorkspace = () => {
-  const queryClient = useQueryClient();
+export const useFollowWorkspace = createWorkspaceMutation(
+  "follow-workspace",
+  workspaceApi.followWorkspace,
+  "Following the teacher",
+  "Failed to follow lesson",
+);
 
-  return useMutation({
-    mutationKey: ["follow-workspace"],
-    mutationFn: workspaceApi.followWorkspace,
-    onSuccess: (data) => {
-      const sessionId = data?.workspace?.sessionId;
-      if (sessionId) invalidateSessionWorkspace(queryClient, sessionId);
-      toast.success("Following the teacher");
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || "Failed to follow lesson");
-    },
-  });
-};
+export const useDetachWorkspace = createWorkspaceMutation(
+  "detach-workspace",
+  workspaceApi.detachWorkspace,
+  "Detached from teacher sync",
+  "Failed to detach",
+);
 
-export const useDetachWorkspace = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationKey: ["detach-workspace"],
-    mutationFn: workspaceApi.detachWorkspace,
-    onSuccess: (data) => {
-      const sessionId = data?.workspace?.sessionId;
-      if (sessionId) invalidateSessionWorkspace(queryClient, sessionId);
-      toast.success("Detached from teacher sync");
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || "Failed to detach");
-    },
-  });
-};
-
-export const useResyncWorkspace = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationKey: ["resync-workspace"],
-    mutationFn: workspaceApi.resyncWorkspace,
-    onSuccess: (data) => {
-      const sessionId = data?.workspace?.sessionId;
-      if (sessionId) invalidateSessionWorkspace(queryClient, sessionId);
-      toast.success(data?.message || "Workspace resynced");
-    },
-    onError: (error) => {
-      toast.error(error.response?.data?.message || "Failed to resync workspace");
-    },
-  });
-};
+export const useResyncWorkspace = createWorkspaceMutation(
+  "resync-workspace",
+  workspaceApi.resyncWorkspace,
+  "Workspace resynced",
+  "Failed to resync workspace",
+);

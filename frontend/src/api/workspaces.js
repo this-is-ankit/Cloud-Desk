@@ -31,6 +31,11 @@ export const workspaceApi = {
     return response.data;
   },
 
+  forceDetachFollowers: async (sessionId) => {
+    const response = await axiosInstance.post(`/workspaces/sessions/${sessionId}/force-detach`);
+    return response.data;
+  },
+
   updateFile: async ({ workspaceId, path, content, activeFilePath }) => {
     const response = await axiosInstance.patch(`/workspaces/${workspaceId}/files`, {
       path,
@@ -56,18 +61,18 @@ export const workspaceApi = {
     return response.data;
   },
 
-  followWorkspace: async (workspaceId) => {
-    const response = await axiosInstance.post(`/workspaces/${workspaceId}/follow`);
-    return response.data;
+  followWorkspace: async ({ workspaceId, sessionId }) => {
+    const response = await axiosInstance.post(`/workspaces/${workspaceId}/follow`, {});
+    return { ...response.data, sessionId };
   },
 
-  detachWorkspace: async (workspaceId) => {
-    const response = await axiosInstance.post(`/workspaces/${workspaceId}/detach`);
-    return response.data;
+  detachWorkspace: async ({ workspaceId, sessionId }) => {
+    const response = await axiosInstance.post(`/workspaces/${workspaceId}/detach`, {});
+    return { ...response.data, sessionId };
   },
 
-  resyncWorkspace: async (workspaceId) => {
-    const response = await axiosInstance.post(`/workspaces/${workspaceId}/resync`);
-    return response.data;
+  resyncWorkspace: async ({ workspaceId, sessionId }) => {
+    const response = await axiosInstance.post(`/workspaces/${workspaceId}/resync`, {});
+    return { ...response.data, sessionId };
   },
 };

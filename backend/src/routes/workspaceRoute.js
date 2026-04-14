@@ -13,6 +13,7 @@ import {
   resyncWorkspace,
   setWorkspaceFollowMode,
   updateWorkspaceFile,
+  forceDetachFollowers,
 } from "../controllers/workspaceController.js";
 
 const router = express.Router();
@@ -38,6 +39,11 @@ router.post(
   "/sessions/:sessionId/force-resync",
   protectRoute,
   forceResyncFollowers,
+);
+router.post(
+  "/sessions/:sessionId/force-detach",
+  protectRoute,
+  forceDetachFollowers,
 );
 router.patch("/:id/files", protectRoute, updateWorkspaceFile);
 router.post("/:id/files", protectRoute, createWorkspaceFile);

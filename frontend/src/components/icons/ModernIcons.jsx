@@ -206,3 +206,15 @@ export function UserCheckIcon(props) {
 export function PlusCircleIcon(props) {
   return <BaseIcon icon="ph:plus-circle" {...props} />;
 }
+export function FilesIcon(props) {
+  return <BaseIcon icon="ph:files" {...props} />;
+}
+export function ChalkboardTeacherIcon(props) {
+  return <BaseIcon icon="ph:chalkboard-teacher" {...props} />;
+}
+export function TerminalIcon(props) {
+  return <BaseIcon icon="ph:terminal-window" {...props} />;
+}
+export function WarningIcon(props) {
+  return <BaseIcon icon="ph:warning" {...props} />;
+}

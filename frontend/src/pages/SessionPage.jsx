@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import io from "socket.io-client";
 import WhiteboardPanel from "../components/WhiteboardPanel";
 import WhiteboardErrorBoundary from "../components/WhiteboardErrorBoundary";
@@ -177,6 +178,7 @@ function ParticipantsPanel({ session, isHost, onKickParticipant }) {
 function SessionPage() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const queryClient = useQueryClient();
   const { user, getToken, authMode, devAuth } = useRuntimeAuth();
   const [accessCode, setAccessCode] = useState("");
 
@@ -201,6 +203,7 @@ function SessionPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSidebarTab, setActiveSidebarTab] = useState("chat");
   const [isSessionMenuOpen, setIsSessionMenuOpen] = useState(false);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
 
   const socketRef = useRef(null);
   const sessionMenuRef = useRef(null);
@@ -402,9 +405,14 @@ function SessionPage() {
       });
 
       socket.on("connect", () => {
+        setIsSocketConnected(true);
         if (hasSessionAccess) {
           socket.emit("join-session", id);
         }
+      });
+
+      socket.on("disconnect", () => {
+        setIsSocketConnected(false);
       });
 
       socket.on("workspace-stage-state", ({ isOpen }) => {
@@ -539,8 +547,14 @@ function SessionPage() {
         toast.error(message || "Livestream action failed");
       });
 
+      socket.on("language-update", () => {
+        refetch();
+      });
+
       const refetchWorkspaceState = () => {
-        refetchWorkspace();
+        // Invalidate both participant's own workspace and the teacher's roster view
+        queryClient.invalidateQueries({ queryKey: ["workspace", id] });
+        queryClient.invalidateQueries({ queryKey: ["workspace-roster", id] });
       };
 
       socket.on("lesson-version-published", refetchWorkspaceState);
@@ -548,6 +562,7 @@ function SessionPage() {
       socket.on("workspace-follow-state-changed", refetchWorkspaceState);
       socket.on("workspace-resynced", refetchWorkspaceState);
       socket.on("lesson-force-resynced", refetchWorkspaceState);
+      socket.on("lesson-force-detached", refetchWorkspaceState);
       socket.on("workspace-roster-updated", refetchWorkspaceState);
 
       socket.on("host-whiteboard-sync", (snapshot) => {
@@ -1031,11 +1046,13 @@ function SessionPage() {
 
   const renderWorkspaceStage = () => (
     <WorkspacePanel
+      socket={socketRef.current}
       sessionId={id}
       sessionLanguage={session?.language}
       workspace={workspace}
       lessonState={workspaceLessonState}
       isHost={isHost}
+      isLivestream={isLivestream}
     />
   );
 
